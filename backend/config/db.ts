@@ -7,11 +7,17 @@ if (!process.env.MONGO_URI) {
   process.exit(1);
 }
 
+const options = {
+    ssl: true, 
+    serverSelectionTimeoutMS: 5000, 
+    socketTimeoutMS: 45000, 
+};
+
 const MONGO_URI: string = process.env.MONGO_URI;
 
 export const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(MONGO_URI);
+    const conn = await mongoose.connect(MONGO_URI, options);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (err) {
     if (err instanceof Error) {        
