@@ -14,7 +14,7 @@ export enum UserRole {
  */
 export interface IUser {
     // Auth & Profile
-    name: string;
+    username: string;
     email: string;
     password?: string;
     birthdate: Date;

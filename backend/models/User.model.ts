@@ -11,7 +11,7 @@ interface IUserDocument extends IUser, Document {
 }
 
 const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
-    name: {
+    username: {
         type: String,
         required: true,
         trim: true,
@@ -84,3 +84,7 @@ const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
 }, {
     timestamps: true,
 });
+
+const User = mongoose.model<IUserDocument>('User', UserSchema);
+
+export default User;
