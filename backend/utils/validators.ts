@@ -2,7 +2,7 @@
 
 import { body, type ValidationChain } from 'express-validator'; // Use type for import
 import Joi from "joi";
-import { EventStatus } from "../models/Event.model";
+import { EventStatus } from "../models/Event.model.ts";
 // --- Shared Validation Chains ---
 
 const emailValidator: ValidationChain = body('email')

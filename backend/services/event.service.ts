@@ -6,7 +6,12 @@ import { Types } from "mongoose";
 import createHttpError from "http-errors";
 
 export const EventService = {
+    async getAllEvents() {
+        return EventModel.find({}).sort({ createdAt: -1 });
+    },
+
     async createEvent(payload: Partial<IEvent>, managerId: Types.ObjectId) {
+        console.log("Start at:", payload.startAt);
         const event = await EventModel.create({ ...payload, managerId });
         // If created with status APPROVED, ensure discussion exists
         if (event.status === EventStatus.APPROVED) {

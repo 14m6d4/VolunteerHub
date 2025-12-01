@@ -5,10 +5,19 @@ import createHttpError from "http-errors";
 import { Types } from "mongoose";
 
 export const EventController = {
+    async getAll(req: Request, res: Response, next: NextFunction) {
+        try {
+            const events = await EventService.getAllEvents();
+            return res.json({ success: true, data: events });
+        } catch (err) {
+            next(err);
+        }
+    },
     async create(req: Request, res: Response, next: NextFunction) {
         try {
             // managerId from auth middleware
-            const managerId = (req.user as any)._id;
+            // const managerId = (req.user as any)._id;
+            const managerId = new Types.ObjectId(); // temporary for testing without auth
             const event = await EventService.createEvent(req.body, managerId);
             return res.status(201).json({ success: true, data: event });
         } catch (err) {
