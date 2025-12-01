@@ -1,4 +1,5 @@
-import { EventModel, IEvent, EventStatus } from "../models/Event.model.ts";
+import type { IEvent } from "../models/Event.model.ts";
+import { EventModel, EventStatus } from "../models/Event.model.ts";
 import { DiscussionModel } from "../models/Discussion.model.ts";
 import { PostModel } from "../models/Post.model.ts";
 import { Types } from "mongoose";

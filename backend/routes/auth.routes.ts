@@ -1,8 +1,8 @@
 // backend/routes/auth.routes.ts
 
-import express, { type Request, type Response} from 'express';
+import express, { type Request, type Response } from 'express';
 import * as authController from '../controllers/auth.controller.ts';
-import validationMiddleware from '../middlewares/validation.middleware.ts'; 
+import validationMiddleware from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
 
 const router = express.Router();
