@@ -1,0 +1,14 @@
+- [x] Tài khoản của quản lý sự kiện/admin là được cấp sẵn hay là tự tạo?
+	- Volunteer được tự tạo tài khoản
+	- Admin được cấp sẵn (chỉ có 1), quản lý sự kiện được admin cấp sẵn tài khoản (admin/admin)
+	- Quản lý sự kiện được Admin cấp sẵn tài khoản
+- [x] Phần trả về sự kiện mới/thu hút thì dashboard nó có thể bao gồm cả sự kiện mình đã tham gia  (các post mới về sự kiện, comment mới giống facebook) và sự kiện chưa tham gia (thông báo của quản lý sự kiện về nội dung và yêu cầu của sự kiện) nhưng mình không access được kênh trao đổi đúng không?
+	- Dashboard hiện cả event chưa tham gia (quảng cáo, yêu cầu, ...) và đã tham gia (post mới, comment mới).
+	- Một manager có thể tạo nhiều event khác nhau, mỗi event sẽ chỉ có 1 manager chính, người này có thể mời người khác làm manager (thiếu quyền mời, xóa quyền của manager khác, xóa nhóm. Những manager phụ thiếu quyền mời manager khác, xóa quyền của manager khác và xóa nhóm).
+- [x] Demo và vấn đáp trực tiếp hay quay video và nộp online
+	- Quay video, tối thiểu 20 phút, thầy sẽ clone code và check các chức năng
+- [ ] Users có thể được event managers thăng cấp lên làm manager phụ tạm thời cho một sự kiện
+- [ ] Em thấy trong phần mô tả validation input thầy ghi mở ngoặc Joi/Yup. Em muốn hỏi là ở đây là bắt buộc sử dụng 2 cái này hay thầy chỉ đang gợi ý thôi ạ vì theo em tìm hiểu bên ngoài thì hiện tại đang có Zod đang tỏ ra hiện đại và vượt trội hơn.
+- [ ] 
+- [x] Có cần deploy không?
+	- Không
