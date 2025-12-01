@@ -1,6 +1,6 @@
 // backend/services/auth.service.ts
 
-import { type ITokenPayload, type IUserDocument, UserRole, type ILoginDTO } from '../types/user.ts'; 
+import { type ITokenPayload, type IUserDocument, UserRole, type ILoginDTO, type IRegisterDTO } from '../types/user.ts'; 
 import { createAccessToken, createRefreshToken } from '../utils/jwt.util.ts';
 import AppError from '../utils/appError.ts'; 
 import User from '../models/User.model.ts'; 
@@ -74,4 +74,37 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
       name: user.username,
     },
   };
+}
+
+/**
+ * Registers a new user with default Volunteer role.
+ * @param data - User registration details
+ * @returns The newly created user document
+ */
+export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
+  const { username, email, password, birthdate, role } = data;
+
+  // 1. Check if email or username already exists
+  const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+  if (existingUser) {
+    throw new AppError('Email or username already in use.', 409); // Conflict
+  }
+  
+  // 2. Create the user object
+  const newUser = await User.create({
+    username,
+    email,
+    passwordHash: password, // Mongoose hook handles hashing
+    birthdate,
+    role: role || UserRole.Volunteer,
+    isVerified: false, 
+  });
+
+  // Prepare response (remove passwordHash)
+  const userResponse = newUser.toObject();
+  delete userResponse.passwordHash;
+
+  // TODO: Implement email verification logic here
+
+  return userResponse as IUserDocument;
 }

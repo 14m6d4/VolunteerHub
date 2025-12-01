@@ -18,7 +18,7 @@ export interface IUser {
     // Auth & Profile
     username: string;
     email: string;
-    passwordHash: string;
+    passwordHash?: string;
     birthdate: Date;
     role: UserRole;
     
@@ -62,4 +62,12 @@ export interface ILoginDTO {
   email?: string;
   username?: string;
   password: string;
+}
+
+export interface IRegisterDTO {
+  username: string;
+  email: string;
+  password: string;
+  birthdate: Date;
+  role?: UserRole;
 }

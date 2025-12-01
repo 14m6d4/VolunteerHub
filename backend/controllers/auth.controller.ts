@@ -1,5 +1,5 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { loginUser } from '../services/auth.service.ts'; // Use type for imports
+import { loginUser, registerUser } from '../services/auth.service.ts'; // Use type for imports
 
 /**
  * Handles POST /api/auth/login endpoint
@@ -26,8 +26,32 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
       user: authData.user,
     });
   } catch (error) {
-    next(error); // Forward error to error.middleware.ts
+    next(error);
   }
 }
 
 // ... other auth controller functions (register, logout, etc.)
+export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    // Validation middleware ensures body is valid
+    const userData = req.body;
+    
+    // Call service logic to create user (newUser is IUserDocument without hash)
+    const newUser = await registerUser(userData);
+
+    res.status(201).json({
+      status: 'success',
+      message: 'User registered successfully. Verification required.',
+      data: {
+        user: {
+            id: newUser._id.toString(),
+            email: newUser.email,
+            role: newUser.role,
+            name: newUser.username,
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
