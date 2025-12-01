@@ -3,6 +3,7 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import morgan from "morgan";
 import type { Application } from "express";
 const FRONTEND_URL = process.env.FRONTEND_URL || "*";
 
@@ -22,10 +23,6 @@ app.use(
     })
 );
 
-app.use((req, res, next) => {
-    console.log(`>> ${req.method} ${req.originalUrl}`);
-    next();
-});
-
+app.use(morgan("dev"));
 
 export default app;
