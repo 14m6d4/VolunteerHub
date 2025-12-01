@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import app from "./app.ts"; // Import Express app (no .ts extension)
+import app from "./app.ts"; // Import Express app 
 import { connectDB } from "./config/db.ts"; // Import the DB connection function
 
 dotenv.config();
