@@ -1,4 +1,4 @@
-import { GalleryVerticalEnd } from "lucide-react"
+import { Lock } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -15,20 +15,25 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp"
 
-export function OTPForm({ className, ...props }: React.ComponentProps<"div">) {
+export function OTPForm({ className, onSubmit, ...props }: React.ComponentProps<"div"> & { onSubmit?: () => void }) {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit?.()
+  }
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <form>
+      <form onSubmit={handleSubmit}>
         <FieldGroup>
           <div className="flex flex-col items-center gap-2 text-center">
             <a
               href="#"
               className="flex flex-col items-center gap-2 font-medium"
             >
-              <div className="flex size-8 items-center justify-center rounded-md">
-                <GalleryVerticalEnd className="size-6" />
-              </div>
-              <span className="sr-only">Acme Inc.</span>
+            <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+              <Lock className="size-5" />
+            </div>
+              <span className="sr-only">VolunteerHub</span>
             </a>
             <h1 className="text-xl font-bold">Enter verification code</h1>
             <FieldDescription>

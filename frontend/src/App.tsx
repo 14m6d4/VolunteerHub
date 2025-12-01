@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { ModeToggle } from "@/components/mode-toggle"
 import LoginPage from "@/pages/auth/Login"
 import SignupPage from "./pages/auth/Register"
-import OTPPage from "./pages/auth/OTP"
+import PasswordResetPage from "./pages/auth/PasswordReset"
 
 function App() {
   return (
@@ -23,7 +23,7 @@ function App() {
               />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<SignupPage />} />
-              <Route path="/otp" element={<OTPPage />} />
+              <Route path="/password_reset" element={<PasswordResetPage />} />
             </Routes>
           </main>
         </div>
