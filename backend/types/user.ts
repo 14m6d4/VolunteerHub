@@ -18,7 +18,7 @@ export interface IUser {
     // Auth & Profile
     username: string;
     email: string;
-    passwordHash: string;
+    passwordHash?: string;
     birthdate: Date;
     role: UserRole;
     
@@ -38,6 +38,10 @@ export interface IUser {
     notificationsEnabled: boolean;
     notifyOnMention: boolean;
     notifyOnEventUpdate: boolean;
+
+    //OTP
+    otp?: string | null | undefined;
+    otpExpiresAt?: Date | null | undefined;
 
     // Timestamps
     createdAt: Date;
@@ -62,4 +66,12 @@ export interface ILoginDTO {
   email?: string;
   username?: string;
   password: string;
+}
+
+export interface IRegisterDTO {
+  username: string;
+  email: string;
+  password: string;
+  birthdate: Date;
+  role?: UserRole;
 }

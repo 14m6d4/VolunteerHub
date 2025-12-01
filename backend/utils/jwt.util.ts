@@ -1,14 +1,11 @@
 import jwt from 'jsonwebtoken';
 import { type ITokenPayload } from '../types/user.ts'; // Use 'type' for type imports
+import dotenv from "dotenv";
+dotenv.config();
+const JWT_SECRET: string = process.env.JWT_SECRET || 'secret123'; 
 
-// JWT secret key (should be loaded from environment variables)
-// TODO: Load from process.env.JWT_SECRET
-const JWT_SECRET = 'YOUR_SUPER_SECRET_KEY'; 
-
-// Time until Access Token expires (e.g., 15 minutes)
 const ACCESS_TOKEN_EXPIRATION = '15m'; 
 
-// Time until Refresh Token expires (e.g., 7 days)
 const REFRESH_TOKEN_EXPIRATION = '7d';
 
 /**

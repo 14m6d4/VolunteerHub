@@ -26,14 +26,18 @@ router.post(
 router.post(
   '/register',
   validationMiddleware(validators.registerSchema),
-  // TODO: Create authController.register function later
-  (_req: Request, res: Response) => res.status(501).json({ message: 'Registration not implemented yet.' })
+  authController.register // FIX: Gán hàm controller thực tế
 );
 
 /**
- * TODO: Implement other auth routes
- * router.post('/refresh', authController.refreshToken);
- * router.get('/logout', authController.logout);
+ * @route POST /api/auth/verify-otp
+ * @description Verify OTP code sent during registration
+ * @access Public
  */
+router.post(
+  '/verify-otp',
+  // TODO: Validation middleware cho email và otp
+  authController.verifyOTP 
+);
 
 export default router;
