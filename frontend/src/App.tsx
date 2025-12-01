@@ -11,11 +11,16 @@ function App() {
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
       <BrowserRouter>
         <div className="min-h-screen bg-background text-foreground flex flex-col">
-          <header className="w-full flex justify-end p-4">
-            <ModeToggle />
-          </header>
           <main className="flex-1">
             <Routes>
+              <Route
+                path="/"
+                element={
+                  <header className="w-full flex justify-end p-4">
+                    <ModeToggle />
+                  </header>
+                }
+              />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<SignupPage />} />
               <Route path="/otp" element={<OTPPage />} />
