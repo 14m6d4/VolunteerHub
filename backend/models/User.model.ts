@@ -2,13 +2,10 @@
 
 import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
-import type { IUser } from '../types/user.ts';
+import type { IUser, IUserDocument } from '../types/user.ts';
 import { UserRole } from '../types/user.ts'; 
 
-// Extend Document with custom methods
-interface IUserDocument extends IUser, Document {
-    comparePassword(candidatePassword: string): Promise<boolean>;
-}
+
 
 const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
     username: {
@@ -23,12 +20,12 @@ const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
         lowercase: true,
         trim: true,
     },
-    password: {
+    passwordHash: {
         type: String,
         required: function(this: IUserDocument) {
             return this.authProvider === 'local';
         },
-        select: false, // Don't return by default
+        select: false,
     },
     birthdate: {
         type: Date,
@@ -84,6 +81,24 @@ const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
 }, {
     timestamps: true,
 });
+
+// Hash password before saving the user document
+UserSchema.pre('save', async function(next) {
+    // Only run if passwordHash was modified
+    if (!this.isModified('passwordHash')) return; 
+
+    // Hash the password with cost of 12
+    this.passwordHash = await bcrypt.hash(this.passwordHash as string, 12);
+});
+
+//Compares the given candidate password with the stored hashed password.
+UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+    // Check if user has a passwordHash (e.g., local auth)
+    if (!this.passwordHash) return false; 
+    
+    // Compare provided password with hash in DB
+    return await bcrypt.compare(candidatePassword, this.passwordHash);
+};
 
 const User = mongoose.model<IUserDocument>('User', UserSchema);
 

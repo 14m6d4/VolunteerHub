@@ -4,6 +4,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import type { Application } from "express";
+import authRoutes from './routes/auth.routes.ts'
 const FRONTEND_URL = process.env.FRONTEND_URL || "*";
 
 const app: Application = express();
@@ -27,5 +28,6 @@ app.use((req, res, next) => {
     next();
 });
 
+app.use('/api/auth', authRoutes);
 
 export default app;
