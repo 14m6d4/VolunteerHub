@@ -57,7 +57,14 @@ export function clearAuth() {
 }
 
 export function setAuthToken(token: string) {
-  localStorage.setItem('accessToken', token);
+  try {
+    localStorage.setItem('accessToken', token);
+    // eslint-disable-next-line no-console
+    console.debug('[api] set accessToken in localStorage');
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[api] failed to set accessToken in localStorage', e);
+  }
 }
 
 export default apiFetch;

@@ -20,6 +20,10 @@ export function useAuth() {
 
   const login = useCallback(async (payload: { email?: string; username?: string; password: string }) => {
     const data = await authService.login(payload);
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[useAuth] login result:', data);
+    } catch {}
     setUser(data.user || null);
     return data;
   }, []);
