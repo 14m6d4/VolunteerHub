@@ -75,3 +75,13 @@ export interface IRegisterDTO {
   birthdate: Date;
   role?: UserRole;
 }
+
+export type UpdateProfileData = {
+  username?: string;
+  birthdate?: Date;
+  profilePicture?: string;
+  notificationsEnabled?: boolean;
+  notifyOnMention?: boolean;
+  notifyOnEventUpdate?: boolean;
+  // email, role, authProvider not allowed here
+};

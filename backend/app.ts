@@ -7,6 +7,7 @@ import morgan from "morgan";
 import type { Application } from "express";
 import authRoutes from './routes/auth.routes.ts'
 import eventRoutes from "./routes/event.routes.ts";
+import userRoutes from './routes/user.routes.ts';
 const FRONTEND_URL = process.env.FRONTEND_URL || "*";
 
 const app: Application = express();
@@ -29,5 +30,6 @@ app.use(morgan("dev"));
 
 app.use('/api/auth', authRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/users", userRoutes);
 
 export default app;
