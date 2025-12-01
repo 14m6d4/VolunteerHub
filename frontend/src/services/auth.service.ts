@@ -30,4 +30,32 @@ export function logout() {
   clearAuth();
 }
 
-export default { login, logout };
+export async function register(payload: { username: string; email: string; password: string; name?: string }) {
+  const data = await apiFetch<any>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+  try {
+    // eslint-disable-next-line no-console
+    console.debug('[auth.service] register response:', data);
+  } catch {}
+
+  return data;
+}
+
+export async function verifyOTP(payload: { email: string; otp: string }) {
+  const data = await apiFetch<any>('/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+  try {
+    // eslint-disable-next-line no-console
+    console.debug('[auth.service] verifyOTP response:', data);
+  } catch {}
+
+  return data;
+}
+
+export default { login, logout, register, verifyOTP };

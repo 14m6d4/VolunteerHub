@@ -24,7 +24,7 @@ const MONGO_URI: string = process.env.MONGO_URI;
 const seedAdminUser = async (): Promise<void> => {
     try {
         const ADMIN_EMAIL = '23021521@vnu.edu.vn';
-        const ADMIN_PASSWORD = '111111'; // 111111
+        const ADMIN_PASSWORD = '11111111';
         const BIRTHDATE = new Date('1990-01-01');
         
         const adminExists = await User.findOne({ role: UserRole.Admin });

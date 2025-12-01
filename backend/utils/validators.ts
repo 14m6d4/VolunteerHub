@@ -12,7 +12,7 @@ export const loginSchema = z.object({
     .regex(/^[a-z0-9._]+$/, 'Username may contain only lowercase letters, numbers, dot and underscore')
     .optional()
     .or(z.literal('')),
-  password: z.string().min(6, 'Password must be at least 6 characters long.'),
+  password: z.string().min(8, 'Password must be at least 8 characters long.'),
 }).refine(
   (data) => data.email || data.username,
   { message: 'Either email or username is required' }
@@ -21,7 +21,7 @@ export const loginSchema = z.object({
 // --- Register Schema ---
 export const registerSchema = z.object({
   email: z.string().email('Email must be valid.'),
-  password: z.string().min(6, 'Password must be at least 6 characters long.'),
+  password: z.string().min(8, 'Password must be at least 8 characters long.'),
   username: z.string()
     .min(3, 'Username must be at least 3 characters')
     .max(50, 'Username must be at most 50 characters')
@@ -63,7 +63,7 @@ export const updateEventSchema = z.object({
 // --- User Profile Schema ---
 export const secureUpdateProfileSchema = z.object({
   currentPassword: z.string()
-    .min(6, 'Password must be at least 6 characters long')
+    .min(8, 'Password must be at least 8 characters long')
     .nonempty('Current password cannot be empty'),
   username: z.string()
     .min(3, 'Username must be at least 3 characters')

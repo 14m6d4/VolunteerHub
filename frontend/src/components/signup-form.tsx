@@ -11,12 +11,34 @@ import { Input } from "@/components/ui/input"
 
 export function SignupForm({
   className,
-  onSubmit,
+  onRegister,
   ...props
-}: Omit<React.ComponentProps<"form">, "onSubmit"> & { onSubmit?: () => void }) {
-  const handleSubmit = (e: React.FormEvent) => {
+}: Omit<React.ComponentProps<"form">, "onSubmit"> & { onRegister?: (payload: { username: string; email: string; password: string; name?: string; birthdate?: string }) => void | Promise<void> }) {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    onSubmit?.()
+    const form = e.currentTarget
+    const fd = new FormData(form)
+    const payload = {
+      name: (fd.get('name') as string) || undefined,
+      username: (fd.get('username') as string) || '',
+      email: (fd.get('email') as string) || '',
+      password: (fd.get('password') as string) || '',
+      birthdate: (() => {
+          const rawBirthdate = (fd.get('birthdate') as string) || '';
+
+          // If user provided a birthdate, return it
+          if (rawBirthdate) {
+              return rawBirthdate;
+          }
+          
+          // Default date: January 1, 1995 (Month is 0-indexed in JS, so 0 is January)
+          const defaultDate = new Date(1995, 0, 1); 
+          
+          // Return the full ISO 8601 datetime string (e.g., "1995-01-01T00:00:00.000Z")
+          return defaultDate.toISOString();
+      })(),
+    }
+    await onRegister?.(payload)
   }
 
   return (
@@ -30,12 +52,13 @@ export function SignupForm({
         </div>
         <Field>
           <FieldLabel htmlFor="name">Full Name</FieldLabel>
-          <Input id="name" type="text" placeholder="John Doe" required />
+          <Input id="name" name="name" type="text" placeholder="John Doe" required />
         </Field>
         <Field>
           <FieldLabel htmlFor="username">Username</FieldLabel>
           <Input
             id="username"
+            name="username"
             type="text"
             placeholder="john.doe"
             required
@@ -50,7 +73,7 @@ export function SignupForm({
         </Field>
         <Field>
           <FieldLabel htmlFor="email">Email</FieldLabel>
-          <Input id="email" type="email" placeholder="m@example.com" required />
+          <Input id="email" name="email" type="email" placeholder="m@example.com" required />
           <FieldDescription>
             We&apos;ll use this to contact you. We will not share your email
             with anyone else.
@@ -58,11 +81,11 @@ export function SignupForm({
         </Field>
         <Field>
           <FieldLabel htmlFor="password">Password</FieldLabel>
-          <Input id="password" type="password" placeholder="Must be at least 8 characters long." required />
+          <Input id="password" name="password" type="password" placeholder="Must be at least 8 characters long." required />
         </Field>
         <Field>
           <FieldLabel htmlFor="confirm-password">Confirm Password</FieldLabel>
-          <Input id="confirm-password" type="password" placeholder="Please confirm your password." required />
+          <Input id="confirm-password" name="confirm-password" type="password" placeholder="Please confirm your password." required />
         </Field>
         <Field>
           <Button type="submit">Create Account</Button>

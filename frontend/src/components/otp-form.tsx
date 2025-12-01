@@ -14,11 +14,14 @@ import {
   InputOTPSeparator,
   InputOTPSlot,
 } from "@/components/ui/input-otp"
+import { useState } from "react"
 
-export function OTPForm({ className, onSubmit, ...props }: React.ComponentProps<"div"> & { onSubmit?: () => void }) {
-  const handleSubmit = (e: React.FormEvent) => {
+export function OTPForm({ className, onVerify, ...props }: React.ComponentProps<"div"> & { onVerify?: (payload: { otp: string }) => void | Promise<void> }) {
+  const [otp, setOtp] = useState("")
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    onSubmit?.()
+    await onVerify?.({ otp })
   }
 
   return (
@@ -48,6 +51,8 @@ export function OTPForm({ className, onSubmit, ...props }: React.ComponentProps<
               maxLength={6}
               id="otp"
               required
+              value={otp}
+              onChange={(v: string) => setOtp(v)}
               containerClassName="gap-4 justify-center"
             >
               <InputOTPGroup className="gap-2.5 *:data-[slot=input-otp-slot]:h-16 *:data-[slot=input-otp-slot]:w-12 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border *:data-[slot=input-otp-slot]:text-xl">
