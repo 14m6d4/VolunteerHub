@@ -20,7 +20,7 @@ const transporter = nodemailer.createTransport(mailerConfig);
  * @param otpCode - The 6-digit code
  */
 export async function sendVerificationEmail(
-    user: IUserDocument, 
+    user: IUserDocument,
     otpCode: string
 ): Promise<void> {
     const mailOptions = {
