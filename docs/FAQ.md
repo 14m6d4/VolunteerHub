@@ -9,6 +9,6 @@
 	- Quay video, tối thiểu 20 phút, thầy sẽ clone code và check các chức năng
 - [ ] Users có thể được event managers thăng cấp lên làm manager phụ tạm thời cho một sự kiện
 - [ ] Em thấy trong phần mô tả validation input thầy ghi mở ngoặc Joi/Yup. Em muốn hỏi là ở đây là bắt buộc sử dụng 2 cái này hay thầy chỉ đang gợi ý thôi ạ vì theo em tìm hiểu bên ngoài thì hiện tại đang có Zod đang tỏ ra hiện đại và vượt trội hơn.
-- [ ] 
+- [ ] Như thầy đã thông báo từ trước thì hạn nộp vào tuần 15. Em muốn hỏi là cụ thể sẽ vào ngày nào ạ, để bọn em có thể sắp xếp cho hợp lý.
 - [x] Có cần deploy không?
 	- Không

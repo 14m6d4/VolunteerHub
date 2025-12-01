@@ -5,6 +5,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import LoginPage from "@/pages/auth/Login"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
+import Error404 from "./components/errors/404"
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<SignupPage />} />
               <Route path="/password_reset" element={<PasswordResetPage />} />
+              <Route path="404" element={<Error404 />} />
             </Routes>
           </main>
         </div>
