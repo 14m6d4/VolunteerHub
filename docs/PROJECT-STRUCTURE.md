@@ -18,7 +18,7 @@ VolunteerHub                          // Monorepo root for the whole project (ba
 │  │  ├─ auth.middleware.ts           // JWT verification: attach user to req or reject as 401, protect routes
 │  │  ├─ error.middleware.ts          // Central error handler: converts thrown errors to HTTP responses
 │  │  ├─ role.middleware.ts           // Role-based guard (Volunteer/Manager/Admin) on protected routes
-│  │  └─ validation.middleware.ts     // Wraps validation logic (e.g., Joi/Zod schemas) for incoming requests
+│  │  └─ validation.middleware.ts     // Wraps validation logic (e.g., Zod schemas) for incoming requests
 │  ├─ models                          // Mongoose schemas (database structure + business rules via hooks)
 │  │  ├─ Discussion.model.ts          // Schema for per-event channels and possibly channel metadata e.g. eventId, posts array
 │  │  ├─ Event.model.ts               // Schema for events: title, date, location, status, managerId, CRITICAL: auto-create discussion on approval
@@ -55,7 +55,7 @@ VolunteerHub                          // Monorepo root for the whole project (ba
 │     ├─ appError.ts                  // Custom error class for consistent error handling
 │     ├─ export.util.ts               // Helpers for generating CSV/JSON from data arrays. Helper functions: convertToCSV, convertToJSON
 │     ├─ jwt.util.ts                  // JWT sign/verify helpers, token parsing
-│     ├─ validators.ts                // Validation schemas using express-validator (email format, password strength, etc.)
+│     ├─ validators.ts                // Validation schemas using Zod-validator (email format, password strength, etc.)
 │     └─ webpush.ts                   // Helpers wrapping web-push library (sendNotification, build payload)
 ├─ docs                               // Project documentation for devs
 │  ├─ API.MD                          // Human-readable API documentation (endpoints, payloads)
@@ -178,7 +178,7 @@ When you add a new feature, always think back-to-front in vertical slices. Her
     -   If registration needs new user fields (e.g., `emailVerified`, `authProvider`), add them to `User.model.ts` with appropriate defaults and indexes.
 3.  Validation rules
     -   Add registration-specific rules to `utils/validators.ts` (e.g., `validatePassword`, `isValidEmail`).
-    -   Optionally define a Joi/Zod schema for the request body and plug it through `validation.middleware.ts` in the `auth.routes.ts` file.
+    -   Optionally define a Zod schema for the request body and plug it through `validation.middleware.ts` in the `auth.routes.ts` file.
 4.  Service logic (business rules)
     -   In `services/auth.service.ts`:
         -   Implement `registerUser(data: RegisterRequest)`.
