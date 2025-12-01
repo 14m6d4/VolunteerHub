@@ -26,4 +26,6 @@ app.use(
 
 app.use(morgan("dev"));
 
+app.use('/api/auth', authRoutes);
+
 export default app;

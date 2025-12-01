@@ -1,5 +1,4 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import dayjs from "dayjs";
 
 export enum EventStatus {
     DRAFT = "draft",
