@@ -48,7 +48,7 @@ export function OTPForm({ className, onSubmit, ...props }: React.ComponentProps<
               maxLength={6}
               id="otp"
               required
-              containerClassName="gap-4"
+              containerClassName="gap-4 justify-center"
             >
               <InputOTPGroup className="gap-2.5 *:data-[slot=input-otp-slot]:h-16 *:data-[slot=input-otp-slot]:w-12 *:data-[slot=input-otp-slot]:rounded-md *:data-[slot=input-otp-slot]:border *:data-[slot=input-otp-slot]:text-xl">
                 <InputOTPSlot index={0} />
