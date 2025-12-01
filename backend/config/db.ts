@@ -24,13 +24,12 @@ const MONGO_URI: string = process.env.MONGO_URI;
 const seedAdminUser = async (): Promise<void> => {
     try {
         const ADMIN_EMAIL = '23021521@vnu.edu.vn';
-        const ADMIN_PASSWORD = '111111';
+        const ADMIN_PASSWORD = '111111'; // 111111
         const BIRTHDATE = new Date('1990-01-01');
         
         const adminExists = await User.findOne({ role: UserRole.Admin });
 
         if (adminExists) {
-            // Log with concise English message
             console.log('Admin users already exists. Seeding skipped.');
             return;
         }
@@ -38,7 +37,7 @@ const seedAdminUser = async (): Promise<void> => {
         await User.create({
             username: 'admindat',
             email: ADMIN_EMAIL,
-            password: ADMIN_PASSWORD,
+            passwordHash: ADMIN_PASSWORD,
             birthdate: BIRTHDATE,
             role: UserRole.Admin,
             isVerified: true,
@@ -49,7 +48,7 @@ const seedAdminUser = async (): Promise<void> => {
         await User.create({
             username: 'admindung',
             email: '23021497@vnu.edu.vn',
-            password: ADMIN_PASSWORD,
+            passwordHash: ADMIN_PASSWORD,
             birthdate: new Date('1990-01-01'),
             role: UserRole.Admin,
             isVerified: true,
@@ -60,7 +59,7 @@ const seedAdminUser = async (): Promise<void> => {
         await User.create({
             username: 'adminkhanh',
             email: '23021597@vnu.edu.vn',
-            password: ADMIN_PASSWORD,
+            passwordHash: ADMIN_PASSWORD,
             birthdate: new Date('1990-01-01'),
             role: UserRole.Admin,
             isVerified: true,

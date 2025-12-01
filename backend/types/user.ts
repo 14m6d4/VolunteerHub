@@ -1,4 +1,5 @@
 // backend/types/user.ts
+import { type ObjectId } from 'mongoose';
 
 /**
  * @enum UserRole
@@ -13,10 +14,11 @@ export enum UserRole {
  * @interface IUser
  */
 export interface IUser {
+    _id: ObjectId;
     // Auth & Profile
     username: string;
     email: string;
-    password?: string;
+    passwordHash: string;
     birthdate: Date;
     role: UserRole;
     
@@ -42,11 +44,22 @@ export interface IUser {
     updatedAt: Date;
 }
 
+export interface IUserDocument extends IUser, Document {
+    comparePassword: (candidatePassword: string) => Promise<boolean>;
+}
+
 /**
- * @interface IAuthPayload
+ * @interface ITokenPayload
+ * Data encoded inside the JWT (used for authentication).
  */
-export interface IAuthPayload {
+export interface ITokenPayload {
     id: string; 
     email: string;
     role: UserRole;
+}
+
+export interface ILoginDTO {
+  email?: string;
+  username?: string;
+  password: string;
 }
