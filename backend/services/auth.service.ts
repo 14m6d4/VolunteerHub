@@ -4,7 +4,8 @@ import { type ITokenPayload, type IUserDocument, UserRole, type ILoginDTO, type 
 import { createAccessToken, createRefreshToken } from '../utils/jwt.util.ts';
 import AppError from '../utils/appError.ts'; 
 import User from '../models/User.model.ts'; 
-// Đã loại bỏ import FilterQuery
+import { generateOTP, getOTPExpiration } from '../utils/otp.util.ts';
+import { sendVerificationEmail } from './email.service.ts';
 
 // Interface for the successful response after login
 interface IAuthResponse {
@@ -89,6 +90,9 @@ export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
   if (existingUser) {
     throw new AppError('Email or username already in use.', 409); // Conflict
   }
+
+  const otpCode = generateOTP();
+  const otpExpiresAt = getOTPExpiration(10);
   
   // 2. Create the user object
   const newUser = await User.create({
@@ -98,13 +102,57 @@ export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
     birthdate,
     role: role || UserRole.Volunteer,
     isVerified: false, 
+    otp: otpCode,
+    otpExpiresAt: otpExpiresAt,
   });
+
+  sendVerificationEmail(newUser, otpCode);
 
   // Prepare response (remove passwordHash)
   const userResponse = newUser.toObject();
   delete userResponse.passwordHash;
+  delete userResponse.otp;
+  delete userResponse.otpExpiresAt;
 
   // TODO: Implement email verification logic here
 
   return userResponse as IUserDocument;
+}
+
+/**
+ * Verifies the OTP code and activates the user account.
+ * @param email - User's email
+ * @param otp - The OTP code received by the user
+ * @returns The verified user document
+ */
+export async function verifyUserOTP(email: string, otp: string): Promise<IUserDocument> {
+  // 1. Find user, ensure to select OTP fields
+  const user = await User.findOne({ email }).select('+otp +otpExpiresAt');
+
+  if (!user) {
+    throw new AppError('User not found.', 404);
+  }
+
+  if (user.isVerified) {
+    throw new AppError('Account is already verified.', 400);
+  }
+
+  // 2. Check Expiration
+  if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+    // TODO: Nên tạo lại OTP mới ở đây nếu cần
+    throw new AppError('OTP has expired or is invalid. Please request a new one.', 400);
+  }
+
+  // 3. Check OTP Match
+  if (user.otp !== otp) {
+    throw new AppError('Invalid OTP code.', 401);
+  }
+
+  // 4. Verification Successful: Update status and clear OTP fields
+  user.isVerified = true;
+  user.otp = undefined;
+  user.otpExpiresAt = undefined;
+  await user.save(); 
+
+  return user;
 }

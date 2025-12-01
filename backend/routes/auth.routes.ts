@@ -29,4 +29,15 @@ router.post(
   authController.register // FIX: Gán hàm controller thực tế
 );
 
+/**
+ * @route POST /api/auth/verify-otp
+ * @description Verify OTP code sent during registration
+ * @access Public
+ */
+router.post(
+  '/verify-otp',
+  // TODO: Validation middleware cho email và otp
+  authController.verifyOTP 
+);
+
 export default router;

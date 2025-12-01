@@ -39,6 +39,10 @@ export interface IUser {
     notifyOnMention: boolean;
     notifyOnEventUpdate: boolean;
 
+    //OTP
+    otp?: string | null | undefined;
+    otpExpiresAt?: Date | null | undefined;
+
     // Timestamps
     createdAt: Date;
     updatedAt: Date;

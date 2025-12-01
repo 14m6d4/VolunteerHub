@@ -1,6 +1,7 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { loginUser, registerUser } from '../services/auth.service.ts'; // Use type for imports
-
+import { loginUser, registerUser, verifyUserOTP } from '../services/auth.service.ts'; 
+import { createAccessToken } from '../utils/jwt.util.ts';
+import { type ITokenPayload } from '../types/user.ts';
 /**
  * Handles POST /api/auth/login endpoint
  * @param req - Request object
@@ -51,6 +52,27 @@ export async function register(req: Request, res: Response, next: NextFunction):
         }
       }
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function verifyOTP(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email, otp } = req.body;
+
+    const verifiedUser = await verifyUserOTP(email, otp);
+
+    const payload: ITokenPayload = { id: verifiedUser._id.toString(), email: verifiedUser.email, role: verifiedUser.role };
+    const accessToken = createAccessToken(payload);
+    
+    res.status(200).json({
+        status: 'success',
+        message: 'Account verified successfully.',
+        accessToken,
+        user: { id: verifiedUser._id.toString(), email: verifiedUser.email, name: verifiedUser.username, role: verifiedUser.role }
+    });
+
   } catch (error) {
     next(error);
   }

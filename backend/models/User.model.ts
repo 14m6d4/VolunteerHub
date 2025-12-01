@@ -78,6 +78,15 @@ const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
         type: Boolean,
         default: true,
     },
+    
+    otp: {
+        type: String,
+        select: false,
+    },
+    otpExpiresAt: {
+        type: Date,
+        select: false,
+    },
 }, {
     timestamps: true,
 });
