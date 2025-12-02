@@ -2,7 +2,7 @@
 
 import express, { type Request, type Response } from 'express';
 import * as authController from '../controllers/auth.controller.ts';
-import validationMiddleware from '../middlewares/validation.middleware.ts';
+import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
 
 const router = express.Router();
@@ -14,7 +14,7 @@ const router = express.Router();
  */
 router.post(
   '/login',
-  validationMiddleware(validators.loginSchema),
+  validateBody(validators.loginSchema),
   authController.login
 );
 
@@ -25,7 +25,7 @@ router.post(
  */
 router.post(
   '/register',
-  validationMiddleware(validators.registerSchema),
+  validateBody(validators.registerSchema),
   authController.register // FIX: Gán hàm controller thực tế
 );
 
@@ -38,6 +38,27 @@ router.post(
   '/verify-otp',
   // TODO: Validation middleware cho email và otp
   authController.verifyOTP 
+);
+
+// Forgot password - send reset OTP
+router.post(
+  '/forgot-password',
+  // TODO: add validation for { email }
+  authController.forgotPassword
+);
+
+// Verify reset OTP (password reset flow)
+router.post(
+  '/verify-reset-otp',
+  // TODO: add validation for { email, otp }
+  authController.verifyResetOTP
+);
+
+// Reset password using email + otp + new password
+router.post(
+  '/reset-password',
+  // TODO: add validation for { email, otp, password }
+  authController.resetPassword
 );
 
 export default router;

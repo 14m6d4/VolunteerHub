@@ -1,5 +1,5 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { loginUser, registerUser, verifyUserOTP } from '../services/auth.service.ts'; 
+import { loginUser, registerUser, verifyUserOTP, sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtp } from '../services/auth.service.ts'; 
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { type ITokenPayload } from '../types/user.ts';
 /**
@@ -48,7 +48,7 @@ export async function register(req: Request, res: Response, next: NextFunction):
             id: newUser._id.toString(),
             email: newUser.email,
             role: newUser.role,
-            name: newUser.username,
+            name: newUser.name || newUser.username,
         }
       }
     });
@@ -67,12 +67,72 @@ export async function verifyOTP(req: Request, res: Response, next: NextFunction)
     const accessToken = createAccessToken(payload);
     
     res.status(200).json({
-        status: 'success',
-        message: 'Account verified successfully.',
-        accessToken,
-        user: { id: verifiedUser._id.toString(), email: verifiedUser.email, name: verifiedUser.username, role: verifiedUser.role }
+      status: 'success',
+      message: 'Account verified successfully.',
+      accessToken,
+      user: { id: verifiedUser._id.toString(), email: verifiedUser.email, name: verifiedUser.name || verifiedUser.username, role: verifiedUser.role }
     });
 
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/auth/forgot-password
+ * Accepts { email } and sends a reset OTP if the account exists.
+ * Responds 200 regardless to avoid leaking account existence.
+ */
+export async function forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ status: 'fail', message: 'Email is required.' });
+      return;
+    }
+
+    await sendPasswordResetOtp(email);
+
+    res.status(200).json({ status: 'success', message: 'If an account with that email exists, a reset code has been sent.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/auth/verify-reset-otp
+ * Accepts { email, otp } and verifies the reset OTP.
+ */
+export async function verifyResetOTP(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      res.status(400).json({ status: 'fail', message: 'Email and otp are required.' });
+      return;
+    }
+
+    await verifyPasswordResetOtp(email, otp);
+    res.status(200).json({ status: 'success', message: 'OTP verified.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/auth/reset-password
+ * Accepts { email, otp, password } and resets the user's password.
+ */
+export async function resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email, otp, password } = req.body;
+    if (!email || !otp || !password) {
+      res.status(400).json({ status: 'fail', message: 'Email, otp and password are required.' });
+      return;
+    }
+
+    const user = await resetPasswordWithOtp(email, otp, password);
+
+    res.status(200).json({ status: 'success', message: 'Password has been reset.' });
   } catch (error) {
     next(error);
   }

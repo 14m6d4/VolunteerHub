@@ -2,9 +2,14 @@ import type { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
 import jwt from "jsonwebtoken";
 import User from "../models/User.model.ts";
+import { type IUserDocument } from "../types/user.ts";
 
 interface JwtPayload {
     id: string;
+}
+
+export interface AuthenticatedRequest extends Request {
+    user: IUserDocument;
 }
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {

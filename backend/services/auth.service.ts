@@ -5,7 +5,7 @@ import { createAccessToken, createRefreshToken } from '../utils/jwt.util.ts';
 import AppError from '../utils/appError.ts'; 
 import User from '../models/User.model.ts'; 
 import { generateOTP, getOTPExpiration } from '../utils/otp.util.ts';
-import { sendVerificationEmail } from './email.service.ts';
+import { sendVerificationEmail, sendResetPasswordEmail } from './email.service.ts';
 
 // Interface for the successful response after login
 interface IAuthResponse {
@@ -48,9 +48,14 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
     throw new AppError('Invalid email/username or password.', 401); 
   }
   
+  // Check if user is verified
+  if (!user.isVerified) {
+    throw new AppError('Account is not verified. Please verify your email before logging in.', 403);
+  }
+
   // Check if user is active
   if (!user.isActive) {
-      throw new AppError('Account is inactive. Please contact support.', 403);
+    throw new AppError('Account is inactive. Please contact support.', 403);
   }
 
   // 2. Create JWT Payload
@@ -72,7 +77,7 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
       id: user._id.toString(),
       email: user.email,
       role: user.role,
-      name: user.username,
+      name: (user.name as string) || user.username,
     },
   };
 }
@@ -83,7 +88,7 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
  * @returns The newly created user document
  */
 export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
-  const { username, email, password, birthdate, role } = data;
+  const { username, email, password, birthdate, role, name } = data;
 
   // 1. Check if email or username already exists
   const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -95,21 +100,25 @@ export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
   const otpExpiresAt = getOTPExpiration(10);
   
   // 2. Create the user object
-  const newUser = await User.create({
+  const createData: any = {
     username,
     email,
     passwordHash: password, // Mongoose hook handles hashing
     birthdate,
     role: role || UserRole.Volunteer,
-    isVerified: false, 
+    isVerified: false,
     otp: otpCode,
     otpExpiresAt: otpExpiresAt,
-  });
+  }
 
-  sendVerificationEmail(newUser, otpCode);
+  if (name) createData.name = name
+
+  const newUserDoc = await User.create(createData) as unknown as IUserDocument;
+
+  sendVerificationEmail(newUserDoc, otpCode);
 
   // Prepare response (remove passwordHash)
-  const userResponse = newUser.toObject();
+  const userResponse = (newUserDoc as any).toObject();
   delete userResponse.passwordHash;
   delete userResponse.otp;
   delete userResponse.otpExpiresAt;
@@ -155,4 +164,75 @@ export async function verifyUserOTP(email: string, otp: string): Promise<IUserDo
   await user.save(); 
 
   return user;
+}
+
+/**
+ * Send a password reset OTP to the user's email if the account exists.
+ * For security, this function does not reveal whether the email exists to callers.
+ */
+export async function sendPasswordResetOtp(email: string): Promise<void> {
+  const user = await User.findOne({ email }).select('+otp +otpExpiresAt');
+
+  if (!user) {
+    // Do not reveal that the email does not exist. Just return.
+    return;
+  }
+
+  const otpCode = generateOTP();
+  const otpExpiresAt = getOTPExpiration(10);
+
+  user.otp = otpCode;
+  user.otpExpiresAt = otpExpiresAt;
+  await user.save();
+
+  // Send email (log failures internally)
+  await sendResetPasswordEmail(user, otpCode);
+}
+
+/**
+ * Verify reset OTP without changing account verification status.
+ */
+export async function verifyPasswordResetOtp(email: string, otp: string): Promise<void> {
+  const user = await User.findOne({ email }).select('+otp +otpExpiresAt');
+  if (!user) throw new AppError('User not found.', 404);
+
+  if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+    throw new AppError('OTP has expired or is invalid. Please request a new one.', 400);
+  }
+
+  if (user.otp !== otp) {
+    throw new AppError('Invalid OTP code.', 401);
+  }
+
+  // Keep OTP fields intact until password is reset; simply return success
+  return;
+}
+
+/**
+ * Reset user's password using email + otp + new password.
+ */
+export async function resetPasswordWithOtp(email: string, otp: string, newPassword: string): Promise<IUserDocument> {
+  const user = await User.findOne({ email }).select('+otp +otpExpiresAt +passwordHash');
+  if (!user) throw new AppError('User not found.', 404);
+
+  if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+    throw new AppError('OTP has expired or is invalid. Please request a new one.', 400);
+  }
+
+  if (user.otp !== otp) {
+    throw new AppError('Invalid OTP code.', 401);
+  }
+
+  // Set new password (pre-save hook will hash it)
+  user.passwordHash = newPassword as any;
+  user.otp = undefined;
+  user.otpExpiresAt = undefined;
+  await user.save();
+
+  // Return sanitized user
+  const sanitized: any = user.toObject();
+  delete sanitized.passwordHash;
+  delete sanitized.otp;
+  delete sanitized.otpExpiresAt;
+  return sanitized as IUserDocument;
 }

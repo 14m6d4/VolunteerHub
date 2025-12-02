@@ -11,13 +11,48 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
-export function ResetPwdForm({ className, ...props }: React.ComponentProps<"div">) {
+export function ResetPwdForm({
+  email,
+  otp,
+  className,
+  ...props
+}: React.ComponentProps<"div"> & { email?: string; otp?: string }) {
   const [isSuccess, setIsSuccess] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    // In a real application, validate and submit to API here
-    setIsSuccess(true)
+    const form = e.currentTarget
+    const fd = new FormData(form)
+    const password = (fd.get("password") as string) || ""
+    const confirm = (fd.get("confirmPassword") as string) || ""
+
+    if (password.length < 8) {
+      alert("Password must be at least 8 characters.")
+      return
+    }
+    if (password !== confirm) {
+      alert("Passwords do not match.")
+      return
+    }
+    if (!email || !otp) {
+      alert("Missing email or verification code.")
+      return
+    }
+
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp, password }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.message || "Failed to reset password")
+      }
+      setIsSuccess(true)
+    } catch (err: any) {
+      alert(err.message || "Unable to reset password")
+    }
   }
 
   if (isSuccess) {
@@ -64,6 +99,7 @@ export function ResetPwdForm({ className, ...props }: React.ComponentProps<"div"
             <FieldLabel htmlFor="password">New Password</FieldLabel>
             <Input 
               id="password" 
+              name="password"
               type="password" 
               required 
               placeholder="••••••••"
@@ -76,6 +112,7 @@ export function ResetPwdForm({ className, ...props }: React.ComponentProps<"div"
             <FieldLabel htmlFor="confirm-password">Confirm Password</FieldLabel>
             <Input 
               id="confirm-password" 
+              name="confirmPassword"
               type="password" 
               required 
               placeholder="••••••••"
