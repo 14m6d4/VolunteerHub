@@ -40,4 +40,25 @@ router.post(
   authController.verifyOTP 
 );
 
+// Forgot password - send reset OTP
+router.post(
+  '/forgot-password',
+  // TODO: add validation for { email }
+  authController.forgotPassword
+);
+
+// Verify reset OTP (password reset flow)
+router.post(
+  '/verify-reset-otp',
+  // TODO: add validation for { email, otp }
+  authController.verifyResetOTP
+);
+
+// Reset password using email + otp + new password
+router.post(
+  '/reset-password',
+  // TODO: add validation for { email, otp, password }
+  authController.resetPassword
+);
+
 export default router;

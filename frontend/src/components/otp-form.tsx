@@ -16,12 +16,12 @@ import {
 } from "@/components/ui/input-otp"
 import { useState } from "react"
 
-export function OTPForm({ className, onVerify, ...props }: React.ComponentProps<"div"> & { onVerify?: (payload: { otp: string }) => void | Promise<void> }) {
+export function OTPForm({ className, onSubmit, ...props }: React.ComponentProps<"div"> & { onSubmit?: (otp: string) => void | Promise<void> }) {
   const [otp, setOtp] = useState("")
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    await onVerify?.({ otp })
+    await onSubmit?.(otp)
   }
 
   return (
