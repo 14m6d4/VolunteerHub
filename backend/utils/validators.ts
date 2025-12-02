@@ -1,69 +1,83 @@
 // backend/utils/validators.ts
 
-import { body, type ValidationChain } from 'express-validator'; // Use type for import
-import Joi from "joi";
+import { z } from 'zod';
 import { EventStatus } from "../models/Event.model.ts";
-// --- Shared Validation Chains ---
 
-const emailValidator: ValidationChain = body('email')
-  .trim()
-  .isEmail().withMessage('Email must be valid.')
-  .normalizeEmail();
+// --- Login Schema ---
+export const loginSchema = z.object({
+  email: z.string().email('Email must be valid.').optional().or(z.literal('')),
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(50, 'Username must be at most 50 characters')
+    .regex(/^[a-z0-9._]+$/, 'Username may contain only lowercase letters, numbers, dot and underscore')
+    .optional()
+    .or(z.literal('')),
+  password: z.string().min(8, 'Password must be at least 8 characters long.'),
+}).refine(
+  (data) => data.email || data.username,
+  { message: 'Either email or username is required' }
+);
 
-const passwordValidator: ValidationChain = body('password')
-  .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long.');
-
-const usernameValidator: ValidationChain = body('username')
-  .trim()
-  .notEmpty().withMessage('Username is required.')
-  .isLength({ min: 3, max: 50 }).withMessage('Username must be between 3 and 50 characters.');
-
-// --- Exported Schemas (Arrays of Validation Chains) ---
-
-/**
- * Validation schema for the login endpoint.
- * Requires email and password to be present and conform to basic rules.
- */
-export const loginSchema: ValidationChain[] = [
-  body('email').optional(),
-  body('username').optional(),
-  emailValidator.optional(),
-  usernameValidator.optional(),
-  passwordValidator,
-];
-
-/**
- * Validation schema for the registration endpoint.
- * Requires all necessary fields including username and birthdate.
- */
-export const registerSchema: ValidationChain[] = [
-  emailValidator,
-  passwordValidator,
-  usernameValidator,
-  body('birthdate')
-    .isISO8601().toDate().withMessage('Birthdate must be a valid date (YYYY-MM-DD).'),
-];
-
-export const createEventSchema = Joi.object({
-  title: Joi.string().min(3).max(200).required(),
-  description: Joi.string().allow("").optional(),
-  location: Joi.string().allow("").optional(),
-  startAt: Joi.date().iso().required(),
-  endAt: Joi.date().iso().greater(Joi.ref("startAt")).optional(),
-  tags: Joi.array().items(Joi.string()).optional(),
-  maxMembers: Joi.number().integer().min(1).optional().allow(null),
-  isPublic: Joi.boolean().optional(),
-  status: Joi.string().valid(...Object.values(EventStatus)).optional()
+// --- Register Schema ---
+export const registerSchema = z.object({
+  name: z.string().min(1, 'Name cannot be empty').max(100, 'Name too long').optional(),
+  email: z.string().email('Email must be valid.'),
+  password: z.string().min(8, 'Password must be at least 8 characters long.'),
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(50, 'Username must be at most 50 characters')
+    .regex(/^[a-z0-9._]+$/, 'Username may contain only lowercase letters, numbers, dot and underscore'),
+  birthdate: z.string().datetime().or(z.date()),
 });
 
-export const updateEventSchema = Joi.object({
-  title: Joi.string().min(3).max(200).optional(),
-  description: Joi.string().allow("").optional(),
-  location: Joi.string().allow("").optional(),
-  startAt: Joi.date().iso().optional(),
-  endAt: Joi.date().iso().optional(),
-  tags: Joi.array().items(Joi.string()).optional(),
-  maxMembers: Joi.number().integer().min(1).optional().allow(null),
-  isPublic: Joi.boolean().optional(),
-  status: Joi.string().valid(...Object.values(EventStatus)).optional()
-});
+// --- Event Schemas ---
+export const createEventSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters').max(200, 'Title must be at most 200 characters'),
+  description: z.string().optional().default(''),
+  location: z.string().optional().default(''),
+  startAt: z.string().datetime().or(z.date()),
+  endAt: z.string().datetime().or(z.date()).optional(),
+  tags: z.array(z.string()).optional().default([]),
+  maxMembers: z.number().int().min(1).nullable().optional(),
+  isPublic: z.boolean().optional().default(true),
+  status: z.enum(Object.values(EventStatus) as [string, ...string[]]).optional(),
+}).refine(
+  (data) => !data.endAt || new Date(data.endAt) > new Date(data.startAt),
+  { message: 'End date must be after start date', path: ['endAt'] }
+);
+
+export const updateEventSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters').max(200, 'Title must be at most 200 characters').optional(),
+  description: z.string().optional().default(''),
+  location: z.string().optional().default(''),
+  startAt: z.string().datetime().or(z.date()).optional(),
+  endAt: z.string().datetime().or(z.date()).optional(),
+  tags: z.array(z.string()).optional().default([]),
+  maxMembers: z.number().int().min(1).nullable().optional(),
+  isPublic: z.boolean().optional(),
+  status: z.enum(Object.values(EventStatus) as [string, ...string[]]).optional(),
+}).refine(
+  (data) => !data.endAt || !data.startAt || new Date(data.endAt) > new Date(data.startAt),
+  { message: 'End date must be after start date', path: ['endAt'] }
+);
+
+// --- User Profile Schema ---
+export const secureUpdateProfileSchema = z.object({
+  currentPassword: z.string()
+    .min(8, 'Password must be at least 8 characters long')
+    .nonempty('Current password cannot be empty'),
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(50, 'Username must be at most 50 characters')
+    .regex(/^[a-z0-9._]+$/, 'Username may contain only lowercase letters, numbers, dot and underscore')
+    .optional(),
+  birthdate: z.date().optional(),
+  profilePicture: z.string().url('Must be a valid URL').optional(),
+  notificationsEnabled: z.boolean().optional(),
+  notifyOnMention: z.boolean().optional(),
+  notifyOnEventUpdate: z.boolean().optional(),
+}).refine(
+  (data) => data.username || data.birthdate || data.profilePicture || data.notificationsEnabled !== undefined || data.notifyOnMention !== undefined || data.notifyOnEventUpdate !== undefined,
+  { message: 'At least one field must be provided for update' }
+);
+

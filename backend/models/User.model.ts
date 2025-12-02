@@ -13,6 +13,11 @@ const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
         required: true,
         trim: true,
     },
+    // Optional full name / display name
+    name: {
+        type: String,
+        trim: true,
+    },
     email: {
         type: String,
         required: true,

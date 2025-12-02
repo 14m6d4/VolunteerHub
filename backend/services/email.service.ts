@@ -43,3 +43,32 @@ export async function sendVerificationEmail(
         // Tùy chọn: Log lỗi hoặc throw AppError
     }
 }
+
+/**
+ * Sends a password reset OTP code to the user's email.
+ * @param user - The user document
+ * @param otpCode - The 6-digit code
+ */
+export async function sendResetPasswordEmail(
+    user: IUserDocument,
+    otpCode: string
+): Promise<void> {
+    const mailOptions = {
+        from: `VolunteerHub <${mailerConfig.auth.user}>`,
+        to: user.email,
+        subject: 'VolunteerHub: Password Reset Code',
+        html: `
+            <p>Hello ${user.username},</p>
+            <p>We received a request to reset the password for your account. Use the following verification code to reset your password:</p>
+            <h2 style="color: #007bff;">${otpCode}</h2>
+            <p>This code is valid for 10 minutes. If you did not request a password reset, please ignore this email.</p>
+        `,
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Password reset email sent to: ${user.email}`);
+    } catch (error) {
+        console.error('ERROR sending reset email:', error);
+    }
+}

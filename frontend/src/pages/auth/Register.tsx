@@ -3,10 +3,56 @@ import { GalleryVerticalEnd, Check } from "lucide-react"
 import illustration from "@/assets/login-illustration.jpg"
 import { SignupForm } from "@/components/signup-form"
 import { OTPForm } from "@/components/otp-form"
+import * as authService from '@/services/auth.service'
 import { Button } from "@/components/ui/button"
 
 export default function SignupPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null)
+  const [signupError, setSignupError] = useState<string | string[] | null>(null)
+
+  const handleRegister = async (payload: { username: string; email: string; password: string; name?: string }) => {
+    try {
+      await authService.register(payload)
+      setRegisteredEmail(payload.email)
+      setStep(2)
+      setSignupError(null)
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error('Register failed', err)
+      // Format error: apiFetch throws Error with message that may be JSON
+      try {
+        const msg = err?.message || String(err)
+        let parsed: any = msg
+        try {
+          parsed = JSON.parse(msg)
+        } catch {}
+
+        if (typeof parsed === 'string') setSignupError(parsed)
+        else if (Array.isArray(parsed)) setSignupError(parsed)
+        else if (parsed && typeof parsed === 'object') {
+          // prefer message property
+          if (parsed.message) setSignupError(parsed.message)
+          else setSignupError(JSON.stringify(parsed))
+        } else setSignupError(String(msg))
+      } catch (parseErr) {
+        setSignupError('Registration failed')
+      }
+    }
+  }
+
+  const handleVerify = async ({ otp }: { otp: string }) => {
+    try {
+      if (!registeredEmail) throw new Error('Missing registered email')
+      await authService.verifyOTP({ email: registeredEmail, otp })
+      // on success, redirect to login
+      window.location.href = '/login'
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error('OTP verify failed', err)
+      // TODO: show UI error
+    }
+  }
 
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
@@ -21,8 +67,8 @@ export default function SignupPage() {
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm">
-            {step === 1 && <SignupForm onSubmit={() => setStep(2)} />}
-            {step === 2 && <OTPForm onSubmit={() => setStep(3)} />}
+            {step === 1 && <SignupForm onRegister={handleRegister} error={signupError ?? undefined} />}
+            {step === 2 && <OTPForm onVerify={handleVerify} />}
             {step === 3 && (
               <div className="flex flex-col gap-6">
                 <div className="flex flex-col items-center gap-4 text-center">

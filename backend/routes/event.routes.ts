@@ -2,7 +2,7 @@ import express from "express";
 import { EventController } from "../controllers/event.controller.ts";
 import { authMiddleware } from "../middlewares/auth.middleware.ts";
 import { roleMiddleware } from "../middlewares/role.middleware.ts";
-import { validateEventBody } from "../middlewares/validation.middleware.ts";
+import validateBody from "../middlewares/validation.middleware.ts";
 import { createEventSchema, updateEventSchema } from "../utils/validators.ts";
 
 const router = express.Router();

@@ -7,6 +7,8 @@ import morgan from "morgan";
 import type { Application } from "express";
 import authRoutes from './routes/auth.routes.ts'
 import eventRoutes from "./routes/event.routes.ts";
+import userRoutes from './routes/user.routes.ts';
+import errorHandler from './middlewares/error.middleware.ts';
 const FRONTEND_URL = process.env.FRONTEND_URL || "*";
 
 const app: Application = express();
@@ -19,5 +21,14 @@ app.use(morgan("dev"));
 
 app.use('/api/auth', authRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/users", userRoutes);
+
+// 404 handler for unknown API routes - return JSON
+app.use((req, res) => {
+	res.status(404).json({ status: 'fail', message: 'Not Found' });
+});
+
+// Register centralized error handler (returns JSON)
+app.use(errorHandler);
 
 export default app;

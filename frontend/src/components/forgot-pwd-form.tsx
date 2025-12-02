@@ -7,10 +7,13 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Lock } from "lucide-react"
-export function ForgotPwdForm({ className, onSubmit, ...props }: React.ComponentProps<"div"> & { onSubmit?: () => void }) {
-  const handleSubmit = (e: React.FormEvent) => {
+export function ForgotPwdForm({ className, onSubmit, ...props }: React.ComponentProps<"div"> & { onSubmit?: (email: string) => void | Promise<void> }) {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    onSubmit?.()
+    const form = e.currentTarget
+    const fd = new FormData(form)
+    const email = (fd.get('email') as string) || ''
+    onSubmit?.(email)
   }
 
   return (
@@ -28,7 +31,7 @@ export function ForgotPwdForm({ className, onSubmit, ...props }: React.Component
           </div>
           <Field>
             <FieldLabel htmlFor="email">Email address</FieldLabel>
-            <Input id="email" type="email" placeholder="m@example.com" required />
+            <Input id="email" name="email" type="email" placeholder="m@example.com" required />
           </Field>
           <Field>
             <Button type="submit" className="w-full">Continue</Button>
