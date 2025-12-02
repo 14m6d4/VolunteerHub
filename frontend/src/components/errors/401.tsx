@@ -1,20 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import icon404 from "@/assets/404.svg";
+import icon401 from "@/assets/401.svg";
 import { useNavigate } from "react-router-dom";
 
-export default function Error404() {
+export default function Error403() {
   const navigate = useNavigate();
 
   return (
     <div className="grid h-screen items-center bg-background pb-8 lg:grid-cols-2 lg:pb-0">
       <div className="text-center">
-        <p className="text-base font-semibold text-muted-foreground">404</p>
+        <p className="text-base font-semibold text-muted-foreground">401</p>
         <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-5xl lg:text-7xl">
-          Page not found
+          Unauthorized Access
         </h1>
         <p className="mt-6 text-base leading-7 text-muted-foreground">
-          Sorry, we couldn’t find the page you’re looking for.
+          Please log in with the appropriate credentials to access this resource.
         </p>
         <div className="mt-10 flex items-center justify-center gap-x-2">
           <Button size="lg" onClick={() => navigate(-1)}>
@@ -28,7 +28,7 @@ export default function Error404() {
 
       <div className="hidden lg:block">
         <img
-          src={icon404}
+          src={icon401}
           alt="Login visual"
           className="object-contain"
         />
