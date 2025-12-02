@@ -17,6 +17,8 @@ export interface IUser {
     _id: ObjectId;
     // Auth & Profile
     username: string;
+    // Optional full/display name
+    name?: string;
     email: string;
     passwordHash?: string;
     birthdate: Date;
@@ -73,6 +75,7 @@ export interface IRegisterDTO {
   email: string;
   password: string;
   birthdate: Date;
+  name?: string;
   role?: UserRole;
 }
 
@@ -83,5 +86,6 @@ export type UpdateProfileData = {
   notificationsEnabled?: boolean;
   notifyOnMention?: boolean;
   notifyOnEventUpdate?: boolean;
+  name?: string;
   // email, role, authProvider not allowed here
 };

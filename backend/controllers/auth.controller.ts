@@ -48,7 +48,7 @@ export async function register(req: Request, res: Response, next: NextFunction):
             id: newUser._id.toString(),
             email: newUser.email,
             role: newUser.role,
-            name: newUser.username,
+            name: newUser.name || newUser.username,
         }
       }
     });
@@ -67,10 +67,10 @@ export async function verifyOTP(req: Request, res: Response, next: NextFunction)
     const accessToken = createAccessToken(payload);
     
     res.status(200).json({
-        status: 'success',
-        message: 'Account verified successfully.',
-        accessToken,
-        user: { id: verifiedUser._id.toString(), email: verifiedUser.email, name: verifiedUser.username, role: verifiedUser.role }
+      status: 'success',
+      message: 'Account verified successfully.',
+      accessToken,
+      user: { id: verifiedUser._id.toString(), email: verifiedUser.email, name: verifiedUser.name || verifiedUser.username, role: verifiedUser.role }
     });
 
   } catch (error) {

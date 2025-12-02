@@ -72,7 +72,7 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
       id: user._id.toString(),
       email: user.email,
       role: user.role,
-      name: user.username,
+      name: (user.name as string) || user.username,
     },
   };
 }
@@ -83,7 +83,7 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
  * @returns The newly created user document
  */
 export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
-  const { username, email, password, birthdate, role } = data;
+  const { username, email, password, birthdate, role, name } = data;
 
   // 1. Check if email or username already exists
   const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -95,21 +95,25 @@ export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
   const otpExpiresAt = getOTPExpiration(10);
   
   // 2. Create the user object
-  const newUser = await User.create({
+  const createData: any = {
     username,
     email,
     passwordHash: password, // Mongoose hook handles hashing
     birthdate,
     role: role || UserRole.Volunteer,
-    isVerified: false, 
+    isVerified: false,
     otp: otpCode,
     otpExpiresAt: otpExpiresAt,
-  });
+  }
 
-  sendVerificationEmail(newUser, otpCode);
+  if (name) createData.name = name
+
+  const newUserDoc = await User.create(createData) as unknown as IUserDocument;
+
+  sendVerificationEmail(newUserDoc, otpCode);
 
   // Prepare response (remove passwordHash)
-  const userResponse = newUser.toObject();
+  const userResponse = (newUserDoc as any).toObject();
   delete userResponse.passwordHash;
   delete userResponse.otp;
   delete userResponse.otpExpiresAt;

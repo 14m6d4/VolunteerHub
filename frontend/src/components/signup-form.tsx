@@ -1,3 +1,4 @@
+import React, { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,12 +13,19 @@ import { Input } from "@/components/ui/input"
 export function SignupForm({
   className,
   onRegister,
+  error,
   ...props
-}: Omit<React.ComponentProps<"form">, "onSubmit"> & { onRegister?: (payload: { username: string; email: string; password: string; name?: string; birthdate?: string }) => void | Promise<void> }) {
+}: Omit<React.ComponentProps<"form">, "onSubmit"> & {
+  onRegister?: (payload: { username: string; email: string; password: string; name?: string; birthdate?: string }) => void | Promise<void>
+  error?: string | string[]
+}) {
+  const [localError, setLocalError] = useState<string | null>(null)
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
     const fd = new FormData(form)
+
     const payload = {
       name: (fd.get('name') as string) || undefined,
       username: (fd.get('username') as string) || '',
@@ -26,24 +34,55 @@ export function SignupForm({
       birthdate: (() => {
           const rawBirthdate = (fd.get('birthdate') as string) || '';
 
-          // If user provided a birthdate, return it
           if (rawBirthdate) {
               return rawBirthdate;
           }
           
-          // Default date: January 1, 1995 (Month is 0-indexed in JS, so 0 is January)
           const defaultDate = new Date(1995, 0, 1); 
           
-          // Return the full ISO 8601 datetime string (e.g., "1995-01-01T00:00:00.000Z")
           return defaultDate.toISOString();
       })(),
     }
-    await onRegister?.(payload)
+
+    // Clear previous local error
+    setLocalError(null)
+
+    const pw = (fd.get('password') as string) || ''
+    const confirm = (fd.get('confirm-password') as string) || ''
+    if (pw !== confirm) {
+      setLocalError('Passwords do not match')
+      return
+    }
+
+    try {
+      await onRegister?.(payload)
+    } catch (err: any) {
+      try {
+        const parsed = typeof err === 'string' ? err : (err?.message || JSON.stringify(err))
+        setLocalError(parsed)
+      } catch {
+        setLocalError('Registration failed')
+      }
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className={cn("flex flex-col gap-6", className)} {...props}>
       <FieldGroup>
+        {/* Error display: prefer external `error` prop, otherwise local client/server errors */}
+        {(() => {
+          const display = error ?? localError
+          if (!display) return null
+          return (
+            <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
+              {Array.isArray(display)
+                ? (display as string[]).map((m: string, i: number) => (
+                    <div key={i}>{m}</div>
+                  ))
+                : display}
+            </div>
+          )
+        })()}
         <div className="flex flex-col items-center gap-1 text-center">
           <h1 className="text-2xl font-bold">Create your account</h1>
           <p className="text-muted-foreground text-sm text-balance">
