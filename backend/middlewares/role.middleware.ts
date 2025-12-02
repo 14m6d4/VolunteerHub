@@ -13,7 +13,6 @@ export function roleMiddleware(allowedRoles: UserRole[] | string[]) {
         if (!allowedRoles.includes(user.role)) {
             return next(createHttpError(403, "Forbidden: insufficient permissions"));
         }
-
         next();
     };
 }

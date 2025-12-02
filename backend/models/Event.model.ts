@@ -39,7 +39,7 @@ const EventSchema = new Schema<IEvent>(
             default: EventStatus.PENDING
         },
         isPublic: { type: Boolean, default: true },
-        managerId: { type: Schema.Types.ObjectId, ref: "User", required: false },
+        managerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
         pinnedPostId: { type: Schema.Types.ObjectId, ref: "Post", default: null }
     },
     { timestamps: true }

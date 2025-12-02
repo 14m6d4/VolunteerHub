@@ -15,9 +15,9 @@ export const EventController = {
     },
     async create(req: Request, res: Response, next: NextFunction) {
         try {
+            console.log("Creating event with body:", req.body);
             // managerId from auth middleware
-            // const managerId = (req.user as any)._id;
-            const managerId = new Types.ObjectId(); // temporary for testing without auth
+            const managerId = (req.user as any)._id;
             const event = await EventService.createEvent(req.body, managerId);
             return res.status(201).json({ success: true, data: event });
         } catch (err) {
