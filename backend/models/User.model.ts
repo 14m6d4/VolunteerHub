@@ -34,7 +34,9 @@ const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
     },
     birthdate: {
         type: Date,
-        required: true,
+        required: function(this: IUserDocument) {
+            return this.authProvider === 'local';
+        },
     },
     role: {
         type: String,

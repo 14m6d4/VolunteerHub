@@ -5,7 +5,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import LoginPage from "@/pages/auth/Login"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
-import EventsTest from "./pages/test/EventsTest";
+import EventsTest from "./pages/test/TestRouter";
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"

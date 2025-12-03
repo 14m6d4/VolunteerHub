@@ -39,24 +39,42 @@ export const EventService = {
         return event;
     },
 
-    async findEvents(filters: any = {}, options: { page?: number; limit?: number } = {}) {
+    async findEvents(
+        filters: any = {},
+        options: { page?: number; limit?: number } = {}
+    ) {
         const page = Number(options.page || 1);
         const limit = Math.min(100, Number(options.limit || 20));
         const skip = (page - 1) * limit;
 
         const query: any = {};
 
+        // Text search
         if (filters.q) {
             query.$text = { $search: filters.q };
         }
-        if (filters.status) query.status = filters.status;
-        if (filters.tag) query.tags = filters.tag;
-        if (filters.startFrom) query.startAt = { $gte: new Date(filters.startFrom) };
-        if (filters.managerId) query.managerId = filters.managerId;
 
-        // default: only approved or public events visible to general users
-        if (!filters.includeDrafts) {
-            query.status = query.status || EventStatus.APPROVED;
+        // Tag filter
+        if (filters.tag) query.tags = filters.tag;
+
+        // Status filter
+        if (filters.status) {
+            // Hỗ trợ nhiều status nếu muốn: "pending,approved"
+            if (typeof filters.status === "string" && filters.status.includes(",")) {
+                query.status = { $in: filters.status.split(",") };
+            } else {
+                query.status = filters.status;
+            }
+        }
+
+        // Start date filter
+        if (filters.startFrom) {
+            query.startAt = { $gte: new Date(filters.startFrom) };
+        }
+
+        // Manager filter
+        if (filters.managerId) {
+            query.managerId = filters.managerId;
         }
 
         const [items, total] = await Promise.all([
@@ -64,8 +82,12 @@ export const EventService = {
             EventModel.countDocuments(query)
         ]);
 
+        console.log("Constructed query:", query);
+        console.log(`Found ${total} events matching criteria.`);
+
         return { items, total, page, limit };
     },
+
 
     async approveEvent(eventId: string) {
         const event = await EventModel.findById(eventId);

@@ -18,13 +18,13 @@ const EventsTest: React.FC = () => {
 
         // Attach token to axios globally
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-        try {
-            const res = await axios.get("http://localhost:5000/api/auth/me");
-            setUser(res.data.user || res.data.data);
-        } catch (err) {
-            console.error("Invalid token or expired", err);
-        }
+        setUser(localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")!) : null);
+        // try {
+        //     const res = await axios.get("http://localhost:5000/api/auth/me");
+        //     setUser(res.data.user || res.data.data);
+        // } catch (err) {
+        //     console.error("Invalid token or expired", err);
+        // }
     };
 
     const fetchEvents = async () => {

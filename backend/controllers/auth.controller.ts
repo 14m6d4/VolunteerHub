@@ -137,3 +137,19 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
     next(error);
   }
 }
+
+export const googleAuthCallback = (req: Request, res: Response, next: NextFunction) => {
+    const { token } = req.user as any; 
+
+    if (!token) {
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_failed`);
+    }
+
+    res.cookie('jwt', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    res.redirect(`${process.env.FRONTEND_URL}`);
+};

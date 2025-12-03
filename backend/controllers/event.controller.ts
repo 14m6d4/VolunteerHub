@@ -47,21 +47,42 @@ export const EventController = {
 
     async list(req: Request, res: Response, next: NextFunction) {
         try {
+            const user = req.user; // undefined nếu không login
+            const status = req.query.status as string | undefined;
+            console.log("List Events - User:", user ? { id: (user as any)._id, role: (user as any).role } : null, "Status:", status);
+            // Phân quyền status
+            if (status === "pending") {
+                if (!user) {
+                    return res.status(403).json({ success: false, message: "Forbidden" });
+                }
+                if (user.role === "manager") {
+                    // manager chỉ được xem event pending do họ tạo
+                    req.query.managerId = user._id;
+                } else if (user.role !== "admin") {
+                    return res.status(403).json({ success: false, message: "Forbidden" });
+                }
+            }
+
             const filters = {
-                q: req.query.q,
-                tag: req.query.tag,
-                status: req.query.status,
-                startFrom: req.query.startFrom,
-                includeDrafts: req.query.includeDrafts === "true"
+                q: req.query.q as string | undefined,
+                tag: req.query.tag as string | undefined,
+                status,
+                startFrom: req.query.startFrom as string | undefined,
+                includeDrafts: req.query.includeDrafts === "true",
+                managerId: req.query.managerId as string | undefined,
             };
+
             const page = Number(req.query.page || 1);
             const limit = Number(req.query.limit || 20);
+
             const result = await EventService.findEvents(filters, { page, limit });
             return res.json({ success: true, ...result });
         } catch (err) {
             next(err);
         }
     },
+
+
 
     async approve(req: Request, res: Response, next: NextFunction) {
         try {
@@ -100,5 +121,5 @@ export const EventController = {
         } catch (err) {
             next(err);
         }
-    }
+    },
 };
