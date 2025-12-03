@@ -20,6 +20,7 @@ export const validateBody = (schema: ZodSchema) => {
         const errorMessages = error.issues
           .map((err) => `${err.path.join('.')}: ${err.message}`)
           .join(', ');
+        console.error("Validation error:", errorMessages);
         return next(new AppError(`Validation failed: ${errorMessages}`, 400));
       }
       return next(new AppError('Validation failed with unknown error.', 400));

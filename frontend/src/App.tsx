@@ -5,6 +5,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import LoginPage from "@/pages/auth/Login"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
+import EventsTest from "./pages/test/TestRouter";
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"
@@ -29,6 +30,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<SignupPage />} />
               <Route path="/password_reset" element={<PasswordResetPage />} />
+              <Route path="/test/events" element={<EventsTest />} />
               <Route path="*" element={<Error404 />} />
               <Route path="500" element={<Error500 />} />
               <Route path="503" element={<Error503 />} />
