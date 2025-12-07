@@ -37,6 +37,7 @@ function AppContent() {
             }
           />
           {/* Thêm các route chính khác cần footer vào đây */}
+          <Route path="/test/events" element={<EventsTest />} />
         </Route>
 
         {/* Nhóm các trang KHÔNG CÓ Footer */}
