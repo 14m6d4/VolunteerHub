@@ -6,6 +6,7 @@ export default function ManagerPage() {
     const [pending, setPending] = useState([]);
     const [newEvent, setNewEvent] = useState("");
     const [user, setUser] = useState<any>(null);
+    const [registrations, setRegistrations] = useState<any>({});
 
     const loadUser = async () => {
         const token = localStorage.getItem("accessToken");
@@ -22,10 +23,23 @@ export default function ManagerPage() {
         setPending(resPending.data.data || []);
     };
 
+    const fetchRegistrationsForEvent = async (eventId: string) => {
+        const res = await axios.get(`http://localhost:5000/api/register/${eventId}`);
+        setRegistrations((prev: any) => ({
+            ...prev,
+            [eventId]: res.data.data || []
+        }));
+    };
+
+    const approveVolunteer = async (eventId: string, regId: string) => {
+        await axios.post(`http://localhost:5000/api/register/approve/${regId}`);
+        fetchRegistrationsForEvent(eventId);
+    };
+
     const createEvent = async () => {
         await axios.post("http://localhost:5000/api/events", {
             title: newEvent,
-            status: "pending",
+            status: "pending"
         });
         setNewEvent("");
         fetchMyEvents();
@@ -39,10 +53,37 @@ export default function ManagerPage() {
         <div style={{ padding: 20 }}>
             <h2>Manager – Sự kiện của bạn</h2>
 
-            <h3>Đã được duyệt</h3>
+            <h3>Đã duyệt</h3>
             {approved.map((e: any) => (
                 <div key={e._id} style={{ border: "1px solid #ccc", marginTop: 10, padding: 12 }}>
                     <b>{e.title}</b>
+
+                    <button
+                        onClick={() => fetchRegistrationsForEvent(e._id)}
+                        style={{ marginLeft: 10 }}
+                    >
+                        Xem đăng ký
+                    </button>
+
+                    {registrations[e._id] && (
+                        <div style={{ marginTop: 10, paddingLeft: 20 }}>
+                            <h4>Volunteer chờ duyệt</h4>
+
+                            {registrations[e._id]
+                                .filter((r: any) => r.status === "pending")
+                                .map((r: any) => (
+                                    <div key={r._id} style={{ marginTop: 8 }}>
+                                        {r.volunteerId?.email}
+                                        <button
+                                            onClick={() => approveVolunteer(e._id, r._id)}
+                                            style={{ marginLeft: 10, background: "green", color: "white" }}
+                                        >
+                                            Approve
+                                        </button>
+                                    </div>
+                                ))}
+                        </div>
+                    )}
                 </div>
             ))}
 

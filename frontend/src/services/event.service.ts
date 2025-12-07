@@ -14,7 +14,6 @@ export async function getEvents(filters?: {
 }
 
 export async function getEventsByManager(id: string, filters?: { status?: string }) {
-    // Manager vẫn gọi /events với managerId filter
     return apiFetch("/events", {
         query: { managerId: id, ...filters },
     });
@@ -27,14 +26,32 @@ export async function createEvent(data: any) {
     });
 }
 
-export async function approveEvent(id: string) {
-    return apiFetch(`/events/${id}/approve`, {
+export async function registerEvent(eventId: string) {
+    return apiFetch(`/register/${eventId}`, {
+        method: "POST",
+    });
+}
+
+export async function unregisterEvent(eventId: string) {
+    return apiFetch(`/register/${eventId}`, {
+        method: "DELETE",
+    });
+}
+
+export async function getEventRegistrations(eventId: string) {
+    return apiFetch(`/register/${eventId}/`, {
+        method: "GET",
+    });
+}
+
+export async function approveRegistration(registrationId: string) {
+    return apiFetch(`/register/${registrationId}/approve`, {
         method: "PATCH",
     });
 }
 
-export async function deleteEvent(id: string) {
-    return apiFetch(`/events/${id}`, {
-        method: "DELETE",
+export async function getMyRegistrations() {
+    return apiFetch(`/register/me`, {
+        method: "GET",
     });
 }

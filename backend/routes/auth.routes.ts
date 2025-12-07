@@ -39,7 +39,7 @@ router.post(
 router.post(
   '/verify-otp',
   // TODO: Validation middleware cho email và otp
-  authController.verifyOTP 
+  authController.verifyOTP
 );
 
 // Forgot password - send reset OTP
@@ -75,17 +75,17 @@ router.get(
 );
 
 router.get(
-    '/google', 
-    passport.authenticate('google', { scope: ['profile', 'email'] })
+  '/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
 );
 
 router.get(
-    '/google/callback',
-    passport.authenticate('google', { 
-        failureRedirect: `${process.env.FRONTEND_URL}/login?error=google_auth_failed`,
-        session: false
-    }),
-    authController.googleAuthCallback 
+  '/google/callback',
+  passport.authenticate('google', {
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=google_auth_failed`,
+    session: false
+  }),
+  authController.googleAuthCallback
 );
 
 export default router;

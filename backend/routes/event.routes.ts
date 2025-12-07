@@ -4,6 +4,7 @@ import { authMiddleware, optionalAuthMiddleware } from "../middlewares/auth.midd
 import { roleMiddleware } from "../middlewares/role.middleware.ts";
 import { validateBody } from "../middlewares/validation.middleware.ts";
 import { createEventSchema, updateEventSchema } from "../utils/validators.ts";
+import registrationRoutes from "./registration.routes.ts";
 
 const router = express.Router();
 
@@ -13,9 +14,10 @@ router.post("/", authMiddleware, roleMiddleware(["manager", "admin"]), validateB
 router.get("/all", EventController.getAll);
 router.put("/:id", authMiddleware, roleMiddleware(["manager", "admin"]), validateBody(updateEventSchema), EventController.update);
 router.patch("/:id/approve", authMiddleware, roleMiddleware(["admin"]), EventController.approve);
-router.post("/:id/cancel", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.cancel);
+router.delete("/:id/cancel", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.cancel);
 router.post("/:eventId/pin", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.pinPost);
 router.get("/:id/stats", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.stats);
-
 router.get("/:id", EventController.getById);
+
+
 export default router;

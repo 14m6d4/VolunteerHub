@@ -15,14 +15,16 @@ export const RegistrationController = {
 
     async cancel(req: Request, res: Response, next: NextFunction) {
         try {
-            const eventId = req.params.eventId;
-            const volunteerId = (req.user as any)._id;
-            const reg = await RegistrationService.cancelRegistration(eventId, volunteerId);
-            return res.json({ success: true, data: reg });
+            const event = await RegistrationService.cancelRegistration(
+                req.params.eventId,          // eventId
+                (req.user as any)._id   // volunteerId
+            );
+            return res.json({ success: true, ...event }); // trước đây là dữ liệu reg, bây giờ là { message: ... }
         } catch (err) {
             next(err);
         }
     },
+
 
     async approve(req: Request, res: Response, next: NextFunction) {
         try {
@@ -59,6 +61,7 @@ export const RegistrationController = {
         try {
             const userId = (req.user as any)._id;
             const items = await RegistrationService.getUserRegistrations(userId);
+            // console.log(items);
             return res.json({ success: true, data: items });
         } catch (err) {
             next(err);
