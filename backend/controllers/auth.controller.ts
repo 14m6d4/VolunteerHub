@@ -179,17 +179,16 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
 }
 
 export const googleAuthCallback = (req: Request, res: Response, next: NextFunction) => {
-    const { token } = req.user as any; 
+    const { token, user } = req.user as any; 
 
     if (!token) {
         return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_failed`);
     }
 
-    res.cookie('jwt', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+    // Pass token as query parameter so frontend can capture and store it in localStorage
+    const redirectUrl = new URL(`${process.env.FRONTEND_URL}`);
+    redirectUrl.searchParams.set('accessToken', token);
+    if (user?.id) redirectUrl.searchParams.set('userId', user.id);
 
-    res.redirect(`${process.env.FRONTEND_URL}`);
+    res.redirect(redirectUrl.toString());
 };
