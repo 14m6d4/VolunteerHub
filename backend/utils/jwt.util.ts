@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 const JWT_SECRET: string = process.env.JWT_SECRET || 'secret123'; 
 
-const ACCESS_TOKEN_EXPIRATION = '15m'; 
+const ACCESS_TOKEN_EXPIRATION = '40m'; 
 
 const REFRESH_TOKEN_EXPIRATION = '7d';
 
