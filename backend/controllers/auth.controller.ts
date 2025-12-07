@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { loginUser, registerUser, verifyUserOTP, sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtp } from '../services/auth.service.ts'; 
-import { createAccessToken } from '../utils/jwt.util.ts';
+import { loginUser, registerUser, verifyUserOTP, sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtp, getAuthenticatedUser } from '../services/auth.service.ts'; 
+import { createAccessToken, verifyToken } from '../utils/jwt.util.ts';
 import { type ITokenPayload } from '../types/user.ts';
 /**
  * Handles POST /api/auth/login endpoint
@@ -133,6 +133,46 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
     const user = await resetPasswordWithOtp(email, otp, password);
 
     res.status(200).json({ status: 'success', message: 'Password has been reset.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/auth/me
+ * Returns the authenticated user's profile.
+ */
+export async function getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ status: 'fail', message: 'Authentication token missing.' });
+      return;
+    }
+
+    const token = authHeader.split(' ')[1];
+    let payload;
+    try {
+      payload = verifyToken(token);
+    } catch (err: any) {
+      res.status(401).json({ status: 'fail', message: 'Invalid or expired token.' });
+      return;
+    }
+
+    const user = await getAuthenticatedUser(payload.id);
+
+    res.status(200).json({
+      status: 'success',
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        isVerified: user.isVerified,
+        isActive: user.isActive,
+      },
+    });
   } catch (error) {
     next(error);
   }
