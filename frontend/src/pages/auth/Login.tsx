@@ -1,8 +1,23 @@
 import { GalleryVerticalEnd } from "lucide-react"
 import illustration from "@/assets/login-illustration.jpg"
 import { LoginForm } from "@/components/login-form"
+import { useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
+import * as authService from "@/services/auth.service"
 
 export default function LoginPage() {
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    // If accessToken in URL (from Google OAuth redirect), store it and fetch profile
+    const accessToken = searchParams.get('accessToken')
+    if (accessToken) {
+      authService.setAuthToken(accessToken)
+      // Redirect to home so useAuth hook can fetch profile
+      window.location.href = '/'
+    }
+  }, [searchParams])
+
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">

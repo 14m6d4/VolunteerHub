@@ -1,5 +1,5 @@
 import "./App.css"
-import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Outlet, useSearchParams } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ModeToggle } from "@/components/mode-toggle"
 import LoginPage from "@/pages/auth/Login"
@@ -12,6 +12,28 @@ import Error503 from "./components/errors/503"
 import Error403 from "./components/errors/403"
 import Error401 from "./components/errors/401"
 import Footer from "@/components/common/Footer"
+import { useEffect } from "react"
+import * as authService from "@/services/auth.service"
+
+function HomePage() {
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    // If accessToken in URL (from Google OAuth redirect), store it
+    const accessToken = searchParams.get('accessToken')
+    if (accessToken) {
+      authService.setAuthToken(accessToken)
+      // Clean URL by redirecting without params
+      window.history.replaceState({}, document.title, '/')
+    }
+  }, [searchParams])
+
+  return (
+    <header className="w-full flex justify-end p-4">
+      <ModeToggle />
+    </header>
+  )
+}
 
 function AppContent() {
   return (
@@ -28,14 +50,7 @@ function AppContent() {
             </>
           }
         >
-          <Route
-            path="/"
-            element={
-              <header className="w-full flex justify-end p-4">
-                <ModeToggle />
-              </header>
-            }
-          />
+          <Route path="/" element={<HomePage />} />
           {/* Thêm các route chính khác cần footer vào đây */}
         </Route>
 
