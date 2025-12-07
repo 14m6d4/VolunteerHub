@@ -37,6 +37,17 @@ export const RegistrationController = {
         }
     },
 
+    async reject(req: Request, res: Response, next: NextFunction) {
+        try {
+            const regId = req.params.regId;
+            const managerId = (req.user as any)._id;
+            const result = await RegistrationService.rejectRegistration(regId, managerId);
+            return res.json({ success: true, data: result });
+        } catch (err) {
+            next(err);
+        }
+    },
+
     async markCompleted(req: Request, res: Response, next: NextFunction) {
         try {
             const regId = req.params.regId;

@@ -1,13 +1,9 @@
+// EventsPage.tsx
 import { useEffect, useState } from "react";
 import useAuth from "@/hooks/useAuth";
-import {
-    getEvents,
-    createEvent,
-    registerEvent,
-    unregisterEvent,
-    getMyRegistrations
-} from "@/services/event.service";
+import { getEvents, getEventRegistrations, registerEvent, unregisterEvent, getMyRegistrations } from "@/services/event.service";
 import { approveEvent, deleteEvent } from "@/services/admin.service";
+import EventCard from "@/pages/test/EventCard"; // Đảm bảo đúng đường dẫn
 
 export default function EventsPage() {
     const { user } = useAuth();
@@ -15,6 +11,8 @@ export default function EventsPage() {
     const [pendingEvents, setPendingEvents] = useState([]);
     const [approvedEvents, setApprovedEvents] = useState([]);
     const [myRegistrations, setMyRegistrations] = useState([]);
+    const [eventRegistrations, setEventRegistrations] = useState<any>(null); // Lưu trữ đăng ký sự kiện
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null); // Để track sự kiện đang xem đăng ký
 
     useEffect(() => {
         loadEvents();
@@ -30,12 +28,10 @@ export default function EventsPage() {
                 const approvedRes = await getEvents({ status: "approved" });
                 setPendingEvents(pendingRes.items ?? []);
                 setApprovedEvents(approvedRes.items ?? []);
-            }
-            else if (user.role === "manager") {
+            } else if (user.role === "manager") {
                 const res = await getEvents({});
                 setApprovedEvents(res.items ?? []);
-            }
-            else if (user.role === "volunteer") {
+            } else if (user.role === "volunteer") {
                 const eventsRes = await getEvents({ status: "approved" });
                 setApprovedEvents(eventsRes.items ?? []);
 
@@ -69,6 +65,25 @@ export default function EventsPage() {
         loadEvents();
     }
 
+    // Hàm để gọi API lấy danh sách đơn đăng ký của sự kiện
+    // EventsPage.tsx
+    const handleViewRegistrations = async (eventId: string) => {
+        try {
+            setSelectedEventId(eventId); // Đánh dấu sự kiện hiện tại
+            const res = await getEventRegistrations(eventId); // Gọi API lấy đơn đăng ký
+            console.log("Registrations data:", res.data.data); // Kiểm tra dữ liệu API trả về
+            // Kiểm tra xem dữ liệu có phải là mảng không trước khi cập nhật
+            if (Array.isArray(res.data.data)) {
+                setEventRegistrations(res.data.data); // Lưu đăng ký vào state
+            } else {
+                setEventRegistrations([]); // Nếu không phải mảng, trả về mảng rỗng
+            }
+        } catch (err) {
+            console.error("Error fetching registrations:", err);
+        }
+    };
+
+
     return (
         <div className="p-6 max-w-5xl mx-auto">
             <h1 className="text-2xl font-bold mb-4">Events</h1>
@@ -90,6 +105,7 @@ export default function EventsPage() {
                                 onApprove={handleApprove}
                                 onDelete={handleDelete}
                                 myRegs={myRegistrations}
+                                onViewRegistrations={handleViewRegistrations} // Truyền hàm vào
                             />
                         ))}
                     </div>
@@ -108,77 +124,32 @@ export default function EventsPage() {
                             onUnregister={handleUnregister}
                             onDelete={handleDelete}
                             myRegs={myRegistrations}
+                            onApprove={handleApprove}
+                            onViewRegistrations={handleViewRegistrations} // Truyền hàm vào
                         />
                     ))}
                 </div>
             </section>
-        </div>
-    );
-}
 
-function EventCard({
-    event,
-    user,
-    onRegister,
-    onUnregister,
-    onApprove,
-    onDelete,
-    myRegs
-}: any) {
-
-    const reg = myRegs?.find((r: any) => r.eventId?._id === event._id);
-
-    return (
-        <div className="border p-4 rounded shadow">
-            <h3 className="font-semibold text-lg mb-2">{event.title}</h3>
-
-            <p className="text-sm mb-2">
-                Status:{" "}
-                {event.status === "approved" ? (
-                    <span className="text-green-600 font-semibold">Approved</span>
-                ) : (
-                    <span className="text-yellow-600 font-semibold">Pending</span>
-                )}
-            </p>
-
-            <div className="flex gap-2 mt-2">
-
-                {user?.role === "admin" && event.status !== "approved" && (
-                    <button
-                        onClick={() => onApprove(event._id)}
-                        className="px-3 py-1 bg-green-600 text-white rounded"
-                    >
-                        Approve
-                    </button>
-                )}
-
-                {["admin", "manager"].includes(user?.role) && (
-                    <button
-                        onClick={() => onDelete(event._id)}
-                        className="px-3 py-1 bg-red-600 text-white rounded"
-                    >
-                        Delete
-                    </button>
-                )}
-
-                {user?.role === "volunteer" && event.status === "approved" && (
-                    !reg ? (
-                        <button
-                            onClick={() => onRegister(event._id)}
-                            className="px-3 py-1 bg-blue-600 text-white rounded"
-                        >
-                            Register
-                        </button>
-                    ) : (
-                        <button
-                            onClick={() => onUnregister(event._id)}
-                            className="px-3 py-1 bg-gray-600 text-white rounded"
-                        >
-                            Cancel
-                        </button>
-                    )
-                )}
-            </div>
+            {/* Hiển thị danh sách đăng ký khi có dữ liệu */}
+            {eventRegistrations && selectedEventId && (
+                <section className="mt-6">
+                    <h2 className="text-xl font-semibold mb-2">Registrations for Event {selectedEventId}</h2>
+                    <div className="grid grid-cols-1 gap-4">
+                        {eventRegistrations.length > 0 ? (
+                            eventRegistrations.map((reg: any) => (
+                                <div key={reg._id} className="border p-4 rounded shadow">
+                                    <p>Email: {reg.volunteerId?.email}</p>
+                                    <p>Status: {reg.status}</p>
+                                    {/* Hiển thị thông tin đơn đăng ký */}
+                                </div>
+                            ))
+                        ) : (
+                            <p>No registrations found for this event.</p>
+                        )}
+                    </div>
+                </section>
+            )}
         </div>
     );
 }

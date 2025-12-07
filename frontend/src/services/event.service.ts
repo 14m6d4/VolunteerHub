@@ -13,12 +13,6 @@ export async function getEvents(filters?: {
     });
 }
 
-export async function getEventsByManager(id: string, filters?: { status?: string }) {
-    return apiFetch("/events", {
-        query: { managerId: id, ...filters },
-    });
-}
-
 export async function createEvent(data: any) {
     return apiFetch("/events", {
         method: "POST",
@@ -46,6 +40,12 @@ export async function getEventRegistrations(eventId: string) {
 
 export async function approveRegistration(registrationId: string) {
     return apiFetch(`/register/${registrationId}/approve`, {
+        method: "PATCH",
+    });
+}
+
+export async function rejectRegistration(registrationId: string) {
+    return apiFetch(`/register/${registrationId}/reject`, {
         method: "PATCH",
     });
 }

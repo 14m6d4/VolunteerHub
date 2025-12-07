@@ -14,7 +14,7 @@ export async function login(payload: LoginPayload) {
   try {
     // eslint-disable-next-line no-console
     console.debug('[auth.service] login response:', data);
-  } catch {}
+  } catch { }
 
   // Support common token field names (accessToken, access_token, token)
   const token = data?.accessToken || data?.access_token || data?.token;
@@ -46,7 +46,7 @@ export async function register(payload: { username: string; email: string; passw
   try {
     // eslint-disable-next-line no-console
     console.debug('[auth.service] register response:', data);
-  } catch {}
+  } catch { }
 
   return data;
 }
@@ -60,7 +60,7 @@ export async function verifyOTP(payload: { email: string; otp: string }) {
   try {
     // eslint-disable-next-line no-console
     console.debug('[auth.service] verifyOTP response:', data);
-  } catch {}
+  } catch { }
 
   return data;
 }
