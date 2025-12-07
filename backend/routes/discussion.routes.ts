@@ -1,21 +1,14 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import express from "express";
+import { DiscussionController } from "../controllers/discussion.controller.ts";
+import { authMiddleware } from "../middlewares/auth.middleware.ts";
+import { roleMiddleware } from "../middlewares/role.middleware.ts";
 
-export interface IDiscussion extends Document {
-    eventId: mongoose.Types.ObjectId;
-    createdAt: Date;
-    updatedAt: Date;
-    locked?: boolean;
-}
+const router = express.Router();
 
-const DiscussionSchema = new Schema<IDiscussion>(
-    {
-        eventId: { type: Schema.Types.ObjectId, ref: "Event", required: true, unique: true },
-        locked: { type: Boolean, default: false }
-    },
-    { timestamps: true }
-);
+router.get("/:discussionId/posts", authMiddleware, DiscussionController.getPosts);
+router.post("/:discussionId/posts", authMiddleware, DiscussionController.createPost);
+router.post("/posts/:postId/like", authMiddleware, DiscussionController.likePost);
+// manager/admin delete post
+router.delete("/posts/:postId", authMiddleware, roleMiddleware(["manager", "admin"]), DiscussionController.deletePost);
 
-export const DiscussionModel: Model<IDiscussion> = mongoose.model<IDiscussion>(
-    "Discussion",
-    DiscussionSchema
-);
+export default router;

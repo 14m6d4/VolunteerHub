@@ -1,41 +1,26 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import express from "express";
+import { RegistrationController } from "../controllers/registration.controller.ts";
+import { authMiddleware } from "../middlewares/auth.middleware.ts";
+import { roleMiddleware } from "../middlewares/role.middleware.ts";
 
-export enum RegistrationStatus {
-    PENDING = "pending", // waiting approval by manager
-    APPROVED = "approved",
-    REJECTED = "rejected",
-    CANCELLED = "cancelled",
-    COMPLETED = "completed"
-}
+const router = express.Router();
 
-export interface IRegistration extends Document {
-    eventId: mongoose.Types.ObjectId;
-    volunteerId: mongoose.Types.ObjectId;
-    status: RegistrationStatus;
-    createdAt: Date;
-    updatedAt: Date;
-    note?: string;
-    completedAt?: Date | null;
-}
+// register to event
+router.post("/:eventId", authMiddleware, RegistrationController.register);
 
-const RegistrationSchema = new Schema<IRegistration>(
-    {
-        eventId: { type: Schema.Types.ObjectId, ref: "Event", required: true, index: true },
-        volunteerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-        status: {
-            type: String,
-            enum: Object.values(RegistrationStatus),
-            default: RegistrationStatus.PENDING
-        },
-        note: { type: String, default: "" },
-        completedAt: { type: Date, default: null }
-    },
-    { timestamps: true }
-);
+// cancel registration (volunteer)
+router.delete("/:eventId", authMiddleware, RegistrationController.cancel);
 
-RegistrationSchema.index({ eventId: 1, volunteerId: 1 }, { unique: true });
+// manager approves a registration
+router.post("/approve/:regId", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.approve);
 
-export const RegistrationModel: Model<IRegistration> = mongoose.model<IRegistration>(
-    "Registration",
-    RegistrationSchema
-);
+// mark completed
+router.post("/complete/:regId", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.markCompleted);
+
+// list registrations for event (manager/admin)
+router.get("/event/:eventId", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.listForEvent);
+
+// user can view their registrations
+router.get("/me", authMiddleware, RegistrationController.myRegistrations);
+
+export default router;
