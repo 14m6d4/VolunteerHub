@@ -13,7 +13,7 @@ function buildUrl(path: string, query?: Record<string, string | number | boolean
 
 export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): Promise<T> {
   const token = localStorage.getItem('accessToken');
-  const headers: HeadersInit = {
+  const headers: any = {
     'Content-Type': 'application/json',
     ...(opts.headers || {}),
   };

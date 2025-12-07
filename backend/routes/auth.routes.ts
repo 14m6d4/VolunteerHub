@@ -4,6 +4,7 @@ import express, { type Request, type Response } from 'express';
 import * as authController from '../controllers/auth.controller.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
+import { authMiddleware } from '../middlewares/auth.middleware.ts';
 import passport from '../config/passport.ts';
 
 const router = express.Router();
@@ -60,6 +61,17 @@ router.post(
   '/reset-password',
   // TODO: add validation for { email, otp, password }
   authController.resetPassword
+);
+
+/**
+ * @route GET /api/auth/me
+ * @description Get authenticated user's profile
+ * @access Protected (requires Bearer token)
+ */
+router.get(
+  '/me',
+  authMiddleware,
+  authController.getMe
 );
 
 router.get(

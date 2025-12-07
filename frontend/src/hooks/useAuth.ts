@@ -4,19 +4,26 @@ import * as authService from '@/services/auth.service';
 type User = any;
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<User | null>(null);
 
+  // On mount: if an access token exists, fetch profile
   useEffect(() => {
-    if (user) localStorage.setItem('user', JSON.stringify(user));
-    else localStorage.removeItem('user');
-  }, [user]);
+    let mounted = true;
+    const init = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+        const res = await authService.getProfile();
+        if (mounted) setUser(res.user || null);
+      } catch (err) {
+        // failed to fetch profile, clear auth
+        authService.logout();
+        setUser(null);
+      }
+    };
+    init();
+    return () => { mounted = false };
+  }, []);
 
   const login = useCallback(async (payload: { email?: string; username?: string; password: string }) => {
     const data = await authService.login(payload);
@@ -24,7 +31,15 @@ export function useAuth() {
       // eslint-disable-next-line no-console
       console.debug('[useAuth] login result:', data);
     } catch {}
-    setUser(data.user || null);
+
+    // After login (token set), fetch profile from backend
+    try {
+      const profile = await authService.getProfile();
+      setUser(profile.user || null);
+    } catch (err) {
+      setUser(null);
+    }
+
     return data;
   }, []);
 

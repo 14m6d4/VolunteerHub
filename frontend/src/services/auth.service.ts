@@ -1,5 +1,7 @@
 import apiFetch, { setAuthToken, clearAuth } from './api';
 
+export { setAuthToken, clearAuth };
+
 type LoginPayload = { email?: string; username?: string; password: string };
 
 export async function login(payload: LoginPayload) {
@@ -23,6 +25,11 @@ export async function login(payload: LoginPayload) {
     console.warn('[auth.service] no access token found in login response');
   }
 
+  return data;
+}
+
+export async function getProfile() {
+  const data = await apiFetch<any>('/auth/me');
   return data;
 }
 

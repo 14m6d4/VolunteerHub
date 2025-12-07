@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import useAuth from "@/hooks/useAuth";
 import EventCard from "./EventCard.tsx";
 import EventForm from "./EventForm.tsx";
 import EventDetails from "./EventDetails.tsx";
@@ -9,23 +10,7 @@ const API_URL = "http://localhost:5000/api/events/all";
 const EventsTest: React.FC = () => {
     const [events, setEvents] = useState<any[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-    const [user, setUser] = useState<any | null>(null);
-
-    // Load token and fetch user
-    const loadUserFromToken = async () => {
-        const token = localStorage.getItem("accessToken");
-        if (!token) return;
-
-        // Attach token to axios globally
-        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-        setUser(localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")!) : null);
-        // try {
-        //     const res = await axios.get("http://localhost:5000/api/auth/me");
-        //     setUser(res.data.user || res.data.data);
-        // } catch (err) {
-        //     console.error("Invalid token or expired", err);
-        // }
-    };
+    const { user } = useAuth();
 
     const fetchEvents = async () => {
         try {
@@ -54,9 +39,18 @@ const EventsTest: React.FC = () => {
     };
 
     useEffect(() => {
-        loadUserFromToken();   // first load user
-        fetchEvents();         // then load events
+        // Ensure axios has token header if accessToken exists for axios-based calls
+        const token = localStorage.getItem("accessToken");
+        if (token) {
+            try {
+                axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+            } catch (e) {
+                console.error("Failed to set axios header", e);
+            }
+        }
+        fetchEvents();
     }, []);
+
 
     if (selectedEvent) {
         return (
