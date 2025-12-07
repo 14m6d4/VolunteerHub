@@ -14,7 +14,6 @@ export interface IEvent extends Document {
     location?: string;
     startAt: Date;
     endAt?: Date;
-    tags: string[];
     maxMembers?: number;
     currentMembers: number;
     status: EventStatus;
@@ -32,7 +31,6 @@ const EventSchema = new Schema<IEvent>(
         location: { type: String, default: "" },
         startAt: { type: Date, required: true },
         endAt: { type: Date },
-        tags: { type: [String], default: [] },
         maxMembers: { type: Number, default: null },
         currentMembers: { type: Number, default: 0 },
         status: {
@@ -54,7 +52,7 @@ EventSchema.virtual("isFull").get(function (this: IEvent) {
 });
 
 // Indexes for search/filter
-EventSchema.index({ title: "text", description: "text", tags: 1 });
+EventSchema.index({ title: "text", description: "text" });
 EventSchema.index({ startAt: 1, status: 1 });
 
 export const EventModel: Model<IEvent> = mongoose.model<IEvent>("Event", EventSchema);

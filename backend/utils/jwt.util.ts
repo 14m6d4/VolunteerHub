@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { type ITokenPayload } from '../types/user.ts'; // Use 'type' for type imports
+import { type ITokenPayload, type IUser } from '../types/user.ts'; // Use 'type' for type imports
 import dotenv from "dotenv";
 dotenv.config();
 const JWT_SECRET: string = process.env.JWT_SECRET || 'secret123'; 
@@ -49,4 +49,14 @@ export function verifyToken(token: string): ITokenPayload {
     // If token is invalid (expired, wrong format, etc.), it throws an error
     throw new Error('Invalid or expired token.'); 
   }
+}
+
+export function generateAuthToken(user: IUser): string {
+  const payload: ITokenPayload = {
+    id: user._id.toString(),
+    email: user.email,
+    role: user.role,
+  };
+  
+  return createAccessToken(payload);
 }

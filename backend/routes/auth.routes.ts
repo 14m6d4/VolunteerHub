@@ -4,6 +4,7 @@ import express, { type Request, type Response } from 'express';
 import * as authController from '../controllers/auth.controller.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
+import passport from '../config/passport.ts';
 
 const router = express.Router();
 
@@ -59,6 +60,20 @@ router.post(
   '/reset-password',
   // TODO: add validation for { email, otp, password }
   authController.resetPassword
+);
+
+router.get(
+    '/google', 
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get(
+    '/google/callback',
+    passport.authenticate('google', { 
+        failureRedirect: `${process.env.FRONTEND_URL}/login?error=google_auth_failed`,
+        session: false
+    }),
+    authController.googleAuthCallback 
 );
 
 export default router;
