@@ -1,7 +1,7 @@
 // backend/services/user.service.ts
 
 // Import necessary types and models
-import type { UpdateProfileData, IUser } from '../types/user.ts'; 
+import type { UpdateProfileData, IUser } from '../types/user.ts';
 import UserModel from '../models/User.model.ts'; // Mongoose User Model
 import AppError from '../utils/appError.ts';
 
@@ -14,22 +14,22 @@ import AppError from '../utils/appError.ts';
  * @throws AppError if password is wrong, user not found, or update fails.
  */
 export async function updateProfileWithPasswordCheck(
-  userId: string, 
-  currentPassword: string, 
+  userId: string,
+  currentPassword: string,
   updateData: UpdateProfileData
 ): Promise<IUser> {
-  
+
   // 1. Get the user object, specifically requesting the hidden passwordHash field
   const user = await UserModel.findById(userId).select('+passwordHash');
-  
+
   if (!user) {
     // Should theoretically not happen if auth middleware is correct
     throw new AppError('User not found', 404);
   }
-  
+
   // 2. Password Verification
   const isMatch = await user.comparePassword(currentPassword);
-  
+
   if (!isMatch) {
     throw new AppError('Incorrect current password', 401); // Unauthorized
   }
@@ -42,16 +42,16 @@ export async function updateProfileWithPasswordCheck(
   // Sanitize updateData (Mongoose model might have 'username' instead of 'firstName/lastName')
   // We assume UpdateProfileData matches the updatable fields in the Mongoose model schema (e.g., username, profilePicture, notificationsEnabled, etc.)
   const validUpdates = { ...updateData };
-  
+
   try {
     // 4. Perform the update operation
     const updatedUser = await UserModel.findByIdAndUpdate(
-      userId, 
-      { $set: validUpdates }, 
+      userId,
+      { $set: validUpdates },
       { new: true, runValidators: true }
     )
-    .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt') // Exclude sensitive/unnecessary fields
-    .exec();
+      .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt') // Exclude sensitive/unnecessary fields
+      .exec();
 
     if (!updatedUser) {
       throw new AppError('User not found after update', 500); // Unexpected error
@@ -62,7 +62,7 @@ export async function updateProfileWithPasswordCheck(
 
   } catch (error) {
     if (error instanceof AppError) {
-        throw error;
+      throw error;
     }
     // Handle specific database errors (e.g., duplicate unique field like email)
     console.error('Database error during secure profile update:', error);
@@ -94,17 +94,17 @@ export async function findOrCreateByGoogleId(
     // ... (Logic liên kết tài khoản local đã tồn tại)
 
     if (user.authProvider === 'local' && !user.googleId) {
-        // ... (Logic cập nhật và lưu user)
+      // ... (Logic cập nhật và lưu user)
     }
 
-    return user as IUser; 
+    return user as IUser;
   }
 
   // 2. Người dùng chưa tồn tại, chuẩn bị tạo tài khoản mới.
   try {
     // Lọc phần username từ email (ví dụ: 'john.doe@example.com' -> 'john.doe')
     const baseUsername = email.split('@')[0];
-    
+
     // Tự động tạo username duy nhất
     const uniqueUsername = await generateUniqueUsername(baseUsername);
 
@@ -114,7 +114,7 @@ export async function findOrCreateByGoogleId(
       googleId,
       username: uniqueUsername, // SỬ DỤNG USERNAME ĐÃ ĐƯỢC LỌC VÀ KIỂM TRA
       authProvider: 'google',
-      isVerified: true, 
+      isVerified: true,
       birthdate: DEFAULT_BIRTHDATE, // SỬ DỤNG GIÁ TRỊ MẶC ĐỊNH
     });
 
@@ -126,7 +126,7 @@ export async function findOrCreateByGoogleId(
     if (!sanitizedUser) {
       throw new AppError('Failed to create user but database operation reported success', 500);
     }
-    
+
     return sanitizedUser as IUser;
 
   } catch (error) {
@@ -141,12 +141,12 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
   let username = baseUsername;
   let isUnique = false;
   let attempts = 0;
-  
+
   // Vòng lặp tối đa 5 lần để tránh lặp vô hạn
   while (!isUnique && attempts < 5) {
     // 1. Kiểm tra xem username có tồn tại không
     const userExists = await UserModel.exists({ username });
-    
+
     if (!userExists) {
       isUnique = true;
     } else {
@@ -161,6 +161,6 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
   if (!isUnique) {
     throw new AppError('Failed to generate a unique username', 500);
   }
-  
+
   return username;
 }

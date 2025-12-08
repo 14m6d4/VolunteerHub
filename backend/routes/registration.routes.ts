@@ -5,11 +5,8 @@ import { roleMiddleware } from "../middlewares/role.middleware.ts";
 
 const router = express.Router();
 
-// register to event
-router.post("/:eventId", authMiddleware, RegistrationController.register);
-
-// cancel registration (volunteer)
-router.delete("/:eventId", authMiddleware, RegistrationController.cancel);
+// user can view their registrations → PHẢI ĐỂ TRÊN
+router.get("/me", authMiddleware, RegistrationController.myRegistrations);
 
 // manager approves a registration
 router.post("/approve/:regId", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.approve);
@@ -18,9 +15,12 @@ router.post("/approve/:regId", authMiddleware, roleMiddleware(["manager", "admin
 router.post("/complete/:regId", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.markCompleted);
 
 // list registrations for event (manager/admin)
-router.get("/event/:eventId", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.listForEvent);
+router.get("/:eventId", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.listForEvent);
 
-// user can view their registrations
-router.get("/me", authMiddleware, RegistrationController.myRegistrations);
+// register to event
+router.post("/:eventId", authMiddleware, RegistrationController.register);
+
+// cancel registration (volunteer)
+router.delete("/:eventId", authMiddleware, RegistrationController.cancel);
 
 export default router;

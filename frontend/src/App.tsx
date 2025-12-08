@@ -73,6 +73,7 @@ function AppContent() {
           <Route path="403" element={<Error403 />} />
           <Route path="401" element={<Error401 />} />
           <Route path="*" element={<Error404 />} />
+          <Route path="/test/EventsTest" element={<EventsTest />} />
         </Route>
       </Routes>
     </div>
