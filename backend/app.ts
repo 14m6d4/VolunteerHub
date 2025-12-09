@@ -7,6 +7,7 @@ import morgan from "morgan";
 import type { Application } from "express";
 import authRoutes from './routes/auth.routes.ts'
 import eventRoutes from "./routes/event.routes.ts";
+import discussionRoutes from "./routes/discussion.routes.ts";
 import registrationRoutes from "./routes/registration.routes.ts";
 import userRoutes from './routes/user.routes.ts';
 import errorHandler from './middlewares/error.middleware.ts';
@@ -24,6 +25,7 @@ app.use(morgan("dev"));
 
 app.use('/api/auth', authRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/discussions", discussionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/register", registrationRoutes);
 

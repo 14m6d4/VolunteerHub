@@ -34,6 +34,11 @@ export const DiscussionController = {
 
     async deletePost(req: Request, res: Response, next: NextFunction) {
         try {
+            if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+                if (req.user.role == 'volunteer' && req.user._id !== post.authorId) {
+                    return res.status(403).json({ success: false, message: "Forbidden" });
+                }
+            }
             const post = await DiscussionService.deletePost(req.params.postId);
             return res.json({ success: true, data: post });
         } catch (err) {

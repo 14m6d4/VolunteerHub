@@ -35,15 +35,19 @@ export const CommentService = {
         return comment;
     },
 
-    async deleteComment(commentId: string, userId: string) {
+    async deleteComment(commentId: string, userId: string, role: string) {
         const comment = await CommentModel.findById(commentId);
         if (!comment) throw createHttpError(404, "Comment not found");
 
-        if (!comment.authorId.equals(userId))
-            throw createHttpError(403, "You cannot delete comment of others");
+        const isOwner = comment.authorId.equals(userId);
+        const isAdmin = role === "admin";
+        const isManager = role === "manager";
+
+        if (!isOwner && !isAdmin && !isManager) {
+            throw createHttpError(403, "You do not have permission to delete this comment");
+        }
 
         await comment.deleteOne();
-
         return comment;
     }
 };

@@ -42,9 +42,10 @@ export const CommentController = {
     async deleteComment(req: Request, res: Response, next: NextFunction) {
         try {
             const userId = (req.user as any)._id;
+            const role = (req.user as any).role;
             const commentId = req.params.commentId;
 
-            const comment = await CommentService.deleteComment(commentId, userId);
+            const comment = await CommentService.deleteComment(commentId, userId, role);
 
             return res.json({ success: true, data: comment });
         } catch (err) {
