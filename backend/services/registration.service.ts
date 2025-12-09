@@ -63,6 +63,15 @@ export const RegistrationService = {
         return reg;
     },
 
+    async rejectRegistration(regId: string, managerId: Types.ObjectId) {
+        const reg = await RegistrationModel.findById(regId);
+        if (!reg) throw createHttpError(404, "Registration not found");
+        reg.status = RegistrationStatus.REJECTED;
+        await reg.save();
+        // await RegistrationModel.deleteOne({ _id: regId });
+        return { message: "Registration rejected and removed" };
+    },
+
     async markCompleted(regId: string) {
         const reg = await RegistrationModel.findById(regId);
         if (!reg) throw createHttpError(404, "Registration not found");
@@ -76,6 +85,7 @@ export const RegistrationService = {
         const query: any = { eventId };
         if (filters.status) query.status = filters.status;
         const items = await RegistrationModel.find(query).populate("volunteerId", "name email");
+        console.log("Fetched registrations for event", eventId, "Count:", items.length);
         return items;
     },
 
