@@ -14,7 +14,7 @@ router.post("/", authMiddleware, roleMiddleware(["manager", "admin"]), validateB
 router.get("/all", EventController.getAll);
 router.put("/:id", authMiddleware, roleMiddleware(["manager", "admin"]), validateBody(updateEventSchema), EventController.update);
 router.patch("/:id/approve", authMiddleware, roleMiddleware(["admin"]), EventController.approve);
-router.delete("/:id/cancel", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.cancel);
+router.delete("/:id", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.cancel);
 router.post("/:eventId/pin", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.pinPost);
 router.get("/:id/stats", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.stats);
 router.get("/:id", EventController.getById);
