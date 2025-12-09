@@ -5,6 +5,7 @@ import { ModeToggle } from "@/components/mode-toggle"
 import LoginPage from "@/pages/auth/Login"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
+import UserProfilePage from "@/pages/[username]"
 import EventsTest from "./pages/test/TestRouter";
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
@@ -14,6 +15,7 @@ import Error401 from "./components/errors/401"
 import Footer from "@/components/common/Footer"
 import { useEffect } from "react"
 import * as authService from "@/services/auth.service"
+import QueryProvider from "./providers/QueryProvider"
 
 function HomePage() {
   const [searchParams] = useSearchParams()
@@ -52,6 +54,7 @@ function AppContent() {
         >
           <Route path="/" element={<HomePage />} />
           {/* Thêm các route chính khác cần footer vào đây */}
+          <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>
 
         {/* Nhóm các trang KHÔNG CÓ Footer */}
@@ -79,11 +82,14 @@ function AppContent() {
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </ThemeProvider>
+    
+    <QueryProvider>
+      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </ThemeProvider>
+    </QueryProvider>
   )
 }
 
