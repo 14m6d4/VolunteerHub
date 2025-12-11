@@ -12,10 +12,16 @@ import Error503 from "./components/errors/503"
 import Error403 from "./components/errors/403"
 import Error401 from "./components/errors/401"
 import Footer from "@/components/common/Footer"
+// @ts-ignore
+import NavBar from "@/features/navigation-menu"
+import AuthProvider from "@/store/auth.store"
+
+import NavBar from "@/features/navigation-menu"
 
 function AppContent() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <NavBar />
       <Routes>
         {/* Nhóm các trang CÓ Footer */}
         <Route
