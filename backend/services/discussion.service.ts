@@ -1,59 +1,76 @@
-import createHttpError from "http-errors";
-import { DiscussionModel } from "../models/Discussion.model.ts";
+import mongoose from "mongoose";
 import { PostModel } from "../models/Post.model.ts";
+import { getGFS } from "../utils/gridfs.ts";
 
 export const DiscussionService = {
-    async createPost(userId: string, payload: any) {
-        const { discussionId, eventId, content, attachments } = payload;
+    async createPost({ userId, discussionId, content, files }) {
+        const gfs = getGFS();
 
-        const discussion =
-            (await DiscussionModel.findById(discussionId)) ||
-            (eventId ? await DiscussionModel.findOne({ eventId }) : null);
+        const attachments = [];
 
-        if (!discussion) throw createHttpError(404, "Discussion not found");
-        if (discussion.locked) throw createHttpError(403, "Discussion locked");
+        // Upload từng ảnh vào GridFS
+        for (const file of files) {
+            const uploadStream = gfs.openUploadStream(file.originalname, {
+                contentType: file.mimetype
+            });
+
+            uploadStream.end(file.buffer);
+
+            const savedFile: any = await new Promise((resolve, reject) => {
+                uploadStream.on("finish", resolve);
+                uploadStream.on("error", reject);
+            });
+
+            attachments.push({
+                fileId: savedFile._id,
+                type: savedFile.contentType
+            });
+        }
+
+        // Nếu không có text và không có ảnh → lỗi
+        if (!content && attachments.length === 0) {
+            throw new Error("Post must contain either text or image.");
+        }
 
         const post = await PostModel.create({
-            discussionId: discussion._id,
-            eventId,
+            discussionId,
             authorId: userId,
             content,
-            attachments: attachments || []
+            attachments
         });
 
         return post;
     },
 
-    async getPosts(discussionId: string) {
-        return PostModel.find({ discussionId })
+    async getPosts(discussionId) {
+        const posts = await PostModel.find({ discussionId })
             .sort({ pinned: -1, createdAt: -1 })
-            .limit(200);
+            .lean(); // dùng lean để dễ chỉnh sửa object
+
+        return posts.map(post => {
+            post.attachments = post.attachments?.map(att => ({
+                ...att,
+                url: `${process.env.SERVER_URL}/file/${att.fileId}`
+            })) || [];
+            return post;
+        });
     },
 
-    async likePost(userId: string, postId: string) {
+    async likePost(userId, postId) {
+        return PostModel.findByIdAndUpdate(
+            postId,
+            { $addToSet: { likes: userId } },
+            { new: true }
+        );
+    },
+
+    async deletePost(postId) {
+        return PostModel.findByIdAndDelete(postId);
+    },
+
+    async pinPost(postId) {
         const post = await PostModel.findById(postId);
-        if (!post) throw createHttpError(404, "Post not found");
-
-        const idx = post.likes.findIndex((id) => id.equals(userId));
-
-        if (idx === -1) post.likes.push(userId);
-        else post.likes.splice(idx, 1);
-
-        await post.save();
-        return post;
-    },
-
-    async deletePost(postId: string) {
-        const post = await PostModel.findByIdAndDelete(postId);
-        if (!post) throw createHttpError(404, "Post not found");
-        return post;
-    },
-
-    async pinPost(postId: string) {
-        const post = await PostModel.findById(postId);
-        if (!post) throw createHttpError(404, "Post not found");
-
-        post.pinned = true;
+        post.pinned = !post.pinned;
         await post.save();
         return post;
     }
