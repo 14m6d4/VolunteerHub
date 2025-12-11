@@ -13,7 +13,7 @@ function buildUrl(path: string, query?: Record<string, string | number | boolean
 
 export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): Promise<T> {
   const token = localStorage.getItem('accessToken');
-  const headers: HeadersInit = {
+  const headers: any = {
     'Content-Type': 'application/json',
     ...(opts.headers || {}),
   };
@@ -66,5 +66,19 @@ export function setAuthToken(token: string) {
     console.error('[api] failed to set accessToken in localStorage', e);
   }
 }
+
+// const api = {
+//   get: <T = any>(path: string, opts?: FetchOptions) => apiFetch<T>(path, { ...opts, method: 'GET' }),
+//   post: <T = any>(path: string, body?: any, opts?: FetchOptions) => 
+//     apiFetch<T>(path, { ...opts, method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+//   patch: <T = any>(path: string, body?: any, opts?: FetchOptions) => 
+//     apiFetch<T>(path, { ...opts, method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
+//   delete: <T = any>(path: string, opts?: FetchOptions) => 
+//     apiFetch<T>(path, { ...opts, method: 'DELETE' }),
+//   put: <T = any>(path: string, body?: any, opts?: FetchOptions) => 
+//     apiFetch<T>(path, { ...opts, method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
+// };
+
+// export default api;
 
 export default apiFetch;

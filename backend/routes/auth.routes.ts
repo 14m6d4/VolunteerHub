@@ -4,6 +4,7 @@ import express, { type Request, type Response } from 'express';
 import * as authController from '../controllers/auth.controller.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
+import { authMiddleware } from '../middlewares/auth.middleware.ts';
 import passport from '../config/passport.ts';
 
 const router = express.Router();
@@ -38,7 +39,7 @@ router.post(
 router.post(
   '/verify-otp',
   // TODO: Validation middleware cho email và otp
-  authController.verifyOTP 
+  authController.verifyOTP
 );
 
 // Forgot password - send reset OTP
@@ -62,18 +63,29 @@ router.post(
   authController.resetPassword
 );
 
+/**
+ * @route GET /api/auth/me
+ * @description Get authenticated user's profile
+ * @access Protected (requires Bearer token)
+ */
 router.get(
-    '/google', 
-    passport.authenticate('google', { scope: ['profile', 'email'] })
+  '/me',
+  authMiddleware,
+  authController.getMe
 );
 
 router.get(
-    '/google/callback',
-    passport.authenticate('google', { 
-        failureRedirect: `${process.env.FRONTEND_URL}/login?error=google_auth_failed`,
-        session: false
-    }),
-    authController.googleAuthCallback 
+  '/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get(
+  '/google/callback',
+  passport.authenticate('google', {
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=google_auth_failed`,
+    session: false
+  }),
+  authController.googleAuthCallback
 );
 
 export default router;

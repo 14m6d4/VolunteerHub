@@ -28,7 +28,7 @@ const Logo = (props) => {
   return (
     <img
       src={logoImage || "/placeholder.svg"}
-      alt="VolunteerHub Logo"
+      alt="Gizmo Logo"
       className="h-8 w-8"
       {...props}
     />
@@ -333,7 +333,7 @@ export const Navbar01 = React.forwardRef(
       signInText = "Log In",
       signInHref = "/login",
       ctaText = "Get Started",
-      ctaHref = "/register",
+      ctaHref = "/signup",
       onSignInClick,
       onCtaClick,
       user = null,
@@ -587,7 +587,7 @@ export const Navbar01 = React.forwardRef(
               </>
             ) : (
               <>
-                {/* Original login/register buttons */}
+                {/* Original login/signup buttons */}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -611,7 +611,7 @@ export const Navbar01 = React.forwardRef(
                     if (onCtaClick) {
                       onCtaClick();
                     } else {
-                      handleNavigation("/register");
+                      handleNavigation("/signup");
                     }
                   }}
                 >

@@ -67,7 +67,29 @@ const seedAdminUser = async (): Promise<void> => {
             authProvider: 'local',
         });
 
-        console.log('Initial Admin users created successfully.');
+        await User.create({
+            username: 'manager1',
+            email: 'ankhanh@gmail.com',
+            passwordHash: '11111111',
+            birthdate: new Date('1995-06-15'),
+            role: UserRole.Manager,
+            isVerified: true,
+            isActive: true,
+            authProvider: 'local',
+        });
+
+        await User.create({
+            username: 'tiendatnguyen',
+            email: 'tiendat@gmail.com',
+            passwordHash: '11111111',
+            birthdate: new Date('1995-06-15'),
+            role: UserRole.Volunteer,
+            isVerified: true,
+            isActive: true,
+            authProvider: 'local',
+        })
+
+        console.log('Initial users created successfully.');
     } catch (error) {
         console.error('Error seeding Admin user:', error);
     }

@@ -2,8 +2,9 @@
 
 import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "@/store/auth.store.ts";
-import { Navbar01 } from "@/components/common/NavBar";
+import "../../styles.css";
+import { AuthContext } from "../../context/AuthContext";
+import { Navbar01 } from "@/components/common/Navbar";
 
 export default function NavBar() {
   const navigate = useNavigate();

@@ -31,19 +31,24 @@ export const RegistrationService = {
     async cancelRegistration(eventId: string, volunteerId: Types.ObjectId) {
         const reg = await RegistrationModel.findOne({ eventId, volunteerId });
         if (!reg) throw createHttpError(404, "Registration not found");
-        // only cancel if before event starts OR manager/admin allowed
+
+        // Kiểm tra sự kiện tồn tại
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
+
+        // Chỉ cho hủy nếu trước khi sự kiện bắt đầu
         if (new Date() >= event.startAt) throw createHttpError(400, "Cannot cancel after event start");
-        reg.status = RegistrationStatus.CANCELLED;
-        await reg.save();
-        // decrement currentMembers if previously approved
+
+        // Nếu đăng ký đã được approved, giảm currentMembers
         if (reg.status === RegistrationStatus.APPROVED) {
             event.currentMembers = Math.max(0, event.currentMembers - 1);
             await event.save();
         }
-        return reg;
+        await RegistrationModel.deleteOne({ _id: reg._id });
+
+        return { message: "Registration cancelled successfully" };
     },
+
 
     async approveRegistration(regId: string, managerId: Types.ObjectId) {
         const reg = await RegistrationModel.findById(regId);
@@ -56,6 +61,15 @@ export const RegistrationService = {
         event.currentMembers += 1;
         await event.save();
         return reg;
+    },
+
+    async rejectRegistration(regId: string, managerId: Types.ObjectId) {
+        const reg = await RegistrationModel.findById(regId);
+        if (!reg) throw createHttpError(404, "Registration not found");
+        reg.status = RegistrationStatus.REJECTED;
+        await reg.save();
+        // await RegistrationModel.deleteOne({ _id: regId });
+        return { message: "Registration rejected and removed" };
     },
 
     async markCompleted(regId: string) {
@@ -71,6 +85,7 @@ export const RegistrationService = {
         const query: any = { eventId };
         if (filters.status) query.status = filters.status;
         const items = await RegistrationModel.find(query).populate("volunteerId", "name email");
+        console.log("Fetched registrations for event", eventId, "Count:", items.length);
         return items;
     },
 

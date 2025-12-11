@@ -236,3 +236,14 @@ export async function resetPasswordWithOtp(email: string, otp: string, newPasswo
   delete sanitized.otpExpiresAt;
   return sanitized as IUserDocument;
 }
+
+/**
+ * Retrieves the current authenticated user.
+ */
+export async function getAuthenticatedUser(userId: string): Promise<IUserDocument> {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError('User not found.', 404);
+  }
+  return user;
+}
