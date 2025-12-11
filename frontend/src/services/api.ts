@@ -18,7 +18,14 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
     ...(opts.headers || {}),
   };
 
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    // eslint-disable-next-line no-console
+    console.debug('[apiFetch] Token found, sending Authorization header');
+  } else {
+    // eslint-disable-next-line no-console
+    console.debug('[apiFetch] No token in localStorage for path:', path);
+  }
 
   const { query, ...fetchOpts } = opts;
   const url = buildUrl(path, query as any);

@@ -17,6 +17,7 @@ import NavBar from "@/features/navigation-menu"
 import { useEffect } from "react"
 import * as authService from "@/services/auth.service"
 import QueryProvider from "./providers/QueryProvider"
+import { AuthProvider } from "@/context/AuthContext"
 
 function HomePage() {
   const [searchParams] = useSearchParams()
@@ -25,9 +26,14 @@ function HomePage() {
     // If accessToken in URL (from Google OAuth redirect), store it
     const accessToken = searchParams.get('accessToken')
     if (accessToken) {
+      // eslint-disable-next-line no-console
+      console.log('[HomePage] Captured accessToken from URL:', accessToken.substring(0, 20) + '...');
       authService.setAuthToken(accessToken)
       // Clean URL by redirecting without params
       window.history.replaceState({}, document.title, '/')
+    } else {
+      // eslint-disable-next-line no-console
+      console.log('[HomePage] No accessToken in URL params');
     }
   }, [searchParams])
 
