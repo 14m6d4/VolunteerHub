@@ -13,6 +13,7 @@ import Error503 from "./components/errors/503"
 import Error403 from "./components/errors/403"
 import Error401 from "./components/errors/401"
 import Footer from "@/components/common/Footer"
+import NavBar from "@/features/navigation-menu"
 import { useEffect } from "react"
 import * as authService from "@/services/auth.service"
 import QueryProvider from "./providers/QueryProvider"
@@ -40,6 +41,7 @@ function HomePage() {
 function AppContent() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <NavBar />
       <Routes>
         {/* Nhóm các trang CÓ Footer */}
         <Route
@@ -54,6 +56,7 @@ function AppContent() {
         >
           <Route path="/" element={<HomePage />} />
           {/* Thêm các route chính khác cần footer vào đây */}
+          <Route path="/test/events" element={<EventsTest />} />
           <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>
 
@@ -84,11 +87,13 @@ function App() {
   return (
     
     <QueryProvider>
-      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </ThemeProvider>
+      </AuthProvider>
     </QueryProvider>
   )
 }
