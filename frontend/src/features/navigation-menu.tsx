@@ -7,6 +7,9 @@ import { Navbar01 } from "@/components/common/Navbar";
 export default function NavBar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  
+  // eslint-disable-next-line no-console
+  console.log('[NavBar] Rendering with user:', user ? (user.username || user.email) : 'null');
 
   const handleLogout = () => {
     logout();

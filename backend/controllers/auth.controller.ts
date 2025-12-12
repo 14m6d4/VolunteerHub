@@ -179,16 +179,21 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
 }
 
 export const googleAuthCallback = (req: Request, res: Response, next: NextFunction) => {
-    const { token, user } = req.user as any; 
+    const { token, user } = req.user as any;
 
     if (!token) {
-        return res.redirect(`${process.env.FRONTEND_URL}/login?error=google_auth_failed`);
+        const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=google_auth_failed`;
+        return res.redirect(loginUrl);
     }
 
+    // Strip trailing slash from FRONTEND_URL to avoid URL issues
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+    
     // Pass token as query parameter so frontend can capture and store it in localStorage
-    const redirectUrl = new URL(`${process.env.FRONTEND_URL}`);
+    const redirectUrl = new URL(frontendUrl);
     redirectUrl.searchParams.set('accessToken', token);
     if (user?.id) redirectUrl.searchParams.set('userId', user.id);
 
+    console.log('[googleAuthCallback] Redirecting to:', redirectUrl.toString());
     res.redirect(redirectUrl.toString());
 };

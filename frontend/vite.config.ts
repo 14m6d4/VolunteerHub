@@ -13,13 +13,13 @@ export default defineConfig({
   },
   server: {
     // Proxy API requests to the backend during development
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path,
-      },
-    },
+    // proxy: {
+    //   '/api': {
+    //     target: 'http://localhost:5000',
+    //     changeOrigin: true,
+    //     secure: false,
+    //     rewrite: (path) => path,
+    //   },
+    // },
   },
 })

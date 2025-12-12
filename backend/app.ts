@@ -24,20 +24,18 @@ console.log('[CORS] FRONTEND_URL from env:', process.env.FRONTEND_URL);
 console.log('[CORS] Configured to allow origin:', FRONTEND_URL);
 console.log('[===================]');
 
-// Middleware
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
-app.use(passport.initialize());
-
-// CORS configuration - must be before routes
-const corsOptions = {
-  origin: FRONTEND_URL,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
-app.use(cors(corsOptions));
-
 app.use(morgan("dev"));
+app.use(passport.initialize());
 
 app.use('/api/auth', authRoutes);
 app.use("/api/events", eventRoutes);
