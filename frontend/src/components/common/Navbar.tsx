@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import logoImage from "@/assets/logo.png"; // Import your logo image - adjust the path to match your logo location
+import logoImage from "@/assets/logo.png";
+import { useNavigate } from "react-router-dom";
 
 // Simple logo component for the navbar - now using imported image
 const Logo = (props) => {
@@ -344,6 +345,7 @@ export const Navbar01 = React.forwardRef(
     },
     ref
   ) => {
+    const navigate = useNavigate();
     const [isMobile, setIsMobile] = useState(false);
     const containerRef = useRef(null);
 
@@ -382,7 +384,7 @@ export const Navbar01 = React.forwardRef(
 
     // Add navigation handler
     const handleNavigation = (path) => {
-      window.location.href = path;
+      navigate(path);
       // If using React Router, use: navigate(path);
     };
 
@@ -539,15 +541,15 @@ export const Navbar01 = React.forwardRef(
 
                     {/* Menu items */}
                     <div className="p-2">
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = `${FRONTEND_URL}/settings`}>
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/settings")}>
                         <UserIcon className="mr-3 h-4 w-4" />
                         <span>Account</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = `${FRONTEND_URL}/pastes`}>
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/pastes")}>
                         <FileTextIcon className="mr-3 h-4 w-4" />
                         <span>Pastes</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = `${FRONTEND_URL}/gallery`}>
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/gallery")}>
                         <ImageIcon className="mr-3 h-4 w-4" />
                         <span>Gallery</span>
                       </DropdownMenuItem>
@@ -564,7 +566,7 @@ export const Navbar01 = React.forwardRef(
                         <HelpCircleIcon className="mr-3 h-4 w-4" />
                         <span>Help and Support</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => window.location.href = `${FRONTEND_URL}/settings`}>
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/settings")}>
                         <SettingsIcon className="mr-3 h-4 w-4" />
                         <span>Settings</span>
                       </DropdownMenuItem>
