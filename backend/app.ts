@@ -12,16 +12,30 @@ import registrationRoutes from "./routes/registration.routes.ts";
 import userRoutes from './routes/user.routes.ts';
 import errorHandler from './middlewares/error.middleware.ts';
 import passport from "./config/passport.ts";
-const FRONTEND_URL = process.env.FRONTEND_URL || "*";
+
+// Strip trailing slash from FRONTEND_URL to avoid CORS issues
+const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, '');
 
 const app: Application = express();
 
-// Middleware
-app.use(express.json());
-app.use(passport.initialize());
-app.use(cors());
+// Debug: log the CORS origin being used
+console.log('[=== CORS CONFIG ===]');
+console.log('[CORS] FRONTEND_URL from env:', process.env.FRONTEND_URL);
+console.log('[CORS] Configured to allow origin:', FRONTEND_URL);
+console.log('[===================]');
 
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+app.use(express.json());
 app.use(morgan("dev"));
+app.use(passport.initialize());
 
 app.use('/api/auth', authRoutes);
 app.use("/api/events", eventRoutes);

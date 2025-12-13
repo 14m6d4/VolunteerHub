@@ -18,12 +18,20 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
     ...(opts.headers || {}),
   };
 
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+    // eslint-disable-next-line no-console
+    console.debug('[apiFetch] Token found, sending Authorization header');
+  } else {
+    // eslint-disable-next-line no-console
+    console.debug('[apiFetch] No token in localStorage for path:', path);
+  }
 
   const { query, ...fetchOpts } = opts;
   const url = buildUrl(path, query as any);
 
   const res = await fetch(url, { ...fetchOpts, headers });
+  console.log("res in api.ts: ", res);
 
   // Try to parse JSON when content-type indicates JSON, otherwise grab text
   const contentType = res.headers.get('content-type') || '';
@@ -61,6 +69,9 @@ export function setAuthToken(token: string) {
     localStorage.setItem('accessToken', token);
     // eslint-disable-next-line no-console
     console.debug('[api] set accessToken in localStorage');
+    
+    // Emit custom event so useAuth hook knows token was set
+    window.dispatchEvent(new Event('authTokenChanged'));
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[api] failed to set accessToken in localStorage', e);
