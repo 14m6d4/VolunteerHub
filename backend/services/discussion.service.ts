@@ -1,77 +1,31 @@
-import mongoose from "mongoose";
-import { PostModel } from "../models/Post.model.ts";
-import { getGFS } from "../utils/gridfs.ts";
+import { DiscussionModel } from "../models/Discussion.model.ts";
 
 export const DiscussionService = {
-    async createPost({ userId, discussionId, content, files }) {
-        const gfs = getGFS();
+    async createDiscussion(eventId: string) {
+        return DiscussionModel.create({ eventId });
+    },
 
-        const attachments = [];
+    async getByEventId(eventId: string) {
+        return DiscussionModel.findOne({ eventId });
+    },
 
-        // Upload từng ảnh vào GridFS
-        for (const file of files) {
-            const uploadStream = gfs.openUploadStream(file.originalname, {
-                contentType: file.mimetype
-            });
+    async getById(discussionId: string) {
+        return DiscussionModel.findById(discussionId);
+    },
 
-            uploadStream.end(file.buffer);
-
-            const savedFile: any = await new Promise((resolve, reject) => {
-                uploadStream.on("finish", resolve);
-                uploadStream.on("error", reject);
-            });
-
-            attachments.push({
-                fileId: savedFile._id,
-                type: savedFile.contentType
-            });
-        }
-
-        // Nếu không có text và không có ảnh → lỗi
-        if (!content && attachments.length === 0) {
-            throw new Error("Post must contain either text or image.");
-        }
-
-        const post = await PostModel.create({
+    async lockDiscussion(discussionId: string) {
+        return DiscussionModel.findByIdAndUpdate(
             discussionId,
-            authorId: userId,
-            content,
-            attachments
-        });
-
-        return post;
-    },
-
-    async getPosts(discussionId) {
-        const posts = await PostModel.find({ discussionId })
-            .sort({ pinned: -1, createdAt: -1 })
-            .lean(); // dùng lean để dễ chỉnh sửa object
-
-        return posts.map(post => {
-            post.attachments = post.attachments?.map(att => ({
-                ...att,
-                url: `${process.env.SERVER_URL}/file/${att.fileId}`
-            })) || [];
-            return post;
-        });
-    },
-
-    async likePost(userId, postId) {
-        return PostModel.findByIdAndUpdate(
-            postId,
-            { $addToSet: { likes: userId } },
+            { locked: true },
             { new: true }
         );
     },
 
-    async deletePost(postId) {
-        return PostModel.findByIdAndDelete(postId);
-    },
-
-    async pinPost(postId) {
-        const post = await PostModel.findById(postId);
-        post.pinned = !post.pinned;
-        await post.save();
-        return post;
+    async unlockDiscussion(discussionId: string) {
+        return DiscussionModel.findByIdAndUpdate(
+            discussionId,
+            { locked: false },
+            { new: true }
+        );
     }
 };

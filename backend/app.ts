@@ -39,13 +39,13 @@ app.use(passport.initialize());
 
 app.use('/api/auth', authRoutes);
 app.use("/api/events", eventRoutes);
-app.use("/api/discussions", discussionRoutes);
+app.use("/api/group", discussionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/register", registrationRoutes);
 
 // 404 handler for unknown API routes - return JSON
 app.use((req, res) => {
-	res.status(404).json({ status: 'fail', message: 'Not Found' });
+  res.status(404).json({ status: 'fail', message: 'Not Found' });
 });
 
 // Register centralized error handler (returns JSON)

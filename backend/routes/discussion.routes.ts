@@ -1,25 +1,25 @@
 import express from "express";
 import multer from "multer";
 import { DiscussionController } from "../controllers/discussion.controller.ts";
+import { PostController } from "../controllers/post.controller.ts";
 import { authMiddleware } from "../middlewares/auth.middleware.ts";
 
 const router = express.Router();
 
-// Dùng memoryStorage để không lưu file vào disk
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.get("/:discussionId/posts", authMiddleware, DiscussionController.getPosts);
+router.get("/:group-id/posts", authMiddleware, PostController.getByDiscussion);
 
 // 1 API duy nhất: tạo bài đăng + upload ảnh
 router.post(
-    "/:discussionId/posts",
+    "/:group-id/posts",
     authMiddleware,
-    upload.array("images", 10), // nhận tối đa 10 ảnh
-    DiscussionController.createPost
+    upload.array("images", 10),
+    PostController.create
 );
 
-router.post("/posts/:postId/like", authMiddleware, DiscussionController.likePost);
-router.delete("/posts/:postId", authMiddleware, DiscussionController.deletePost);
-router.post("/posts/:postId/pin", authMiddleware, DiscussionController.pinPost);
+router.post("group-id/posts/:postId/like", authMiddleware, PostController.like);
+router.delete("group-id/posts/:postId", authMiddleware, PostController.delete);
+router.post("group-id/posts/:postId/pin", authMiddleware, PostController.pin);
 
 export default router;
