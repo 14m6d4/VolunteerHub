@@ -47,12 +47,12 @@ function HomePage() {
 function AppContent() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <NavBar />
       <Routes>
-        {/* Nhóm các trang CÓ Footer */}
+        {/* Nhóm các trang CÓ NavBar và Footer */}
         <Route
           element={
             <>
+              <NavBar />
               <main className="flex-1">
                 <Outlet />
               </main>
@@ -66,7 +66,7 @@ function AppContent() {
           <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>
 
-        {/* Nhóm các trang KHÔNG CÓ Footer */}
+        {/* Nhóm các trang KHÔNG CÓ NavBar và Footer */}
         <Route
           element={
             <main className="flex-1">
