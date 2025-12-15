@@ -10,7 +10,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/:group-id/posts", authMiddleware, PostController.getByDiscussion);
 
-// 1 API duy nhất: tạo bài đăng + upload ảnh
 router.post(
     "/:group-id/posts",
     authMiddleware,

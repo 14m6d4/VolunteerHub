@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { EventService } from "../services/event.service.ts";
-// import { RegistrationService } from "../services/registration.service";
+import { RegistrationService } from "../services/registration.service";
 import createHttpError from "http-errors";
 import { Types } from "mongoose";
 
@@ -38,12 +38,22 @@ export const EventController = {
 
     async getById(req: Request, res: Response, next: NextFunction) {
         try {
-            const event = await EventService.getEventById(req.params.id);
-            return res.json({ success: true, data: event });
+            const userId = (req.user as any)?._id;
+
+            const data = await EventService.getEventWithTimeConflicts(
+                req.params.id,
+                userId
+            );
+
+            return res.json({
+                success: true,
+                data
+            });
         } catch (err) {
             next(err);
         }
     },
+
 
     async list(req: Request, res: Response, next: NextFunction) {
         try {

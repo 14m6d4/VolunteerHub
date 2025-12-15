@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { PostService } from "../services/post.service.ts";
 
 export const PostController = {
