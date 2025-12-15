@@ -1,7 +1,6 @@
 import "./App.css"
 import { BrowserRouter, Routes, Route, Outlet, useSearchParams } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
-import { ModeToggle } from "@/components/mode-toggle"
 import LoginPage from "@/pages/auth/Login"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
@@ -39,7 +38,7 @@ function HomePage() {
 
   return (
     <header className="w-full flex justify-end p-4">
-      <ModeToggle />
+      {/* ModeToggle moved to NavBar */}
     </header>
   )
 }
@@ -47,12 +46,12 @@ function HomePage() {
 function AppContent() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <NavBar />
       <Routes>
-        {/* Nhóm các trang CÓ Footer */}
+        {/* Nhóm các trang CÓ NavBar và Footer */}
         <Route
           element={
             <>
+              <NavBar />
               <main className="flex-1">
                 <Outlet />
               </main>
@@ -66,7 +65,7 @@ function AppContent() {
           <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>
 
-        {/* Nhóm các trang KHÔNG CÓ Footer */}
+        {/* Nhóm các trang KHÔNG CÓ NavBar và Footer */}
         <Route
           element={
             <main className="flex-1">
