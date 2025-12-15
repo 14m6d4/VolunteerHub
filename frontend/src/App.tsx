@@ -1,7 +1,6 @@
 import "./App.css"
 import { BrowserRouter, Routes, Route, Outlet, useSearchParams } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
-import { ModeToggle } from "@/components/mode-toggle"
 import LoginPage from "@/pages/auth/Login"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
@@ -39,7 +38,7 @@ function HomePage() {
 
   return (
     <header className="w-full flex justify-end p-4">
-      <ModeToggle />
+      {/* ModeToggle moved to NavBar */}
     </header>
   )
 }
