@@ -40,7 +40,7 @@ export const EventController = {
         try {
             const userId = (req.user as any)?._id;
 
-            const data = await EventService.getEventWithTimeConflicts(
+            const data = await EventService.getEventById(
                 req.params.id,
                 userId
             );

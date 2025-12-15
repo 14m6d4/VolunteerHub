@@ -31,10 +31,7 @@ export const EventService = {
         return event;
     },
 
-    async getEventWithTimeConflicts(
-        eventId: string,
-        userId?: Types.ObjectId
-    ) {
+    async getEventById(eventId: string, userId?: Types.ObjectId) {
         const event = await EventModel.findById(eventId)
             .populate("managerId", "name email");
 
@@ -83,13 +80,6 @@ export const EventService = {
             conflictingEvents,
             hasConflict: conflictingEvents.length > 0
         };
-    },
-
-
-    async getEventById(eventId: string) {
-        const event = await EventModel.findById(eventId).populate("managerId", "name email");
-        if (!event) throw createHttpError(404, "Event not found");
-        return event;
     },
 
     async findEvents(
