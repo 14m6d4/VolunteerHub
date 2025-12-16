@@ -40,8 +40,8 @@ export const EventService = {
         for (const m of members) {
             NotificationService.notify(m.volunteerId, {
                 type: NotificationType.EVENT_UPDATED,
-                title: "Sự kiện thay đổi",
-                body: `Sự kiện ${event.title} vừa được cập nhật`,
+                title: "Event Updated",
+                body: `Event ${event.title} just got updated`,
                 data: { eventId }
             });
         }
@@ -163,6 +163,14 @@ export const EventService = {
         if (!event) throw createHttpError(404, "Event not found");
         event.status = EventStatus.CANCELLED;
         await event.save();
+        for (const m of members) {
+            NotificationService.notify(m.volunteerId, {
+                type: NotificationType.EVENT_UPDATED,
+                title: "Event Cancelled",
+                body: `Event ${event.title} just got cancelled`,
+                data: { eventId }
+            });
+        }
         return event;
     },
 

@@ -58,8 +58,8 @@ export const RegistrationService = {
         await event.save();
         await NotificationService.notify(reg.volunteerId, {
             type: NotificationType.EVENT_JOINED,
-            title: "Đăng ký thành công",
-            body: `Bạn đã tham gia sự kiện ${event.title}`,
+            title: "Registration Approved",
+            body: `You have join event ${event.title}`,
             data: { eventId: event._id }
         });
         return reg;
@@ -68,9 +68,17 @@ export const RegistrationService = {
     async rejectRegistration(regId: string, managerId: Types.ObjectId) {
         const reg = await RegistrationModel.findById(regId);
         if (!reg) throw createHttpError(404, "Registration not found");
+        const event = await EventModel.findById(reg.eventId);
+        if (!event) throw createHttpError(404, "Event not found");
         reg.status = RegistrationStatus.REJECTED;
         await reg.save();
         // await RegistrationModel.deleteOne({ _id: regId });
+        NotificationService.notify(reg.volunteerId, {
+            type: NotificationType.EVENT_KICKED,
+            title: "Your registration was rejected",
+            body: `Your registration for event ${event.title} was rejected`,
+            data: { eventId: event._id }
+        });
         return { message: "Registration rejected and removed" };
     },
 
