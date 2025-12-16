@@ -57,9 +57,9 @@ export default function UserProfilePage() {
           </div>
           <CardDescription className="mt-4">
             {isOwnProfile ? (
-              <>Chỉnh sửa thông tin cá nhân của bạn</>
+              <>Edit your profile</>
             ) : (
-              <>Thông tin công khai của người dùng</>
+              <></>
             )}
           </CardDescription>
         </CardHeader>
@@ -83,21 +83,21 @@ function PublicProfileView({ user }: { user: any }) {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
         <div>
-          <span className="font-medium text-muted-foreground">Họ và tên</span>
+          <span className="font-medium text-muted-foreground">Full name</span>
           <p className="mt-1">{user.name || 'Chưa cập nhật'}</p>
         </div>
         <div>
-          <span className="font-medium text-muted-foreground">Ngày sinh</span>
+          <span className="font-medium text-muted-foreground">Birthdate</span>
           <p className="mt-1">
             {user.birthdate ? format(new Date(user.birthdate), 'dd/MM/yyyy') : 'Chưa cập nhật'}
           </p>
         </div>
         <div>
-          <span className="font-medium text-muted-foreground">Vai trò</span>
+          <span className="font-medium text-muted-foreground">Role</span>
           <p className="mt-1 capitalize">{user.role}</p>
         </div>
         <div>
-          <span className="font-medium text-muted-foreground">Tham gia từ</span>
+          <span className="font-medium text-muted-foreground">Participated since</span>
           <p className="mt-1">{format(new Date(user.createdAt), 'MMMM yyyy')}</p>
         </div>
       </div>
@@ -105,7 +105,6 @@ function PublicProfileView({ user }: { user: any }) {
       <Separator className="my-8" />
 
       <p className="text-center text-muted-foreground">
-        Đây là thông tin công khai. Email và các cài đặt riêng tư không được hiển thị.
       </p>
     </div>
   );

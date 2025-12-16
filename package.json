@@ -2,6 +2,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.90.12",
     "axios": "^1.13.2",
+    "multer": "^2.0.2",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0"
   }
