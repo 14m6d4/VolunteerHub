@@ -461,7 +461,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
 
                     {/* Menu items */}
                     <div className="p-2">
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/settings")}>
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => { if (user?.username) { navigate(`/u/${user.username}`); } else { navigate('/settings'); } }}> 
                         <UserIcon className="mr-3 h-4 w-4" />
                         <span>Account</span>
                       </DropdownMenuItem>

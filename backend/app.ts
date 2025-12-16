@@ -13,6 +13,7 @@ import userRoutes from './routes/user.routes.ts';
 import errorHandler from './middlewares/error.middleware.ts';
 import passport from "./config/passport.ts";
 import postRoutes from "./routes/post.routes.ts";
+import notificationRoutes from "./routes/notification.routes.ts";
 // Strip trailing slash from FRONTEND_URL to avoid CORS issues
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, '');
 
@@ -42,6 +43,7 @@ app.use("/api/events", eventRoutes);
 app.use("/api/groups", discussionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/register", registrationRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use("/api/posts", postRoutes)
 // 404 handler for unknown API routes - return JSON
 app.use((req, res) => {

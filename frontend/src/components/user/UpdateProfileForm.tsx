@@ -40,11 +40,11 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
   const onSubmit = async (data: FormData) => {
     try {
       const response = await updateProfile(data);
-      setUser(response.user); // Cập nhật user trong useAuth
-      alert('Thông tin cá nhân đã được cập nhật thành công!');
+      setUser(response.user); // Update user in useAuth
+      alert('Profile updated successfully!');
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Không thể cập nhật thông tin. Vui lòng thử lại.';
-      alert('Lỗi: ' + message);
+      const message = err.response?.data?.message || 'Unable to update profile. Please try again.';
+      alert('Error: ' + message);
       console.error('Profile update error:', err);
     }
   };
@@ -53,25 +53,25 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <Label htmlFor="username">Tên người dùng</Label>
+          <Label htmlFor="username">Username</Label>
           <Input id="username" {...register('username')} />
           {errors.username && <p className="text-sm text-red-600 mt-1">{errors.username.message}</p>}
         </div>
 
         <div>
-          <Label htmlFor="name">Họ và tên</Label>
+          <Label htmlFor="name">Full name</Label>
           <Input id="name" {...register('name')} />
           {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>}
         </div>
 
         <div>
-          <Label htmlFor="birthdate">Ngày sinh</Label>
+          <Label htmlFor="birthdate">Birthdate</Label>
           <Input id="birthdate" type="date" {...register('birthdate')} />
           {errors.birthdate && <p className="text-sm text-red-600 mt-1">{errors.birthdate.message}</p>}
         </div>
 
         <div>
-          <Label htmlFor="profilePicture">Ảnh đại diện (URL)</Label>
+          <Label htmlFor="profilePicture">Profile picture (URL)</Label>
           <Input
             id="profilePicture"
             placeholder="https://example.com/avatar.jpg"
@@ -84,25 +84,25 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
       </div>
 
       <div className="space-y-4">
-        <Label>Cài đặt thông báo</Label>
+        <Label>Notification settings</Label>
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">Bật thông báo</p>
-            <p className="text-sm text-muted-foreground">Nhận thông báo từ hệ thống</p>
+            <p className="font-medium">Enable notifications</p>
+            <p className="text-sm text-muted-foreground">Receive notifications from the system</p>
           </div>
           <Switch {...register('notificationsEnabled')} defaultChecked={user.notificationsEnabled} />
         </div>
 
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">Thông báo khi được nhắc</p>
+            <p className="font-medium">Notify on mention</p>
           </div>
           <Switch {...register('notifyOnMention')} defaultChecked={user.notifyOnMention} />
         </div>
 
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">Thông báo cập nhật sự kiện</p>
+            <p className="font-medium">Notify on event updates</p>
           </div>
           <Switch {...register('notifyOnEventUpdate')} defaultChecked={user.notifyOnEventUpdate} />
         </div>
@@ -110,7 +110,7 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
 
       <div className="border-t pt-6">
         <Label htmlFor="currentPassword" className="text-red-600">
-          Nhập mật khẩu hiện tại để xác nhận thay đổi *
+          Enter current password to confirm changes *
         </Label>
         <Input
           id="currentPassword"
@@ -124,7 +124,7 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
       </div>
 
       <Button type="submit" disabled={isSubmitting} className="w-full md:w-auto">
-        {isSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
+        {isSubmitting ? 'Saving...' : 'Save changes'}
       </Button>
     </form>
   );
