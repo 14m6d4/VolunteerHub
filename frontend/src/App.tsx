@@ -1,4 +1,5 @@
 import "./App.css"
+// Theme CSS files are now loaded dynamically by theme-provider
 import { BrowserRouter, Routes, Route, Outlet, useSearchParams } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import LoginPage from "@/pages/auth/Login"
