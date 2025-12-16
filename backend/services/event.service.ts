@@ -6,6 +6,7 @@ import { Types } from "mongoose";
 import { RegistrationModel, RegistrationStatus } from "../models/Registration.model.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
+import User from "../models/User.model.ts";
 import createHttpError from "http-errors";
 
 export const EventService = {
@@ -23,6 +24,15 @@ export const EventService = {
                 { upsert: true, new: true }
             );
         }
+        const admins = await User.find({ role: "admin" });
+        admins.forEach(admin =>
+            NotificationService.notify(admin._id, {
+                type: NotificationType.EVENT_PENDING,
+                title: "Event Pending Approval",
+                body: `New event ${event.title} is pending your approval`,
+                data: { eventId: event._id }
+            })
+        );
         return event;
     },
 
@@ -155,6 +165,12 @@ export const EventService = {
             { eventId: event._id },
             { upsert: true, new: true }
         );
+        NotificationService.notify(event.managerId, {
+            type: NotificationType.EVENT_APPROVED,
+            title: "Event Approved",
+            body: `Your event ${event.title} has been approved`,
+            data: { eventId: event._id }
+        });
         return event;
     },
 
