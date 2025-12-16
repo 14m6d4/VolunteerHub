@@ -20,6 +20,12 @@ export const RegistrationService = {
                 volunteerId,
                 status: RegistrationStatus.PENDING
             });
+            NotificationService.notify(reg.volunteerId, {
+                type: NotificationType.REGISTRATION_PENDING,
+                title: "Registration Pending",
+                body: `${volunteerId} has registered for event ${event.title}`,
+                data: { eventId: event._id }
+            });
             return reg;
         } catch (err: any) {
             if (err.code === 11000) throw createHttpError(400, "You already registered for this event");
@@ -72,13 +78,13 @@ export const RegistrationService = {
         if (!event) throw createHttpError(404, "Event not found");
         reg.status = RegistrationStatus.REJECTED;
         await reg.save();
-        // await RegistrationModel.deleteOne({ _id: regId });
         NotificationService.notify(reg.volunteerId, {
             type: NotificationType.EVENT_KICKED,
             title: "Your registration was rejected",
             body: `Your registration for event ${event.title} was rejected`,
             data: { eventId: event._id }
         });
+        // await RegistrationModel.deleteOne({ _id: regId });
         return { message: "Registration rejected and removed" };
     },
 
