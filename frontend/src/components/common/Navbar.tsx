@@ -266,7 +266,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
       signInText = "Log In",
       signInHref = "/login",
       ctaText = "Get Started",
-      ctaHref = "/signup",
+      ctaHref = "/register",
       onSignInClick,
       onCtaClick,
       user = null,
@@ -532,7 +532,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                     if (onCtaClick) {
                       onCtaClick()
                     } else {
-                      handleNavigation("/signup")
+                      handleNavigation("/register")
                     }
                   }}
                 >

@@ -6,10 +6,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useTheme } from "@/components/theme-provider"
 
 const themes = [
-	{ id: "default", name: "Default", color: "hsl(0 0% 20.5%)" },
-	{ id: "vintage-paper", name: "Vintage Paper", color: "hsl(64 6% 62%)" },
-	{ id: "neo-brutalism", name: "Neo Brutalism", color: "hsl(64 6% 62%)" },
-	{ id: "doom-64", name: "Doom 64", color: "hsl(27 100% 65%)" },
+	{ id: "default", name: "Default", color: "oklch(0.205 0 0)" },
+	{ id: "vintage-paper", name: "Vintage Paper", color: "oklch(0.6180 0.0778 65.5444)" },
+	{ id: "neo-brutalism", name: "Neo Brutalism", color: "oklch(0.6489 0.2370 26.9728)" },
+	{ id: "doom-64", name: "Doom 64", color: "oklch(0.6083 0.2090 27.0276)" },
+	{ id: "nature", name: "Nature", color: "oklch(0.5234 0.1347 144.1672)" },
+	{ id: "everforest", name: "Everforest", color: "oklch(0.7195 0.0935 128.3741)" },
+	{ id: "bubblegum", name: "Bubblegum", color: "oklch(0.6209 0.1801 348.1385)" },
+	{ id: "perpetuity", name: "Perpetuity", color: "oklch(0.5624 0.0947 203.2755)" },
+	{ id: "notebook", name: "Notebook", color: "oklch(0.4891 0 0)" },
 ] as const
 
 export function ThemeSelector() {
