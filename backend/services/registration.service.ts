@@ -8,19 +8,16 @@ export const RegistrationService = {
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
         if (event.status !== "approved") throw createHttpError(400, "Event is not open for registration");
-        // deadline check? assume startAt as earliest
         const now = new Date();
         if (event.startAt <= now) throw createHttpError(400, "Event already started or past registration deadline");
         if (event.maxMembers && event.currentMembers >= event.maxMembers) throw createHttpError(400, "Event is full");
 
-        // unique registration enforced by index
         try {
             const reg = await RegistrationModel.create({
                 eventId,
                 volunteerId,
                 status: RegistrationStatus.PENDING
             });
-            // Note: Optionally notify manager about new registration
             return reg;
         } catch (err: any) {
             if (err.code === 11000) throw createHttpError(400, "You already registered for this event");
@@ -32,14 +29,11 @@ export const RegistrationService = {
         const reg = await RegistrationModel.findOne({ eventId, volunteerId });
         if (!reg) throw createHttpError(404, "Registration not found");
 
-        // Kiểm tra sự kiện tồn tại
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
 
-        // Chỉ cho hủy nếu trước khi sự kiện bắt đầu
         if (new Date() >= event.startAt) throw createHttpError(400, "Cannot cancel after event start");
 
-        // Nếu đăng ký đã được approved, giảm currentMembers
         if (reg.status === RegistrationStatus.APPROVED) {
             event.currentMembers = Math.max(0, event.currentMembers - 1);
             await event.save();

@@ -12,7 +12,7 @@ import registrationRoutes from "./routes/registration.routes.ts";
 import userRoutes from './routes/user.routes.ts';
 import errorHandler from './middlewares/error.middleware.ts';
 import passport from "./config/passport.ts";
-
+import postRoutes from "./routes/post.routes.ts";
 // Strip trailing slash from FRONTEND_URL to avoid CORS issues
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, '');
 
@@ -39,13 +39,13 @@ app.use(passport.initialize());
 
 app.use('/api/auth', authRoutes);
 app.use("/api/events", eventRoutes);
-app.use("/api/discussions", discussionRoutes);
+app.use("/api/groups", discussionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/register", registrationRoutes);
-
+app.use("/api/posts", postRoutes)
 // 404 handler for unknown API routes - return JSON
 app.use((req, res) => {
-	res.status(404).json({ status: 'fail', message: 'Not Found' });
+  res.status(404).json({ status: 'fail', message: 'Not Found' });
 });
 
 // Register centralized error handler (returns JSON)

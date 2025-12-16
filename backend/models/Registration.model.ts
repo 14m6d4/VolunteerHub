@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export enum RegistrationStatus {
-    PENDING = "pending", // waiting approval by manager
+    PENDING = "pending",
     APPROVED = "approved",
     REJECTED = "rejected",
     CANCELLED = "cancelled",

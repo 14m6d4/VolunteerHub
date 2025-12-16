@@ -45,13 +45,11 @@ const EventSchema = new Schema<IEvent>(
     { timestamps: true }
 );
 
-// Virtual: isFull
 EventSchema.virtual("isFull").get(function (this: IEvent) {
     if (!this.maxMembers) return false;
     return this.currentMembers >= this.maxMembers;
 });
 
-// Indexes for search/filter
 EventSchema.index({ title: "text", description: "text" });
 EventSchema.index({ startAt: 1, status: 1 });
 

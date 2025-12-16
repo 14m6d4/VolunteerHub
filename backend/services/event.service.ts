@@ -13,7 +13,6 @@ export const EventService = {
     async createEvent(payload: Partial<IEvent>, managerId: Types.ObjectId) {
         console.log("Start at:", payload.startAt);
         const event = await EventModel.create({ ...payload, managerId });
-        // If created with status APPROVED, ensure discussion exists
         if (event.status === EventStatus.APPROVED) {
             await DiscussionModel.findOneAndUpdate(
                 { eventId: event._id },
@@ -27,16 +26,60 @@ export const EventService = {
     async updateEvent(eventId: string, updates: Partial<IEvent>, currentUserId: Types.ObjectId) {
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
-        // permission checks should be done in controller/middleware
         Object.assign(event, updates);
         await event.save();
         return event;
     },
 
-    async getEventById(eventId: string) {
-        const event = await EventModel.findById(eventId).populate("managerId", "name email");
+    async getEventById(eventId: string, userId?: Types.ObjectId) {
+        const event = await EventModel.findById(eventId)
+            .populate("managerId", "name email");
+
         if (!event) throw createHttpError(404, "Event not found");
-        return event;
+
+        if (!userId) {
+            return {
+                event,
+                conflictingEvents: [],
+                hasConflict: false
+            };
+        }
+
+        const registrations = await RegistrationModel.find({
+            volunteerId: userId,
+            status: { $in: [RegistrationStatus.APPROVED, RegistrationStatus.COMPLETED] }
+        }).select("eventId");
+
+        if (!registrations.length) {
+            return {
+                event,
+                conflictingEvents: [],
+                hasConflict: false
+            };
+        }
+
+        const joinedEventIds = registrations.map(r => r.eventId);
+
+        const start = event.startAt;
+        const end = event.endAt ?? new Date("2999-12-31");
+
+        const conflictingEvents = await EventModel.find({
+            _id: {
+                $in: joinedEventIds,
+                $ne: event._id
+            },
+            status: EventStatus.APPROVED,
+            startAt: { $lt: end },
+            endAt: { $gt: start }
+        })
+            .select("title startAt endAt location")
+            .sort({ startAt: 1 });
+
+        return {
+            event,
+            conflictingEvents,
+            hasConflict: conflictingEvents.length > 0
+        };
     },
 
     async findEvents(
@@ -49,17 +92,13 @@ export const EventService = {
 
         const query: any = {};
 
-        // Text search
         if (filters.q) {
             query.$text = { $search: filters.q };
         }
 
-        // Tag filter
         if (filters.tag) query.tags = filters.tag;
 
-        // Status filter
         if (filters.status) {
-            // Hỗ trợ nhiều status nếu muốn: "pending,approved"
             if (typeof filters.status === "string" && filters.status.includes(",")) {
                 query.status = { $in: filters.status.split(",") };
             } else {
@@ -67,12 +106,10 @@ export const EventService = {
             }
         }
 
-        // Start date filter
         if (filters.startFrom) {
             query.startAt = { $gte: new Date(filters.startFrom) };
         }
 
-        // Manager filter
         if (filters.managerId) {
             query.managerId = filters.managerId;
         }
@@ -95,7 +132,6 @@ export const EventService = {
         if (event.status === EventStatus.APPROVED) return event;
         event.status = EventStatus.APPROVED;
         await event.save();
-        // ensure discussion created
         await DiscussionModel.findOneAndUpdate(
             { eventId: event._id },
             { eventId: event._id },
@@ -109,16 +145,13 @@ export const EventService = {
         if (!event) throw createHttpError(404, "Event not found");
         event.status = EventStatus.CANCELLED;
         await event.save();
-        // TODO: send notifications to registered users
         return event;
     },
 
     async pinPostOnEvent(eventId: string, postId: string, managerId: Types.ObjectId) {
-        // ensure post belongs to event, ensure manager permission is checked upstream
         const post = await PostModel.findById(postId);
         if (!post) throw createHttpError(404, "Post not found");
         if (!post.eventId?.equals(eventId)) throw createHttpError(400, "Post does not belong to event");
-        // unpin previous pinned
         await PostModel.updateMany({ eventId, pinned: true }, { pinned: false });
         post.pinned = true;
         await post.save();
@@ -129,7 +162,6 @@ export const EventService = {
     async getEventStats(eventId: string) {
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
-        // Simple stats
         const postsCount = await PostModel.countDocuments({ eventId });
         const regsCount = await (await import("../models/Registration.model.ts")).RegistrationModel.countDocuments({ eventId });
         return {
