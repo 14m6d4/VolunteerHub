@@ -1,4 +1,5 @@
 import NotificationModel, { type INotification } from '../models/Notification.model.ts';
+import { WebPushService } from "./webpush.service.ts";
 import AppError from '../utils/appError.ts';
 
 export async function createNotification(payload: {
@@ -50,3 +51,20 @@ export async function markAllRead(userId: string) {
 	return true;
 }
 
+export const NotificationService = {
+    async notify(userId, { title, body, data, type }) {
+        await NotificationModel.create({
+            userId,
+            title,
+            body,
+            data,
+            type
+        });
+
+        await WebPushService.sendToUser(userId, {
+            title,
+            body,
+            data
+        });
+    }
+};
