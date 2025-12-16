@@ -1,19 +1,12 @@
 import apiFetch from "./api";
 
-/* ------------------------- POSTS ------------------------- */
-
-/**
- * Lấy danh sách post trong một discussion
- */
+// post
 export async function getPosts(discussionId: string) {
     return apiFetch(`/discussions/${discussionId}/posts`, {
         method: "GET",
     });
 }
 
-/**
- * Tạo post mới
- */
 export async function createPost(discussionId: string, data: any) {
     return apiFetch(`/discussions/${discussionId}/posts`, {
         method: "POST",
@@ -21,29 +14,19 @@ export async function createPost(discussionId: string, data: any) {
     });
 }
 
-/**
- * Like post
- */
 export async function likePost(postId: string) {
     return apiFetch(`/discussions/posts/${postId}/like`, {
         method: "POST",
     });
 }
 
-/**
- * Xóa post
- */
 export async function deletePost(postId: string) {
     return apiFetch(`/discussions/posts/${postId}`, {
         method: "DELETE",
     });
 }
 
-/* ------------------------- COMMENTS ------------------------- */
-
-/**
- * Tạo comment mới
- */
+// comment
 export async function createComment(postId: string, data: any) {
     return apiFetch(`/discussions/${postId}/comments`, {
         method: "POST",
@@ -51,28 +34,18 @@ export async function createComment(postId: string, data: any) {
     });
 }
 
-/**
- * Lấy comments của một post
- * Backend: GET /:postId/comments/post/:postId
- */
 export async function getComments(postId: string) {
     return apiFetch(`/discussions/${postId}/comments/post/${postId}`, {
         method: "GET",
     });
 }
 
-/**
- * Like comment
- */
 export async function likeComment(postId: string, commentId: string) {
     return apiFetch(`/discussions/${postId}/comments/like/${commentId}`, {
         method: "POST",
     });
 }
 
-/**
- * Xóa comment
- */
 export async function deleteComment(postId: string, commentId: string) {
     return apiFetch(`/discussions/${postId}/comments/${commentId}`, {
         method: "DELETE",

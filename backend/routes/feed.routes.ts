@@ -1,6 +1,6 @@
 // routes/feed.routes.ts
 import { Router } from "express";
-import { FeedController } from "../controllers/Feed.controller.ts";
+import { FeedController } from "../controllers/feed.controller.ts";
 
 const router = Router();
 
