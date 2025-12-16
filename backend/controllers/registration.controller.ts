@@ -77,5 +77,17 @@ export const RegistrationController = {
         } catch (err) {
             next(err);
         }
-    }
+    },
+
+    async kickFromEvent(req: Request, res: Response, next: NextFunction) {
+        try {
+            const eventId = req.params.eventId;
+            const volunteerId = req.params.volunteerId;
+            const managerId = (req.user as any)._id;
+            const result = await RegistrationService.kickVolunteerFromEvent(eventId, volunteerId, managerId);
+            return res.json({ success: true, data: result });
+        } catch (err) {
+            next(err);
+        }
+    },
 };

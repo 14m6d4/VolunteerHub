@@ -11,6 +11,8 @@ router.post("/:regId/approve", authMiddleware, roleMiddleware(["manager", "admin
 
 router.post("/:regId/reject", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.reject);
 
+router.post("/:regId/kick", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.kickFromEvent);
+
 router.get("/:eventId", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.listForEvent);
 
 router.post("/:eventId", authMiddleware, RegistrationController.register);

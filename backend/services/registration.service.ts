@@ -107,5 +107,24 @@ export const RegistrationService = {
 
     async getUserRegistrations(userId: Types.ObjectId) {
         return RegistrationModel.find({ volunteerId: userId }).populate("eventId");
+    },
+
+    async kickMember(eventId: string, volunteerId: Types.ObjectId) {
+        const reg = await RegistrationModel.findOne({ eventId, volunteerId, status: RegistrationStatus.APPROVED });
+        if (!reg) throw createHttpError(404, "Member not found in event");
+        reg.status = RegistrationStatus.REJECTED;
+        await reg.save();
+        const event = await EventModel.findById(eventId);
+        if (event) {
+            event.currentMembers = Math.max(0, event.currentMembers - 1);
+            await event.save();
+        }
+        await NotificationService.notify(reg.volunteerId, {
+            type: NotificationType.EVENT_KICKED,
+            title: "You have been removed from the event",
+            body: `You have been removed from event ${event?.title}`,
+            data: { eventId: event?._id }
+        });
+        return { message: "Member kicked from event successfully" };
     }
 };
