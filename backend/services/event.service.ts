@@ -3,6 +3,9 @@ import { EventModel, EventStatus } from "../models/Event.model.ts";
 import { DiscussionModel } from "../models/Discussion.model.ts";
 import { PostModel } from "../models/Post.model.ts";
 import { Types } from "mongoose";
+import { RegistrationModel, RegistrationStatus } from "../models/Registration.model.ts";
+import { NotificationService } from "./notification.service.ts";
+import { NotificationType } from "../models/Notification.model.ts";
 import createHttpError from "http-errors";
 
 export const EventService = {
@@ -28,6 +31,21 @@ export const EventService = {
         if (!event) throw createHttpError(404, "Event not found");
         Object.assign(event, updates);
         await event.save();
+
+        const members = await RegistrationModel.find({
+            eventId,
+            status: "approved"
+        });
+
+        for (const m of members) {
+            NotificationService.notify(m.volunteerId, {
+                type: NotificationType.EVENT_UPDATED,
+                title: "Sự kiện thay đổi",
+                body: `Sự kiện ${event.title} vừa được cập nhật`,
+                data: { eventId }
+            });
+        }
+
         return event;
     },
 
