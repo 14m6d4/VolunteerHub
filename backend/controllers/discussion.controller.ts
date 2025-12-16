@@ -33,5 +33,16 @@ export const DiscussionController = {
         } catch (err) {
             next(err);
         }
+    },
+
+    async getPosts(req: Request, res: Response, next: NextFunction) {
+        try {
+            const discussions = await DiscussionService.getDiscussionPosts(
+                (req.user as any)._id
+            );
+            res.json({ success: true, data: discussions });
+        } catch (err) {
+            next(err);
+        }
     }
 };
