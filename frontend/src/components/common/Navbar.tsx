@@ -46,6 +46,10 @@ type Navbar01Props = {
   onLogout?: () => void
   onNotificationClick?: () => void
   hasNotifications?: boolean
+  notificationDropdownOpen?: boolean
+  notifications?: any[]
+  onMarkAllRead?: () => void
+  onMarkRead?: (id: string) => void
 }
 
 // Simple logo component for the navbar - now using imported image
@@ -273,6 +277,10 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
       onLogout,
       onNotificationClick,
       hasNotifications = true,
+      notificationDropdownOpen = false,
+      notifications = [],
+      onMarkAllRead,
+      onMarkRead,
       ...props
     }: Navbar01Props,
     ref,
@@ -417,15 +425,71 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                 <ModeToggle />
 
                 {/* Notification button */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative h-10 w-10 rounded-lg hover:bg-accent"
-                  onClick={onNotificationClick}
-                >
-                  <BellIcon className="h-5 w-5" />
-                  {hasNotifications && <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />}
-                </Button>
+                <DropdownMenu open={notificationDropdownOpen} onOpenChange={(open) => {
+                  if (!open && onNotificationClick) {
+                    onNotificationClick();
+                  }
+                }}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="relative h-10 w-10 rounded-lg hover:bg-accent focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                      onClick={onNotificationClick}
+                    >
+                      <BellIcon className="h-5 w-5" />
+                      {hasNotifications && <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-80 p-0 max-h-96 overflow-hidden">
+                    {/* Notification header */}
+                    <div className="flex items-center justify-between p-4 border-b">
+                      <p className="text-sm font-semibold">Notifications</p>
+                      {notifications.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={onMarkAllRead}
+                        >
+                          Mark all read
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Notification list */}
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <p className="text-sm text-muted-foreground">No notifications</p>
+                        </div>
+                      ) : (
+                        <div className="p-2">
+                          {notifications.map((notification: any) => (
+                            <DropdownMenuItem
+                              key={notification._id}
+                              className={cn(
+                                "cursor-pointer flex-col items-start gap-1 p-3 mb-1",
+                                !notification.isRead && "bg-accent/50"
+                              )}
+                              onClick={() => onMarkRead?.(notification._id)}
+                            >
+                              <div className="font-medium text-sm w-full">{notification.title}</div>
+                              {notification.body && (
+                                <div className="text-xs text-muted-foreground w-full line-clamp-2">
+                                  {notification.body}
+                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground w-full mt-1">
+                                {new Date(notification.createdAt).toLocaleString()}
+                              </div>
+                            </DropdownMenuItem>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 {/* Profile dropdown */}
                 <DropdownMenu>
