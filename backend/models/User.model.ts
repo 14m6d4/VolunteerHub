@@ -85,6 +85,17 @@ const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
         type: Boolean,
         default: true,
     },
+    // Moderation fields
+    isBanned: {
+        type: Boolean,
+        default: false,
+    },
+    bannedReason: {
+        type: String,
+    },
+    bannedUntil: {
+        type: Date,
+    },
     
     otp: {
         type: String,

@@ -15,7 +15,7 @@ import AppError from '../utils/appError.ts';
  */
 export async function updateProfileWithPasswordCheck(
   userId: string,
-  currentPassword: string,
+  currentPassword: string | undefined,
   updateData: UpdateProfileData
 ): Promise<IUser> {
 
@@ -28,10 +28,15 @@ export async function updateProfileWithPasswordCheck(
   }
 
   // 2. Password Verification
-  const isMatch = await user.comparePassword(currentPassword);
-
-  if (!isMatch) {
-    throw new AppError('Incorrect current password', 401); // Unauthorized
+  // If the user signed up via Google, allow changing profile without password
+  if (user.authProvider === 'local') {
+    if (!currentPassword) {
+      throw new AppError('Current password is required for local accounts', 400);
+    }
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      throw new AppError('Incorrect current password', 401); // Unauthorized
+    }
   }
 
   // 3. Check if any fields were actually provided for update
@@ -39,9 +44,22 @@ export async function updateProfileWithPasswordCheck(
     throw new AppError('No update fields provided', 400); // Bad Request
   }
 
-  // Sanitize updateData (Mongoose model might have 'username' instead of 'firstName/lastName')
-  // We assume UpdateProfileData matches the updatable fields in the Mongoose model schema (e.g., username, profilePicture, notificationsEnabled, etc.)
-  const validUpdates = { ...updateData };
+  // Sanitize updateData and coerce types where necessary
+  const validUpdates: any = { ...updateData };
+
+  // Convert birthdate string (YYYY-MM-DD) into a Date object to satisfy Mongoose Date schema
+  if (validUpdates.birthdate && typeof validUpdates.birthdate === 'string') {
+    const d = new Date(validUpdates.birthdate);
+    if (isNaN(d.getTime())) {
+      throw new AppError('Invalid birthdate format', 400);
+    }
+    validUpdates.birthdate = d;
+  }
+
+  // Treat empty profilePicture string as removing the picture
+  if (Object.prototype.hasOwnProperty.call(validUpdates, 'profilePicture') && validUpdates.profilePicture === '') {
+    validUpdates.profilePicture = undefined;
+  }
 
   try {
     // 4. Perform the update operation

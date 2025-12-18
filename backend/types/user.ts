@@ -40,6 +40,10 @@ export interface IUser {
     notificationsEnabled: boolean;
     notifyOnMention: boolean;
     notifyOnEventUpdate: boolean;
+    // Moderation / Ban fields
+    isBanned?: boolean;
+    bannedReason?: string;
+    bannedUntil?: Date;
 
     //OTP
     otp?: string | null | undefined;

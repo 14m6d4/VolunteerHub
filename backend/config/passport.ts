@@ -28,6 +28,14 @@ passport.use(new GoogleStrategy({
       
       // Gọi hàm service vừa tạo để tìm/tạo người dùng
       const user = await userService.findOrCreateByGoogleId({ email, name, googleId });
+
+      // If the user is banned, surface that state to the callback handler
+      if ((user as any).isBanned || ((user as any).bannedUntil && (user as any).bannedUntil > new Date())) {
+        const reason = (user as any).bannedReason || '';
+        const until = (user as any).bannedUntil ? (user as any).bannedUntil.toISOString() : undefined;
+        // We don't issue a token; pass a special payload indicating ban
+        return done(null, { banned: true, reason, until });
+      }
       
       // Tạo JWT cho người dùng
       const token = generateAuthToken(user);

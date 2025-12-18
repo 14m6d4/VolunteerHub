@@ -1,4 +1,5 @@
-import { createContext, useState, useEffect, useCallback, useContext, PropsWithChildren } from 'react';
+import { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import type { PropsWithChildren } from 'react';
 import * as authService from '@/services/auth.service';
 
 type User = any; // Có thể thay bằng interface IUser nếu bạn có trong types
@@ -24,11 +25,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
         console.log('[AuthProvider] Found accessToken on mount, fetching profile...');
         const res = await authService.getProfile();
         if (mounted) {
+          // Redirect to banned page if the account is banned
+          if (res?.user?.isBanned) {
+            const params = new URLSearchParams();
+            if (res.user.bannedReason) params.set('reason', res.user.bannedReason);
+            if (res.user.bannedUntil) params.set('until', res.user.bannedUntil);
+            window.location.href = `/banned?${params.toString()}`;
+            return;
+          }
           setUser(res.user || null);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('[AuthProvider] Failed to fetch profile on mount:', err);
-        if (mounted) setUser(null);
+        // Preserve previous user on transient network errors
+        if (!err?.isNetworkError && mounted) setUser(null);
       }
     };
     init();
@@ -45,10 +55,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
         const res = await authService.getProfile();
+        if (res?.user?.isBanned) {
+          const params = new URLSearchParams();
+          if (res.user.bannedReason) params.set('reason', res.user.bannedReason);
+          if (res.user.bannedUntil) params.set('until', res.user.bannedUntil);
+          window.location.href = `/banned?${params.toString()}`;
+          return;
+        }
         setUser(res.user || null);
-      } catch (err) {
+      } catch (err: any) {
         console.error('[AuthProvider] Failed to fetch profile after token change:', err);
-        setUser(null);
+        if (!err?.isNetworkError) setUser(null);
       }
     };
 
@@ -66,9 +83,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     try {
       const profile = await authService.getProfile();
+      if (profile?.user?.isBanned) {
+        const params = new URLSearchParams();
+        if (profile.user.bannedReason) params.set('reason', profile.user.bannedReason);
+        if (profile.user.bannedUntil) params.set('until', profile.user.bannedUntil);
+        window.location.href = `/banned?${params.toString()}`;
+        return data;
+      }
       setUser(profile.user || null);
-    } catch (err) {
-      setUser(null);
+    } catch (err: any) {
+      if (!err?.isNetworkError) setUser(null);
     }
 
     return data;

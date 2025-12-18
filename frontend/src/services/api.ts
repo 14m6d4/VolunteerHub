@@ -30,7 +30,16 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
   const { query, ...fetchOpts } = opts;
   const url = buildUrl(path, query as any);
 
-  const res = await fetch(url, { ...fetchOpts, headers });
+  let res: Response;
+  try {
+    res = await fetch(url, { ...fetchOpts, headers });
+  } catch (err: any) {
+    const e: any = new Error('Network error: failed to reach API');
+    e.isNetworkError = true;
+    // Preserve original error details where possible
+    e.original = err;
+    throw e;
+  }
   console.log("res in api.ts: ", res);
 
   // Try to parse JSON when content-type indicates JSON, otherwise grab text
