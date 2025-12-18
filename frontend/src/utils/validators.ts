@@ -15,7 +15,7 @@ export const secureUpdateProfileSchema = z.object({
   notificationsEnabled: z.boolean().optional(),
   notifyOnMention: z.boolean().optional(),
   notifyOnEventUpdate: z.boolean().optional(),
-  currentPassword: z.string().min(6, 'Mật khẩu hiện tại không được để trống'),
+  currentPassword: z.string().min(6, 'Invalid Password').optional(),
 }).refine((data) => {
   // Ít nhất phải có 1 trường thay đổi (ngoài currentPassword)
   const hasChanges = Object.keys(data).some(key =>
@@ -23,6 +23,6 @@ export const secureUpdateProfileSchema = z.object({
   );
   return hasChanges;
 }, {
-  message: 'Bạn chưa thay đổi thông tin nào',
+  message: 'You did not change any information.',
   path: ['currentPassword'],
 });

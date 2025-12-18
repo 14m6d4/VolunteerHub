@@ -27,12 +27,20 @@ console.log('[===================]');
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    // Allow requests from any origin. We echo the origin so credentials (cookies) can still be used.
+    origin: (origin, callback) => {
+      // If no origin (e.g., same-origin requests like curl or server-to-server), allow it
+      callback(null, true);
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   })
 );
+// app.options('*', (req, res) => {
+//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+//   res.sendStatus(204);
+// });
 
 app.use(express.json());
 app.use(morgan("dev"));

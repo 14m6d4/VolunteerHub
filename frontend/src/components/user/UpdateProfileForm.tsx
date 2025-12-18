@@ -44,7 +44,15 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
 
   const onSubmit = async (data: FormData) => {
     try {
-      await updateProfile(data);
+      // If user signed in via Google, don't send currentPassword
+      if ((user as any).authProvider === 'google' && ('currentPassword' in data)) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { currentPassword, ...rest } = data as any;
+        await updateProfile(rest);
+      } else {
+        await updateProfile(data);
+      }
+
       alert('Profile updated successfully! Refreshing...');
       window.location.reload();
     } catch (err: any) {
@@ -115,7 +123,7 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
 
           {preview && (
             <div className="mt-3">
-              <p className="text-sm text-muted-foreground">Preview</p>
+              <p className="text-sm text-muted-foreground"></p>
               <img src={preview} alt="Preview" className="w-28 h-28 rounded-full object-cover mt-2" />
             </div>
           )}
@@ -148,17 +156,23 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
       </div>
 
       <div className="border-t pt-6">
-        <Label htmlFor="currentPassword" className="text-red-600">
-          Enter current password to confirm changes *
-        </Label>
-        <Input
-          id="currentPassword"
-          type="password"
-          {...register('currentPassword')}
-          placeholder="••••••••"
-        />
-        {errors.currentPassword && (
-          <p className="text-sm text-red-600 mt-1">{errors.currentPassword.message}</p>
+        {(user as any).authProvider === 'google' ? (
+          <div className="text-sm text-muted-foreground">No password required for Google accounts to update profile.</div>
+        ) : (
+          <>
+            <Label htmlFor="currentPassword" className="text-red-600">
+              Enter current password to confirm changes *
+            </Label>
+            <Input
+              id="currentPassword"
+              type="password"
+              {...register('currentPassword')}
+              placeholder="••••••••"
+            />
+            {errors.currentPassword && (
+              <p className="text-sm text-red-600 mt-1">{errors.currentPassword.message}</p>
+            )}
+          </>
         )}
       </div>
 

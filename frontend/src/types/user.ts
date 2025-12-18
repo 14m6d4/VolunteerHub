@@ -29,7 +29,8 @@ export type UpdateProfilePayload = {
   notificationsEnabled?: boolean;
   notifyOnMention?: boolean;
   notifyOnEventUpdate?: boolean;
-  currentPassword: string;
+  currentPassword?: string;
+  authProvider?: string;
 };
 
 export interface PublicUserProfile {

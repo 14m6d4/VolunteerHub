@@ -11,7 +11,7 @@ import { roleMiddleware } from '../middlewares/role.middleware.ts';
 
 // Combine the password field with the profile data payload for the API request
 export type SecureUpdateProfilePayload = UpdateProfileData & {
-  currentPassword: string;
+  currentPassword?: string;
 };
 
 /**

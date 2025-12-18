@@ -171,6 +171,7 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
         birthdate: user.birthdate ? new Date(user.birthdate).toISOString().split('T')[0] : undefined,
         profilePicture: user.profilePicture || undefined,
         role: user.role,
+        authProvider: user.authProvider,
         isVerified: user.isVerified,
         isActive: user.isActive,
         isBanned: (user as any).isBanned || false,
