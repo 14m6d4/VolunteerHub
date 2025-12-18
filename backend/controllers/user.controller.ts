@@ -120,6 +120,16 @@ export async function listFriendRequests(req: AuthenticatedRequest, res: Respons
   }
 }
 
+export async function listFriends(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const friends = await userService.listFriendsService(userId);
+    return res.status(200).json({ status: 'success', data: friends });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function friendRelations(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user._id.toString();

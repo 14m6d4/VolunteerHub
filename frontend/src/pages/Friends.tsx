@@ -14,6 +14,7 @@ export default function FriendsPage() {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
+  const [friends, setFriends] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -23,6 +24,19 @@ export default function FriendsPage() {
         setRequests(res.data || res || []);
       } catch (err) {
         console.error('Failed to fetch requests', err);
+      }
+    })();
+  }, [user]);
+
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      try {
+        const res = await (await import('@/services/user.service')).getFriends();
+        const list = res.data || res || [];
+        setFriends(list);
+      } catch (err) {
+        console.error('Failed to fetch friends', err);
       }
     })();
   }, [user]);
@@ -85,7 +99,20 @@ export default function FriendsPage() {
         </TabsList>
 
         <TabsContent value="friends">
-          <p className="text-sm text-muted-foreground">Your friends are shown on the profile page (future: list friends here)</p>
+          <div className="space-y-3">
+            {friends.map((f:any) => (
+              <div key={f._id || f.id} className="flex items-center justify-between p-3 border rounded">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10"><AvatarImage src={f.profilePicture || undefined} /><AvatarFallback>{(f.username || f.name || '?')[0]?.toUpperCase()}</AvatarFallback></Avatar>
+                  <div>
+                    <div className="font-medium">{f.name || f.username}</div>
+                    <div className="text-sm text-muted-foreground">@{f.username}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {friends.length === 0 && <div className="text-sm text-muted-foreground">You have no friends yet</div>}
+          </div>
         </TabsContent>
 
         <TabsContent value="requests">

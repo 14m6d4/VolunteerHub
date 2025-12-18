@@ -310,6 +310,16 @@ export const listIncomingFriendRequestsService = async (userId: string) => {
     .lean();
 };
 
+// List friends for a user (populate basic public fields)
+export const listFriendsService = async (userId: string) => {
+  const doc = await UserModel.findById(userId)
+    .select('friends')
+    .populate({ path: 'friends', select: 'username name profilePicture' })
+    .lean();
+
+  return (doc && (doc as any).friends) || [];
+};
+
 // Return relations for multiple target ids: 'friends' | 'pending_sent' | 'pending_received' | 'none'
 export const getRelationsForTargets = async (userId: string, targets: string[]) => {
   // fetch user's friends

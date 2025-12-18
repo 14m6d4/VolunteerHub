@@ -42,6 +42,11 @@ export async function getRelations(ids: string[]) {
     body: JSON.stringify({ ids }),
   });
 }
+export async function getFriends() {
+  return await apiFetch('/users/friends', {
+    method: 'GET',
+  });
+}
 export async function addFriend(friendId: string) {
   return await apiFetch('/users/friends/add', {
     method: 'POST',
