@@ -3,6 +3,7 @@ import "./App.css"
 import { BrowserRouter, Routes, Route, Outlet, useSearchParams } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import LoginPage from "@/pages/auth/Login"
+import BannedPage from "@/pages/auth/Banned"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
 import UserProfilePage from "@/pages/[username]"
@@ -75,6 +76,7 @@ function AppContent() {
           }
         >
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/banned" element={<BannedPage />} />
           <Route path="/register" element={<SignupPage />} />
           <Route path="/password_reset" element={<PasswordResetPage />} />
           <Route path="500" element={<Error500 />} />

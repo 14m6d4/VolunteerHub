@@ -6,6 +6,8 @@ import type { UpdateProfileData } from '../types/user.ts';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.ts';
 import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
+import { UserRole } from '../types/user.ts';
+import { roleMiddleware } from '../middlewares/role.middleware.ts';
 
 // Combine the password field with the profile data payload for the API request
 export type SecureUpdateProfilePayload = UpdateProfileData & {
@@ -78,6 +80,46 @@ export async function getPublicProfile(
         createdAt: createdAtIso,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Admin action: Ban a user by id
+ * Expects optional body: { reason?: string, until?: string }
+ */
+export async function banUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.params.id;
+    const { reason, until } = req.body as { reason?: string; until?: string };
+
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+
+    user.isBanned = true;
+    user.bannedReason = reason || undefined;
+    user.bannedUntil = until ? new Date(until) : undefined;
+    await user.save();
+
+    return res.status(200).json({ status: 'success', message: 'User banned', userId: user._id.toString() });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function unbanUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.params.id;
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+
+    user.isBanned = false;
+    user.bannedReason = undefined;
+    user.bannedUntil = undefined;
+    await user.save();
+
+    return res.status(200).json({ status: 'success', message: 'User unbanned', userId: user._id.toString() });
   } catch (error) {
     next(error);
   }
