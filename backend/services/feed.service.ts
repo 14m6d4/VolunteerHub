@@ -1,63 +1,95 @@
-// Feed.service.ts
-import { PostModel } from "../models/Post.model.ts";
+// services/feed.service.ts
+import { FeedModel, FeedType } from "../models/Feed.model.ts";
 import { EventModel } from "../models/Event.model.ts";
-import { RegistrationModel, RegistrationStatus } from "../models/Registration.model.ts";
-import mongoose from "mongoose";
+import { PostModel } from "../models/Post.model.ts";
 
 export const FeedService = {
-    async getFeed(userId: mongoose.Types.ObjectId, filters: any = {}) {
-        const tab = filters.tab;
-        let query = {};
+    calculateScore(feed, data, user) {
+        let score = 0;
+        const now = Date.now();
 
-        if (tab === "not-joined") {
-            const eventsNotJoined = await EventModel.find({
-                isPublic: true,
-                status: { $in: [EventStatus.APPROVED, EventStatus.PENDING] }
-            });
+        // Base score
+        score += feed.type === FeedType.EVENT ? 30 : 10;
 
-            const eventsNotJoinedIds = await RegistrationModel.find({
-                volunteerId: { $ne: userId },
-                eventId: { $in: eventsNotJoined.map((event) => event._id) }
-            }).distinct("eventId");
+        // Freshness
+        const hours =
+            (now - new Date(feed.createdAt).getTime()) / 3600000;
+        score += Math.max(0, 20 - hours);
 
-            query = {
-                $or: [
-                    { "eventId": { $in: eventsNotJoinedIds } },
-                    { "eventId": { $exists: false } },
-                ]
-            };
+        // Engagement
+        if (feed.type === FeedType.POST) {
+            score += (data.likes?.length || 0) * 1.5;
         }
 
-        if (tab === "joined") {
-            const registrations = await RegistrationModel.find({
-                volunteerId: userId,
-                status: RegistrationStatus.APPROVED
-            }).populate("eventId");
-
-            query = {
-                $or: [
-                    { "eventId": { $in: registrations.map((registration) => registration.eventId._id) } },
-                    { "eventId": { $exists: false } },
-                ]
-            };
+        if (feed.type === FeedType.EVENT) {
+            score += data.currentMembers || 0;
+            if (
+                data.startAt &&
+                new Date(data.startAt).getTime() - now < 48 * 3600000
+            ) {
+                score += 15;
+            }
         }
 
-        if (tab === "all") {
-            query = {};
-        }
+        return score;
+    }
+    async getFeed(
+        { page = 1, limit = 20 },
+        user?: any
+    ) {
+        const skip = (page - 1) * limit;
 
-        const posts = await PostModel.find(query)
-            .sort({ pinned: -1, createdAt: -1 })
-            .populate("eventId", "title isPublic status")
-            .populate("authorId", "name avatar")
+        // 1️⃣ Lấy feed thô
+        const feeds = await FeedModel.find()
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
             .lean();
 
-        return posts.map(post => ({
-            ...post,
-            attachments: post.attachments?.map(att => ({
-                ...att,
-                url: `${process.env.SERVER_URL}/file/${att.fileId}`
-            })) || []
+        // 2️⃣ Hydrate Event/Post
+        const eventIds = feeds
+            .filter(f => f.type === FeedType.EVENT)
+            .map(f => f.refId);
+
+        const postIds = feeds
+            .filter(f => f.type === FeedType.POST)
+            .map(f => f.refId);
+
+        const [events, posts] = await Promise.all([
+            EventModel.find({ _id: { $in: eventIds } }).lean(),
+            PostModel.find({ _id: { $in: postIds } }).lean()
+        ]);
+
+        const eventMap = new Map(events.map(e => [e._id.toString(), e]));
+        const postMap = new Map(posts.map(p => [p._id.toString(), p]));
+
+        // 3️⃣ Build feedItems
+        const feedItems = feeds.map(feed => {
+            if (feed.type === FeedType.EVENT) {
+                return {
+                    feed,
+                    data: eventMap.get(feed.refId.toString())
+                };
+            }
+            return {
+                feed,
+                data: postMap.get(feed.refId.toString())
+            };
+        });
+
+        // 🔥 4️⃣ TÍNH SCORE + SORT (CHỖ BẠN HỎI)
+        const rankedFeed = feedItems
+            .map(item => ({
+                ...item,
+                score: this.calculateScore(item.feed, item.data, user)
+            }))
+            .sort((a, b) => b.score - a.score);
+
+        // 5️⃣ Format response
+        return rankedFeed.map(item => ({
+            type: item.feed.type,
+            createdAt: item.feed.createdAt,
+            data: item.data
         }));
     }
 };
