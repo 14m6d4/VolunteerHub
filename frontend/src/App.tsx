@@ -8,6 +8,8 @@ import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
 import UserProfilePage from "@/pages/[username]"
 import EventsTest from "./pages/test/TestRouter";
+import FriendsPage from '@/pages/Friends';
+import SearchUsersPage from '@/pages/SearchUsers';
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"
@@ -64,6 +66,8 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           {/* Thêm các route chính khác cần footer vào đây */}
           <Route path="/test/events" element={<EventsTest />} />
+          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/search" element={<SearchUsersPage />} />
           <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>
 
