@@ -1,95 +1,110 @@
-// services/feed.service.ts
-import { FeedModel, FeedType } from "../models/Feed.model.ts";
+
+
 import { EventModel } from "../models/Event.model.ts";
 import { PostModel } from "../models/Post.model.ts";
+import { RegistrationModel } from "../models/Registration.model.ts";
+
+function calculateScore(feed, data, user) {
+    let score = 0;
+    const now = Date.now();
+
+    // Base score
+    score += feed.type === FeedType.EVENT ? 30 : 10;
+
+    // Freshness
+    const hours =
+        (now - new Date(feed.createdAt).getTime()) / 3600000;
+    score += Math.max(0, 20 - hours);
+
+    // Engagement
+    if (feed.type === FeedType.POST) {
+        score += (data.likes?.length || 0) * 1.5;
+    }
+
+    if (feed.type === FeedType.EVENT) {
+        score += data.currentMembers || 0;
+        if (
+            data.startAt &&
+            new Date(data.startAt).getTime() - now < 48 * 3600000
+        ) {
+            score += 15;
+        }
+    }
+
+    return score;
+}
 
 export const FeedService = {
-    calculateScore(feed, data, user) {
-        let score = 0;
-        const now = Date.now();
-
-        // Base score
-        score += feed.type === FeedType.EVENT ? 30 : 10;
-
-        // Freshness
-        const hours =
-            (now - new Date(feed.createdAt).getTime()) / 3600000;
-        score += Math.max(0, 20 - hours);
-
-        // Engagement
-        if (feed.type === FeedType.POST) {
-            score += (data.likes?.length || 0) * 1.5;
-        }
-
-        if (feed.type === FeedType.EVENT) {
-            score += data.currentMembers || 0;
-            if (
-                data.startAt &&
-                new Date(data.startAt).getTime() - now < 48 * 3600000
-            ) {
-                score += 15;
-            }
-        }
-
-        return score;
-    }
-    async getFeed(
-        { page = 1, limit = 20 },
-        user?: any
-    ) {
+    async getFeed({ page = 1, limit = 20, tab = "all" }, user?) {
         const skip = (page - 1) * limit;
 
-        // 1️⃣ Lấy feed thô
-        const feeds = await FeedModel.find()
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .lean();
+        let eventQuery: any = {};
+        let postQuery: any = {};
 
-        // 2️⃣ Hydrate Event/Post
-        const eventIds = feeds
-            .filter(f => f.type === FeedType.EVENT)
-            .map(f => f.refId);
+        // 1️⃣ Filter theo tab
+        if (tab === "unjoined") {
+            if (user) {
+                // Lấy eventIds user đã join
+                const joinedRegs = await RegistrationModel.find({
+                    volunteerId: user._id,
+                    status: { $in: ["approved", "completed"] },
+                }).select("eventId");
 
-        const postIds = feeds
-            .filter(f => f.type === FeedType.POST)
-            .map(f => f.refId);
+                const joinedEventIds = joinedRegs.map(r => r.eventId);
 
+                eventQuery._id = { $nin: joinedEventIds }; // event chưa tham gia
+            }
+            postQuery.isPublic = true; // chỉ post public
+        }
+
+        if (tab === "joined") {
+            if (user) {
+                const joinedRegs = await RegistrationModel.find({
+                    volunteerId: user._id,
+                    status: { $in: ["approved", "completed"] },
+                }).select("eventId");
+
+                const joinedEventIds = joinedRegs.map(r => r.eventId);
+
+                eventQuery._id = { $in: joinedEventIds }; // event đã tham gia
+                // posts public hoặc thuộc event đã tham gia
+                postQuery.$or = [
+                    { isPublic: true },
+                    { eventId: { $in: joinedEventIds } },
+                ];
+            } else {
+                // Nếu không login, không có event joined
+                eventQuery._id = { $in: [] };
+                postQuery.isPublic = true;
+            }
+        }
+
+        // tab === "all" => không filter gì thêm
+
+        // 2️⃣ Query Event & Post
         const [events, posts] = await Promise.all([
-            EventModel.find({ _id: { $in: eventIds } }).lean(),
-            PostModel.find({ _id: { $in: postIds } }).lean()
+            EventModel.find(eventQuery).lean(),
+            PostModel.find(postQuery).lean(),
         ]);
 
-        const eventMap = new Map(events.map(e => [e._id.toString(), e]));
-        const postMap = new Map(posts.map(p => [p._id.toString(), p]));
+        // 3️⃣ Build feed items
+        const feedItems = [
+            ...events.map(e => ({ type: "event", data: e, createdAt: e.createdAt })),
+            ...posts.map(p => ({ type: "post", data: p, createdAt: p.createdAt })),
+        ];
 
-        // 3️⃣ Build feedItems
-        const feedItems = feeds.map(feed => {
-            if (feed.type === FeedType.EVENT) {
-                return {
-                    feed,
-                    data: eventMap.get(feed.refId.toString())
-                };
-            }
-            return {
-                feed,
-                data: postMap.get(feed.refId.toString())
-            };
-        });
-
-        // 🔥 4️⃣ TÍNH SCORE + SORT (CHỖ BẠN HỎI)
+        // 4️⃣ Tính score & sort
         const rankedFeed = feedItems
             .map(item => ({
                 ...item,
-                score: this.calculateScore(item.feed, item.data, user)
+                score: calculateScore(item, user), // Hàm calculateScore giữ nguyên
             }))
             .sort((a, b) => b.score - a.score);
 
-        // 5️⃣ Format response
-        return rankedFeed.map(item => ({
-            type: item.feed.type,
-            createdAt: item.feed.createdAt,
-            data: item.data
-        }));
-    }
+        // 5️⃣ Pagination
+        const paged = rankedFeed.slice(skip, skip + limit);
+
+        return paged;
+    },
 };
+
