@@ -1,6 +1,6 @@
 // backend/routes/user.routes.ts
 import { Router } from 'express';
-import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, addFriend, reportUser, sendFriendRequest, acceptFriendRequest, listFriendRequests, listFriends, friendRelations } from '../controllers/user.controller.ts';
+import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, addFriend, reportUser, sendFriendRequest, acceptFriendRequest, listFriendRequests, listFriends, friendRelations, unfriendUser } from '../controllers/user.controller.ts';
 import { authMiddleware } from '../middlewares/auth.middleware.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
@@ -36,6 +36,7 @@ router.post('/friends/request', authMiddleware, sendFriendRequest as any);
 router.post('/friends/accept', authMiddleware, acceptFriendRequest as any);
 router.post('/friends/status', authMiddleware, friendRelations as any);
 router.post('/friends/add', authMiddleware, addFriend as any);
+router.post('/friends/remove', authMiddleware, unfriendUser as any);
 
 // Report user
 router.post('/report-user', authMiddleware, reportUser as any);

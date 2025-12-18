@@ -216,6 +216,24 @@ export const addFriendService = async (userId: string, friendId: string) => {
   return { success: true };
 };
 
+// Remove friend from both users' friends arrays
+export const removeFriendService = async (userId: string, friendId: string) => {
+  if (userId === friendId) throw new AppError('Cannot remove yourself', 400);
+
+  const user = await UserModel.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+
+  // If not friends, return an error
+  if (!((user as any).friends || []).map((f: any) => f.toString()).includes(friendId)) {
+    throw new AppError('Not friends', 400);
+  }
+
+  await UserModel.findByIdAndUpdate(userId, { $pull: { friends: friendId } });
+  await UserModel.findByIdAndUpdate(friendId, { $pull: { friends: userId } });
+
+  return { success: true };
+};
+
 // Report user service
 export const reportUserService = async (reporterId: string, targetId: string, reason: string, description?: string) => {
   return await ReportModel.create({

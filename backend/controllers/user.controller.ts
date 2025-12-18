@@ -203,6 +203,17 @@ export async function addFriend(req: AuthenticatedRequest, res: Response, next: 
   }
 }
 
+export async function unfriendUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const { friendId } = req.body as { friendId: string };
+    await userService.removeFriendService(userId, friendId);
+    return res.status(200).json({ status: 'success', message: 'Friend removed' });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function reportUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const reporterId = req.user._id.toString();

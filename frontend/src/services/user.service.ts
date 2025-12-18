@@ -54,6 +54,13 @@ export async function addFriend(friendId: string) {
   });
 }
 
+export async function removeFriend(friendId: string) {
+  return await apiFetch('/users/friends/remove', {
+    method: 'POST',
+    body: JSON.stringify({ friendId }),
+  });
+}
+
 export async function acceptFriendRequest(requestId: string) {
   return await apiFetch('/users/friends/accept', {
     method: 'POST',

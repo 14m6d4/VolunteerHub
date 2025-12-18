@@ -88,6 +88,17 @@ export default function FriendsPage() {
     }
   };
 
+  const handleUnfriend = async (friendId: string) => {
+    try {
+      const { removeFriend } = await import('@/services/user.service');
+      await removeFriend(friendId);
+      setFriends(prev => prev.filter((f:any) => (f._id || f.id || f.username) !== friendId));
+      alert('Friend removed');
+    } catch (err:any) {
+      alert(err.response?.data?.message || 'Unable to remove friend');
+    }
+  };
+
   return (
     <div className="container py-10 max-w-4xl">
       <h1 className="text-2xl mb-4">Friends</h1>
@@ -108,6 +119,9 @@ export default function FriendsPage() {
                     <div className="font-medium">{f.name || f.username}</div>
                     <div className="text-sm text-muted-foreground">@{f.username}</div>
                   </div>
+                </div>
+                <div>
+                  <Button size="sm" variant="destructive" onClick={() => handleUnfriend(f._id || f.id || f.username)}>Unfriend</Button>
                 </div>
               </div>
             ))}
