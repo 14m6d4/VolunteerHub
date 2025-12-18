@@ -46,6 +46,11 @@ type Navbar01Props = {
   onLogout?: () => void
   onNotificationClick?: () => void
   hasNotifications?: boolean
+  notificationDropdownOpen?: boolean
+  notifications?: any[]
+  onMarkAllRead?: () => void
+  onMarkRead?: (id: string) => void
+  onNotificationOpenChange?: (open: boolean) => void
 }
 
 // Simple logo component for the navbar - now using imported image
@@ -275,6 +280,11 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
       onLogout,
       onNotificationClick,
       hasNotifications = true,
+      notificationDropdownOpen = false,
+      notifications = [],
+      onMarkAllRead,
+      onMarkRead,
+      onNotificationOpenChange,
       ...props
     }: Navbar01Props,
     ref,
@@ -331,7 +341,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
         )}
         {...props}
       >
-        <div className="container mx-auto flex h-16 max-w-screen-2xl items-center justify-between gap-4">
+        <div className="flex h-16 w-full items-center justify-between gap-4">
           {/* Left side */}
           <div className="flex items-center gap-2">
             {/* Mobile menu trigger */}
@@ -380,7 +390,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                 className="flex items-center space-x-2 text-primary hover:text-primary/90 focus:outline-none focus:text-primary active:text-primary transition-colors cursor-pointer"
               >
                 <div className="text-2xl">{logo}</div>
-                <span className="hidden font-bold text-xl sm:inline-block">Gizmo</span>
+                <span className="hidden font-bold text-xl sm:inline-block">VolunteerHub</span>
               </button>
               {/* Navigation menu */}
               {!isMobile && (
@@ -418,16 +428,77 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                 {/* Theme toggle - before notification when logged in */}
                 <ModeToggle />
 
-                {/* Notification button */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative h-10 w-10 rounded-lg hover:bg-accent"
-                  onClick={onNotificationClick}
+                {/* Notification dropdown */}
+                <DropdownMenu
+                  open={notificationDropdownOpen}
+                  onOpenChange={(open) => {
+                    if (onNotificationOpenChange) {
+                      onNotificationOpenChange(open)
+                      return
+                    }
+
+                    // Back-compat: fall back to toggle handler
+                    if (onNotificationClick) onNotificationClick()
+                  }}
                 >
-                  <BellIcon className="h-5 w-5" />
-                  {hasNotifications && <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />}
-                </Button>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="relative h-10 w-10 rounded-lg hover:bg-accent focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    >
+                      <BellIcon className="h-5 w-5" />
+                      {hasNotifications && (
+                        <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-80 p-0">
+                    <div className="flex items-center justify-between gap-3 p-4 border-b">
+                      <p className="text-sm font-medium leading-none">Notifications</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto px-2 py-1 text-xs"
+                        onClick={() => onMarkAllRead?.()}
+                        disabled={notifications.length === 0}
+                      >
+                        Mark all read
+                      </Button>
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-6">
+                          <p className="text-sm text-muted-foreground">No notifications</p>
+                        </div>
+                      ) : (
+                        <div className="p-2">
+                          {notifications.map((n: any) => (
+                            <DropdownMenuItem
+                              key={n._id}
+                              className={cn(
+                                "cursor-pointer flex flex-col items-start gap-1 rounded-md p-3",
+                                !n.isRead && "bg-accent/50",
+                              )}
+                              onClick={() => onMarkRead?.(n._id)}
+                            >
+                              <div className="w-full text-sm font-medium leading-none">{n.title}</div>
+                              {n.body ? (
+                                <div className="w-full text-xs text-muted-foreground line-clamp-2">{n.body}</div>
+                              ) : null}
+                              {n.createdAt ? (
+                                <div className="w-full text-[11px] text-muted-foreground">
+                                  {new Date(n.createdAt).toLocaleString()}
+                                </div>
+                              ) : null}
+                            </DropdownMenuItem>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 {/* Profile dropdown */}
                 <DropdownMenu>
