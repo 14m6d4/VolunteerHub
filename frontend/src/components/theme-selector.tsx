@@ -26,7 +26,7 @@ export function ThemeSelector() {
 			<DropdownMenuTrigger asChild>
 				<Button
 					variant="ghost"
-					className="h-10 w-[200px] justify-between rounded-lg px-3 border border-border/60"
+					className="h-10 w-[200px] justify-between rounded-lg px-3 border border-border/60 focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
 				>
 					<div className="flex items-center gap-2 min-w-0">
 						<div
