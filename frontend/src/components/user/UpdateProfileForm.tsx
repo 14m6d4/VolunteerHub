@@ -1,5 +1,6 @@
 // frontend/src/components/user/UpdateProfileForm.tsx
 import { useForm } from 'react-hook-form';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,6 @@ import { Switch } from '@/components/ui/switch';
 import { secureUpdateProfileSchema } from '@/utils/validators';
 import { updateProfile } from '@/services/user.service';
 import type { User } from '@/types/user';
-import useAuth from '@/hooks/useAuth';
 
 type FormData = z.infer<typeof secureUpdateProfileSchema>;
 
@@ -18,36 +18,48 @@ interface UpdateProfileFormProps {
 }
 
 export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
-  const { setUser } = useAuth();
+  // Note: AuthContext does not expose setUser publicly; we'll reload after save to refresh profile
+  const [preview, setPreview] = useState<string | null>(user.profilePicture || null);
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(secureUpdateProfileSchema),
     defaultValues: {
       username: user.username,
       name: user.name || '',
-      birthdate: user.birthdate ? (typeof user.birthdate === 'string' ? user.birthdate.split('T')[0] : '') : '',
-      profilePicture: user.profilePicture || '',
+      // Ensure date input receives YYYY-MM-DD string
+      birthdate: user.birthdate ? (typeof user.birthdate === 'string' ? user.birthdate.split('T')[0] : new Date(user.birthdate).toISOString().split('T')[0]) : '',
+      profilePicture: user.profilePicture || undefined,
       notificationsEnabled: user.notificationsEnabled ?? false,
       notifyOnMention: user.notifyOnMention ?? false,
       notifyOnEventUpdate: user.notifyOnEventUpdate ?? false,
     },
   });
 
+
   const onSubmit = async (data: FormData) => {
     try {
-      const response = await updateProfile(data);
-      setUser(response.user); // Update user in useAuth
-      alert('Profile updated successfully!');
+      await updateProfile(data);
+      alert('Profile updated successfully! Refreshing...');
+      window.location.reload();
     } catch (err: any) {
       const message = err.response?.data?.message || 'Unable to update profile. Please try again.';
       alert('Error: ' + message);
       console.error('Profile update error:', err);
     }
   };
+
+  // Keep preview in sync with the profilePicture form value
+  const watchedPic = watch('profilePicture');
+  useEffect(() => {
+    if (typeof watchedPic === 'string' && watchedPic) setPreview(watchedPic);
+    else setPreview(null);
+  }, [watchedPic]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -71,7 +83,7 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
         </div>
 
         <div>
-          <Label htmlFor="profilePicture">Profile picture (URL)</Label>
+          <Label htmlFor="profilePicture">Profile picture</Label>
           <Input
             id="profilePicture"
             placeholder="https://example.com/avatar.jpg"
@@ -79,6 +91,33 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
           />
           {errors.profilePicture && (
             <p className="text-sm text-red-600 mt-1">{errors.profilePicture.message}</p>
+          )}
+
+          <div className="mt-3">
+            <Label htmlFor="profileFile">Or choose a file</Label>
+            <input id="profileFile" type="file" accept="image/*" onChange={(e) => {
+              const file = e.target.files && e.target.files[0];
+              if (!file) return;
+              if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = reader.result as string;
+                // set into the form
+                try { (setValue ?? ((register as any).setValue))?.('profilePicture', result); } catch {};
+                setPreview(result);
+              };
+              reader.readAsDataURL(file);
+            }} />
+          </div>
+
+          {preview && (
+            <div className="mt-3">
+              <p className="text-sm text-muted-foreground">Preview</p>
+              <img src={preview} alt="Preview" className="w-28 h-28 rounded-full object-cover mt-2" />
+            </div>
           )}
         </div>
       </div>

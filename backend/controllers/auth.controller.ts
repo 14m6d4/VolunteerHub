@@ -168,6 +168,8 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
         email: user.email,
         username: user.username,
         name: user.name,
+        birthdate: user.birthdate ? new Date(user.birthdate).toISOString().split('T')[0] : undefined,
+        profilePicture: user.profilePicture || undefined,
         role: user.role,
         isVerified: user.isVerified,
         isActive: user.isActive,

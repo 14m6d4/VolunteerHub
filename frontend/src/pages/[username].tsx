@@ -43,7 +43,7 @@ export default function UserProfilePage() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={profileUser.profilePicture} />
+                <AvatarImage src={profileUser.profilePicture || undefined} />
                 <AvatarFallback>{profileUser.username[0].toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
