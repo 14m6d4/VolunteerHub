@@ -9,6 +9,7 @@ import AppError from '../utils/appError.ts';
 import * as userService from '../services/user.service.ts';
 import { UserRole } from '../types/user.ts';
 import { roleMiddleware } from '../middlewares/role.middleware.ts';
+import { uploadToImgBB } from '../services/imgbb.service.ts';
 
 // Combine the password field with the profile data payload for the API request
 export type SecureUpdateProfilePayload = UpdateProfileData & {
@@ -30,6 +31,32 @@ export async function updateProfileSecure(req: AuthenticatedRequest, res: Respon
 
     // 2. Extract payload including the current password
     const { currentPassword, ...updateData }: SecureUpdateProfilePayload = req.body;
+
+    // --- ImgBB Upload Logic ---
+    if (updateData.profilePicture && updateData.profilePicture.startsWith('data:image')) {
+      try {
+        // Extract base64 data
+        const matches = updateData.profilePicture.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+
+        if (matches && matches.length === 3) {
+          const mimeType = matches[1];
+          const base64Data = matches[2];
+          const buffer = Buffer.from(base64Data, 'base64');
+
+          const filename = `avatar-${userId}-${Date.now()}.${mimeType.split('/')[1]}`;
+
+          console.log(`[user.controller] Uploading avatar for user ${userId} to ImgBB...`);
+          const publicUrl = await uploadToImgBB(buffer, filename);
+
+          // Replace base64 string with Public URL
+          updateData.profilePicture = publicUrl;
+        }
+      } catch (uploadErr) {
+        console.error('[user.controller] Upload failed:', uploadErr);
+        throw new AppError('Failed to upload profile picture', 500);
+      }
+    }
+    // ---------------------------------
 
     // 3. Delegate the logic to the service layer
     const updatedUser = await updateProfileWithPasswordCheck(userId, currentPassword, updateData);
