@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getFeed, createPost } from '@/services/feed.service';
+import { getFeed, createPost, likePost } from '@/services/feed.service';
 import { Heart, MessageCircle, Share2, Image as ImageIcon, ThumbsUp, Globe, MoreHorizontal, Smile, Video } from 'lucide-react';
 
 const Feed = () => {
@@ -58,6 +58,20 @@ const Feed = () => {
             await fetchFeed();
         } catch (error) {
             console.error("Error creating post:", error);
+        }
+    };
+
+    const handleLike = async (postId: string) => {
+        try {
+            await likePost(postId);
+            // Optimistic update or refresh? Refresh for now is safer, but optimistic is better.
+            // Let's simple refresh for correctness first or just update local state if possible.
+            // Given the complexity of nesting, I'll validly refetch for now or simple local update.
+            // Local update: find item, toggle like (assuming I know current user ID? I don't have user ID in context easily here without more code).
+            // Actually, I can just refetch.
+            await fetchFeed();
+        } catch (error) {
+            console.error("Error liking post:", error);
         }
     };
 
@@ -231,7 +245,10 @@ const Feed = () => {
 
                                     {/* Action Buttons */}
                                     <div className="px-2 py-1 flex justify-between items-center mx-2">
-                                        <button className="flex-1 flex items-center justify-center space-x-2 py-2 hover:bg-gray-100 rounded-lg text-gray-600 font-medium transition-colors">
+                                        <button
+                                            onClick={() => handleLike(post._id)}
+                                            className="flex-1 flex items-center justify-center space-x-2 py-2 hover:bg-gray-100 rounded-lg text-gray-600 font-medium transition-colors"
+                                        >
                                             <ThumbsUp size={20} />
                                             <span>Like</span>
                                         </button>

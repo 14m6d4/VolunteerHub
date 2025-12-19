@@ -16,3 +16,9 @@ export async function createPost(formData: FormData) {
         body: formData,
     });
 }
+
+export async function likePost(postId: string) {
+    return apiFetch(`/posts/${postId}/like`, {
+        method: "POST",
+    });
+}

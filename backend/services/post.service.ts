@@ -58,11 +58,15 @@ export const PostService = {
     },
 
     async likePost(userId: string, postId: string) {
-        return PostModel.findByIdAndUpdate(
-            postId,
-            { $addToSet: { likes: userId } },
-            { new: true }
-        );
+        const post = await PostModel.findById(postId);
+        if (!post) throw new Error("Post not found");
+
+        const isLiked = post.likes.includes(userId as any);
+        const update = isLiked
+            ? { $pull: { likes: userId } }
+            : { $addToSet: { likes: userId } };
+
+        return PostModel.findByIdAndUpdate(postId, update, { new: true });
     },
 
     async deletePost(postId: string) {
