@@ -26,7 +26,7 @@ export const ReportService = {
         // Gửi thông báo cho admin
         const admins = await User.find({ role: "admin" });
         admins.forEach(admin => {
-            NotificationService.notify(admin._id, {
+            NotificationService.notify(admin._id.toString(), {
                 type: NotificationType.EVENT_REPORTED,
                 title: "Event Reported",
                 body: `Event ${event.title} has been reported for the following reason: ${reason}`,
@@ -87,8 +87,11 @@ export const ReportService = {
 
         // Gửi thông báo cho admin
         const admins = await User.find({ role: "admin" });
+        console.log(`[ReportService] reportUser: Found ${admins.length} admins to notify.`);
+
         admins.forEach(admin => {
-            NotificationService.notify(admin._id, {
+            console.log(`[ReportService] Notifying admin: ${admin.username} (${admin._id})`);
+            NotificationService.notify(admin._id.toString(), {
                 type: NotificationType.USER_REPORTED,
                 title: "User Reported",
                 body: `User ${targetUser.username} has been reported. Reason: ${reason}`,

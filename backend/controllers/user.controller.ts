@@ -203,11 +203,15 @@ export async function unfriendUser(req: AuthenticatedRequest, res: Response, nex
   }
 }
 
+import { ReportService } from '../services/report.service.ts';
+
+// ...
+
 export async function reportUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const reporterId = req.user._id.toString();
     const { targetId, reason, description } = req.body;
-    await userService.reportUserService(reporterId, targetId, reason, description);
+    await ReportService.reportUser(reporterId, targetId, reason, description);
     return res.status(201).json({ status: 'success', message: 'Report submitted' });
   } catch (error) {
     next(error);

@@ -64,18 +64,26 @@ export async function deleteAllNotifications(userId: string) {
 
 export const NotificationService = {
 	async notify(userId: string, { title, body, data, type }: any) {
-		await NotificationModel.create({
-			user: userId,
-			title,
-			body,
-			data,
-			type
-		});
+		try {
+			await NotificationModel.create({
+				user: userId,
+				title,
+				body,
+				data,
+				type
+			});
+		} catch (error) {
+			console.error(`[NotificationService] Failed to create notification for user ${userId}:`, error);
+		}
 
-		await WebPushService.sendToUser(userId, {
-			title,
-			body,
-			data
-		});
+		try {
+			await WebPushService.sendToUser(userId, {
+				title,
+				body,
+				data
+			});
+		} catch (error) {
+			console.error(`[NotificationService] WebPush failed for user ${userId}:`, error);
+		}
 	}
 };
