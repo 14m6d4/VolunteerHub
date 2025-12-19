@@ -15,6 +15,7 @@ export default function FriendsPage() {
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -52,10 +53,19 @@ export default function FriendsPage() {
         try {
           const res = await apiSearchUsers(query);
           const users = res.data || res || [];
-          // Batch get relations
-          const ids = users.map((u:any) => u._id);
-          const rel = (await getRelations(ids)).data || {};
-          const enriched = users.map((u:any) => ({ ...u, relation: rel[u._id] || 'none' }));
+          // Batch get relations (only when we have ids)
+          const ids = users.map((u:any) => u._id || u.id).filter(Boolean);
+          let rel: Record<string, string> = {};
+          if (ids.length > 0) {
+            try {
+              rel = (await getRelations(ids)).data || {};
+            } catch (e) {
+              // Backend returns 400 when ids is empty; treat as all 'none'
+              console.warn('getRelations failed', e);
+              rel = {};
+            }
+          }
+          const enriched = users.map((u:any) => ({ ...u, relation: rel[u._id || u.id] || 'none' }));
           setResults(enriched);
         } catch (err) {
           console.error('Search users error', err);
@@ -79,12 +89,41 @@ export default function FriendsPage() {
   };
 
   const handleAccept = async (requestId: string) => {
+    const reqItem = requests.find((r:any) => r._id === requestId);
+    const sender = reqItem?.sender;
     try {
+      setAcceptingId(requestId);
       await acceptFriendRequest(requestId);
+
+      // remove from requests list
       setRequests(prev => prev.filter(r => r._id !== requestId));
+
+      // optimistic update: add sender to friends if available
+      if (sender) {
+        setFriends(prev => {
+          const sid = sender._id || sender.id || sender.username;
+          if (prev.some((f:any) => (f._id || f.id || f.username) === sid)) return prev;
+          return [sender, ...prev];
+        });
+
+        // also update any search results to reflect new relation
+        setResults(prev => prev.map((u:any) => ({ ...u, relation: (u._id === (sender._id || sender.id) ? 'friends' : u.relation) })));
+      }
+
+      // refresh full friends list to ensure consistency
+      try {
+        const friendsRes = await (await import('@/services/user.service')).getFriends();
+        const list = friendsRes.data || friendsRes || [];
+        setFriends(list);
+      } catch (err) {
+        console.warn('Failed to refresh friends after accept', err);
+      }
+
       alert('Accepted');
     } catch (err:any) {
       alert(err.response?.data?.message || 'Unable to accept');
+    } finally {
+      setAcceptingId(null);
     }
   };
 
@@ -141,7 +180,7 @@ export default function FriendsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleAccept(r._id)}>Accept</Button>
+                  <Button size="sm" onClick={() => handleAccept(r._id)} disabled={acceptingId === r._id}>{acceptingId === r._id ? 'Accepting...' : 'Accept'}</Button>
                 </div>
               </div>
             ))}

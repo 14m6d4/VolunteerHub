@@ -258,7 +258,7 @@ const defaultNavigationLinks = [
   { href: "/", label: "Home" },
   { href: "/feed", label: "Feed" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/search", label: "Search" },
+  // { href: "/search", label: "Search" },
   { href: "/friends", label: "Friends" },
   { href: "/about", label: "About" },
 ]
@@ -284,8 +284,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
       notifications = [],
       onMarkAllRead,
       onMarkRead,
-      onNotificationOpenChange,
-      ...props
+      onNotificationOpenChange
     }: Navbar01Props,
     ref,
   ) => {
@@ -339,7 +338,6 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
           "fixed top-0 left-0 z-50 w-full border-b bg-background px-4 md:px-6 [&_*]:no-underline",
           className,
         )}
-        {...props}
       >
         <div className="flex h-16 w-full items-center justify-between gap-4">
           {/* Left side */}
