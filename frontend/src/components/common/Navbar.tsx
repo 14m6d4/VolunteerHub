@@ -520,7 +520,15 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                             <div key={n._id} className="group relative flex items-start gap-1 rounded-md p-3 hover:bg-accent cursor-pointer">
                               <div
                                 className={cn("flex-1 space-y-1", !n.isRead && "font-semibold")}
-                                onClick={() => onMarkRead?.(n._id)}
+                                onClick={() => {
+                                  onMarkRead?.(n._id);
+                                  // Handle navigation based on type
+                                  if (n.type === 'friend_request_received') {
+                                    navigate('/u?tab=requests');
+                                  } else if (['event_report', 'user_report', 'post_report'].includes(n.type)) {
+                                    navigate('/admin/reports');
+                                  }
+                                }}
                               >
                                 <div className="text-sm font-medium leading-none">{n.title}</div>
                                 {n.body ? (

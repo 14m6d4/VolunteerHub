@@ -8,10 +8,20 @@ import useAuth from '@/hooks/useAuth';
 import { acceptFriendRequest, getFriendRequests as apiGetRequests, sendFriendRequest, getRelations } from '@/services/user.service';
 import { searchUsers as apiSearchUsers } from '@/services/user.service';
 
+import { useSearchParams } from 'react-router-dom';
+
+// ...
+
 export default function FriendsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'friends' | 'requests' | 'search'>('friends');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get('tab') as 'friends' | 'requests' | 'search' || 'friends';
+
+  // Helper to update URL when tab changes
+  const setTab = (val: string) => {
+    setSearchParams({ tab: val });
+  };
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -147,7 +157,7 @@ export default function FriendsPage() {
   return (
     <div className="container py-10 max-w-4xl">
       <h1 className="text-2xl mb-4">Users</h1>
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+      <Tabs value={currentTab} onValueChange={(v) => setTab(v)}>
         <TabsList>
           <TabsTrigger value="friends">Friends</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
