@@ -11,7 +11,8 @@ export enum NotificationType {
   REGISTRATION_PENDING = "registration_pending",
   EVENT_REMINDER = "event_reminder",
   FRIEND_REQUEST_RECEIVED = 'friend_request_received',
-  FRIEND_REQUEST_ACCEPTED = 'friend_request_accepted'
+  FRIEND_REQUEST_ACCEPTED = 'friend_request_accepted',
+  EVENT_REPORTED = 'event_report'
 }
 
 export interface INotification extends Document {

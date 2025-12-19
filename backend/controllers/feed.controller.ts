@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { FeedService } from "../services/feed.service.ts";
 
 export const FeedController = {
@@ -8,7 +8,6 @@ export const FeedController = {
             const page = Number(req.query.page || 1);
             const limit = Number(req.query.limit || 20);
             const tab = req.query.tab as string || "all";
-
             const feed = await FeedService.getFeed({ page, limit, tab }, user);
 
             res.json({ success: true, data: feed });

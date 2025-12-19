@@ -10,7 +10,7 @@ export const PostController = {
                 userId,
                 discussionId: req.params.discussionId,
                 content: req.body.content,
-                files: req.files as Express.Multer.File[]
+                file: req.file
             });
 
             res.status(201).json({ success: true, data: post });
