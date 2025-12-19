@@ -387,6 +387,27 @@ export const banUserService = async (userId: string, reason?: string, until?: Da
   return user;
 };
 
+export const adminSearchUsers = async (query: string) => {
+  // Search ALL users (active or banned)
+  return await UserModel.find({
+    $or: [
+      { username: { $regex: query, $options: 'i' } },
+      { name: { $regex: query, $options: 'i' } },
+      { email: { $regex: query, $options: 'i' } }
+    ]
+  })
+    .select('username name profilePicture role isBanned bannedReason bannedUntil email')
+    .sort({ createdAt: -1 })
+    .lean();
+};
+
+export const getBannedUsers = async () => {
+  return await UserModel.find({ isBanned: true })
+    .select('username name profilePicture role isBanned bannedReason bannedUntil email')
+    .sort({ bannedUntil: 1 }) // Show closest unban date first (or just default sort)
+    .lean();
+};
+
 export const unbanUserService = async (userId: string) => {
   const user = await UserModel.findById(userId);
   if (!user) throw new AppError('User not found', 404);

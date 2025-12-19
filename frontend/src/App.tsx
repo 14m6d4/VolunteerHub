@@ -12,6 +12,7 @@ import EventsTest from "./pages/test/TestRouter";
 import FriendsPage from '@/pages/Friends';
 import SearchUsersPage from '@/pages/SearchUsers';
 import AdminReportsPage from "@/pages/admin/Reports";
+import AdminUsersPage from "@/pages/admin/Users";
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"
@@ -73,8 +74,12 @@ function AppContent() {
           <Route path="/u" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
 
+
+          // ... inside AppContent ...
+
           <Route element={<AdminGuard />}>
             <Route path="/admin/reports" element={<AdminReportsPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>
 
           <Route path="/u/:username" element={<UserProfilePage />} />

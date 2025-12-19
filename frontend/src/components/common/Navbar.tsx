@@ -30,6 +30,7 @@ type NavbarUser = {
   email?: string
   avatar?: string
   profilePicture?: string
+  role?: string
 }
 
 type Navbar01Props = {
@@ -583,6 +584,13 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
 
                     {/* Menu items */}
                     <div className="p-2">
+                      {user.role === 'admin' && (
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/admin/users")}>
+                          <UserIcon className="mr-3 h-4 w-4" />
+                          <span>Manage Users</span>
+                        </DropdownMenuItem>
+                      )}
+
                       <DropdownMenuItem className="cursor-pointer" onClick={() => { if (user?.username) { navigate(`/u/${user.username}`); } else { navigate('/settings'); } }}>
                         <UserIcon className="mr-3 h-4 w-4" />
                         <span>Account</span>
