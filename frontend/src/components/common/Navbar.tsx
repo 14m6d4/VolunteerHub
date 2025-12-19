@@ -284,7 +284,7 @@ const TrashIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
 const defaultNavigationLinks = [
   { href: "/", label: "Home" },
   { href: "/feed", label: "Feed" },
-  { href: "/dashboard", label: "Dashboard" },
+  { href: "/events", label: "Dash" },
   // { href: "/search", label: "Search" },
   { href: "/u", label: "Users" },
   { href: "/about", label: "About" },

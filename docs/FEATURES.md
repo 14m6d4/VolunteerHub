@@ -17,8 +17,8 @@
 	- Quên mật khẩu -> gửi mã xác thực qua email -> đổi mật khẩu mới -> đăng nhập
 #### Report
 - Báo cáo sự kiện, posts vi phạm
-- Luồng: nhấn nút báo cáo -> pop up ra các lý do (ngôn từ không phù hợp, vi phạm điều khoản, khác)
-- 
+- Luồng: nhấn nút báo cáo -> hiện ra một textbox để ghi lý do báo cáo
+
 #### Xem sự kiện
 - Luồng hoạt động: Click vào tab sự kiện -> hiển thị các sự kiện đã tham gia, đang tham gia và các sự kiện hiện tại còn có thể tham gia (sort newest, thành viên, deadline...) (filter: tags)
 - Nếu chưa tham gia thì khi click sẽ chỉ hiện cái mô tả, yêu cầu, số thành viên hiện tại, thời gian, địa điểm và sẽ có 1 button để apply
@@ -50,7 +50,7 @@
 	- ...
 - Hiển thị danh sách bạn bè
 - Tính năng kết bạn
-- Customize notifications
+- Customize notifications (dropped)
 - Change password
 #### Notifications
 - Tham gia sự kiện thành công
