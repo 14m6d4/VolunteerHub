@@ -9,6 +9,8 @@ router.get('/', authMiddleware, notificationController.listNotifications);
 router.get('/unread/count', authMiddleware, notificationController.unreadCount);
 router.patch('/:id/read', authMiddleware, notificationController.markRead);
 router.patch('/mark-all-read', authMiddleware, notificationController.markAllReadController);
+router.delete('/:id', authMiddleware, notificationController.deleteNotification);
+router.delete('/', authMiddleware, notificationController.deleteAllNotifications);
 
 // Internal/admin: create notification
 router.post('/', notificationController.createNotificationController);

@@ -51,6 +51,8 @@ type Navbar01Props = {
   notifications?: any[]
   onMarkAllRead?: () => void
   onMarkRead?: (id: string) => void
+  onDeleteNotification?: (id: string) => void
+  onDeleteAllNotifications?: () => void
   onNotificationOpenChange?: (open: boolean) => void
 }
 
@@ -254,6 +256,26 @@ const HelpCircleIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) 
   </svg>
 )
 
+// TrashIcon component
+const TrashIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    className={className}
+    width={16}
+    height={16}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+)
+
 // Default navigation links
 const defaultNavigationLinks = [
   { href: "/", label: "Home" },
@@ -285,6 +307,8 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
       notifications = [],
       onMarkAllRead,
       onMarkRead,
+      onDeleteNotification,
+      onDeleteAllNotifications,
       onNotificationOpenChange
     }: Navbar01Props,
     ref,
@@ -455,15 +479,30 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                   <DropdownMenuContent align="end" className="w-80 p-0">
                     <div className="flex items-center justify-between gap-3 p-4 border-b">
                       <p className="text-sm font-medium leading-none">Notifications</p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto px-2 py-1 text-xs"
-                        onClick={() => onMarkAllRead?.()}
-                        disabled={notifications.length === 0}
-                      >
-                        Mark all read
-                      </Button>
+                      <div className="flex gap-2">
+                        {onDeleteAllNotifications && notifications.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-2 py-1 text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onDeleteAllNotifications();
+                            }}
+                          >
+                            Delete All
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-2 py-1 text-xs"
+                          onClick={() => onMarkAllRead?.()}
+                          disabled={notifications.length === 0}
+                        >
+                          Mark all read
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="max-h-80 overflow-y-auto">
@@ -474,24 +513,35 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                       ) : (
                         <div className="p-2">
                           {notifications.map((n: any) => (
-                            <DropdownMenuItem
-                              key={n._id}
-                              className={cn(
-                                "cursor-pointer flex flex-col items-start gap-1 rounded-md p-3",
-                                !n.isRead && "bg-accent/50",
+                            <div key={n._id} className="group relative flex items-start gap-1 rounded-md p-3 hover:bg-accent cursor-pointer">
+                              <div
+                                className={cn("flex-1 space-y-1", !n.isRead && "font-semibold")}
+                                onClick={() => onMarkRead?.(n._id)}
+                              >
+                                <div className="text-sm font-medium leading-none">{n.title}</div>
+                                {n.body ? (
+                                  <div className="text-xs text-muted-foreground line-clamp-2">{n.body}</div>
+                                ) : null}
+                                {n.createdAt ? (
+                                  <div className="text-[11px] text-muted-foreground">
+                                    {new Date(n.createdAt).toLocaleString()}
+                                  </div>
+                                ) : null}
+                              </div>
+                              {onDeleteNotification && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteNotification(n._id);
+                                  }}
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </Button>
                               )}
-                              onClick={() => onMarkRead?.(n._id)}
-                            >
-                              <div className="w-full text-sm font-medium leading-none">{n.title}</div>
-                              {n.body ? (
-                                <div className="w-full text-xs text-muted-foreground line-clamp-2">{n.body}</div>
-                              ) : null}
-                              {n.createdAt ? (
-                                <div className="w-full text-[11px] text-muted-foreground">
-                                  {new Date(n.createdAt).toLocaleString()}
-                                </div>
-                              ) : null}
-                            </DropdownMenuItem>
+                            </div>
                           ))}
                         </div>
                       )}

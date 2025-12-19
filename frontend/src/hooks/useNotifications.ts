@@ -10,6 +10,8 @@ type UseNotificationsReturn = {
   closePanel: () => void;
   markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+  deleteAllNotifications: () => Promise<void>;
   refetch: () => Promise<any>;
 };
 
@@ -53,16 +55,33 @@ export default function useNotifications(): UseNotificationsReturn {
     await notificationService.markRead(id);
     await listQuery.refetch();
     await unreadQuery.refetch();
-    qc.invalidateQueries({ queryKey: ['notifications','list'] });
-    qc.invalidateQueries({ queryKey: ['notifications','unreadCount'] });
+    qc.invalidateQueries({ queryKey: ['notifications', 'list'] });
+    qc.invalidateQueries({ queryKey: ['notifications', 'unreadCount'] });
   }, [listQuery, unreadQuery, qc]);
 
   const markAllRead = useCallback(async () => {
     await notificationService.markAllRead();
     await listQuery.refetch();
     await unreadQuery.refetch();
-    qc.invalidateQueries({ queryKey: ['notifications','list'] });
-    qc.invalidateQueries({ queryKey: ['notifications','unreadCount'] });
+    qc.invalidateQueries({ queryKey: ['notifications', 'list'] });
+    qc.invalidateQueries({ queryKey: ['notifications', 'unreadCount'] });
+  }, [listQuery, unreadQuery, qc]);
+
+  const deleteNotification = useCallback(async (id: string) => {
+    await notificationService.deleteNotification(id);
+    await listQuery.refetch();
+    await unreadQuery.refetch();
+    qc.invalidateQueries({ queryKey: ['notifications', 'list'] });
+    qc.invalidateQueries({ queryKey: ['notifications', 'unreadCount'] });
+  }, [listQuery, unreadQuery, qc]);
+
+  const deleteAllNotifications = useCallback(async () => {
+    if (!window.confirm('Are you sure you want to delete all notifications?')) return;
+    await notificationService.deleteAllNotifications();
+    await listQuery.refetch();
+    await unreadQuery.refetch();
+    qc.invalidateQueries({ queryKey: ['notifications', 'list'] });
+    qc.invalidateQueries({ queryKey: ['notifications', 'unreadCount'] });
   }, [listQuery, unreadQuery, qc]);
 
   return {
@@ -73,6 +92,8 @@ export default function useNotifications(): UseNotificationsReturn {
     closePanel,
     markRead,
     markAllRead,
+    deleteNotification,
+    deleteAllNotifications,
     refetch: listQuery.refetch,
   };
 }

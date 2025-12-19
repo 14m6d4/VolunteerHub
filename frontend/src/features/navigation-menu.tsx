@@ -34,6 +34,8 @@ export default function NavBar() {
         notifications={notifications.notifications}
         onMarkAllRead={notifications.markAllRead}
         onMarkRead={notifications.markRead}
+        onDeleteNotification={notifications.deleteNotification}
+        onDeleteAllNotifications={notifications.deleteAllNotifications}
       />
     </div>
   );
