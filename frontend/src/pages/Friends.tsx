@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,8 @@ import { searchUsers as apiSearchUsers } from '@/services/user.service';
 
 export default function FriendsPage() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'friends'|'requests'|'search'>('friends');
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<'friends' | 'requests' | 'search'>('friends');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,7 +56,7 @@ export default function FriendsPage() {
           const res = await apiSearchUsers(query);
           const users = res.data || res || [];
           // Batch get relations (only when we have ids)
-          const ids = users.map((u:any) => u._id || u.id).filter(Boolean);
+          const ids = users.map((u: any) => u._id || u.id).filter(Boolean);
           let rel: Record<string, string> = {};
           if (ids.length > 0) {
             try {
@@ -65,7 +67,7 @@ export default function FriendsPage() {
               rel = {};
             }
           }
-          const enriched = users.map((u:any) => ({ ...u, relation: rel[u._id || u.id] || 'none' }));
+          const enriched = users.map((u: any) => ({ ...u, relation: rel[u._id || u.id] || 'none' }));
           setResults(enriched);
         } catch (err) {
           console.error('Search users error', err);
@@ -83,13 +85,13 @@ export default function FriendsPage() {
       await sendFriendRequest(id);
       setResults(prev => prev.map(r => r._id === id ? { ...r, relation: 'pending_sent' } : r));
       alert('Friend request sent');
-    } catch (err:any) {
+    } catch (err: any) {
       alert(err.response?.data?.message || 'Unable to send request');
     }
   };
 
   const handleAccept = async (requestId: string) => {
-    const reqItem = requests.find((r:any) => r._id === requestId);
+    const reqItem = requests.find((r: any) => r._id === requestId);
     const sender = reqItem?.sender;
     try {
       setAcceptingId(requestId);
@@ -102,12 +104,12 @@ export default function FriendsPage() {
       if (sender) {
         setFriends(prev => {
           const sid = sender._id || sender.id || sender.username;
-          if (prev.some((f:any) => (f._id || f.id || f.username) === sid)) return prev;
+          if (prev.some((f: any) => (f._id || f.id || f.username) === sid)) return prev;
           return [sender, ...prev];
         });
 
         // also update any search results to reflect new relation
-        setResults(prev => prev.map((u:any) => ({ ...u, relation: (u._id === (sender._id || sender.id) ? 'friends' : u.relation) })));
+        setResults(prev => prev.map((u: any) => ({ ...u, relation: (u._id === (sender._id || sender.id) ? 'friends' : u.relation) })));
       }
 
       // refresh full friends list to ensure consistency
@@ -120,7 +122,7 @@ export default function FriendsPage() {
       }
 
       alert('Accepted');
-    } catch (err:any) {
+    } catch (err: any) {
       alert(err.response?.data?.message || 'Unable to accept');
     } finally {
       setAcceptingId(null);
@@ -131,16 +133,20 @@ export default function FriendsPage() {
     try {
       const { removeFriend } = await import('@/services/user.service');
       await removeFriend(friendId);
-      setFriends(prev => prev.filter((f:any) => (f._id || f.id || f.username) !== friendId));
+      setFriends(prev => prev.filter((f: any) => (f._id || f.id || f.username) !== friendId));
       alert('Friend removed');
-    } catch (err:any) {
+    } catch (err: any) {
       alert(err.response?.data?.message || 'Unable to remove friend');
     }
   };
 
+  const handleUserClick = (username: string) => {
+    navigate(`/u/${username}`);
+  };
+
   return (
     <div className="container py-10 max-w-4xl">
-      <h1 className="text-2xl mb-4">Friends</h1>
+      <h1 className="text-2xl mb-4">Users</h1>
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList>
           <TabsTrigger value="friends">Friends</TabsTrigger>
@@ -150,8 +156,12 @@ export default function FriendsPage() {
 
         <TabsContent value="friends">
           <div className="space-y-3">
-            {friends.map((f:any) => (
-              <div key={f._id || f.id} className="flex items-center justify-between p-3 border rounded">
+            {friends.map((f: any) => (
+              <div
+                key={f._id || f.id}
+                className="flex items-center justify-between p-3 border rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => handleUserClick(f.username)}
+              >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10"><AvatarImage src={f.profilePicture || undefined} /><AvatarFallback>{(f.username || f.name || '?')[0]?.toUpperCase()}</AvatarFallback></Avatar>
                   <div>
@@ -160,7 +170,16 @@ export default function FriendsPage() {
                   </div>
                 </div>
                 <div>
-                  <Button size="sm" variant="destructive" onClick={() => handleUnfriend(f._id || f.id || f.username)}>Unfriend</Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnfriend(f._id || f.id || f.username);
+                    }}
+                  >
+                    Unfriend
+                  </Button>
                 </div>
               </div>
             ))}
@@ -170,8 +189,12 @@ export default function FriendsPage() {
 
         <TabsContent value="requests">
           <div className="space-y-3">
-            {requests.map((r:any) => (
-              <div key={r._id} className="flex items-center justify-between p-3 border rounded">
+            {requests.map((r: any) => (
+              <div
+                key={r._id}
+                className="flex items-center justify-between p-3 border rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => handleUserClick(r.sender.username)}
+              >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10"><AvatarImage src={r.sender.profilePicture || undefined} /><AvatarFallback>{r.sender.username[0]?.toUpperCase()}</AvatarFallback></Avatar>
                   <div>
@@ -180,7 +203,16 @@ export default function FriendsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleAccept(r._id)} disabled={acceptingId === r._id}>{acceptingId === r._id ? 'Accepting...' : 'Accept'}</Button>
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAccept(r._id);
+                    }}
+                    disabled={acceptingId === r._id}
+                  >
+                    {acceptingId === r._id ? 'Accepting...' : 'Accept'}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -196,8 +228,12 @@ export default function FriendsPage() {
           {loading && <div>Searching...</div>}
 
           <div className="space-y-3">
-            {results.map((u:any) => (
-              <div key={u._id} className="flex items-center justify-between p-3 border rounded">
+            {results.map((u: any) => (
+              <div
+                key={u._id}
+                className="flex items-center justify-between p-3 border rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => handleUserClick(u.username)}
+              >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10"><AvatarImage src={u.profilePicture || undefined} /><AvatarFallback>{u.username[0]?.toUpperCase()}</AvatarFallback></Avatar>
                   <div>
@@ -210,7 +246,15 @@ export default function FriendsPage() {
                   {u.relation === 'pending_sent' && <Button size="sm" disabled>Pending</Button>}
                   {u.relation === 'pending_received' && <Button size="sm" disabled>Requested you</Button>}
                   {u.relation === 'none' && user && user.id !== u._id && (
-                    <Button size="sm" onClick={() => handleSend(u._id)}>Add friend</Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSend(u._id);
+                      }}
+                    >
+                      Add friend
+                    </Button>
                   )}
                 </div>
               </div>

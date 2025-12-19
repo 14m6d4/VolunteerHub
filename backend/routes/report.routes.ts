@@ -51,4 +51,19 @@ router.patch("/report/:reportId", async (req, res) => {
     }
 });
 
+// Admin: Lấy tất cả báo cáo
+router.get("/admin/all", async (req, res) => {
+    try {
+        const { status, type } = req.query;
+        const filter: any = {};
+        if (status) filter.status = status;
+        if (type) filter.targetType = type;
+
+        const reports = await ReportService.getAllReports(filter);
+        res.json(reports);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
 export default router;

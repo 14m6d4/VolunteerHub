@@ -254,13 +254,20 @@ export const sendFriendRequestService = async (senderId: string, receiverId: str
     throw new AppError('Already friends', 400);
   }
 
-  // Check if a request already exists
+  // Check if a request already exists between these two users
   const existingRequest = await FriendRequestModel.findOne({
     sender: senderId as any,
-    receiver: receiverId as any,
-    status: FriendRequestStatus.Pending
-  } as any);
-  if (existingRequest) throw new AppError('Request already sent', 400);
+    receiver: receiverId as any
+  });
+
+  if (existingRequest) {
+    if (existingRequest.status === FriendRequestStatus.Pending) {
+      throw new AppError('Request already sent', 400);
+    }
+    // If it exists but is not pending (e.g., accepted, declined), remove it so we can create a new one
+    // causing the unique index violation to be avoided
+    await FriendRequestModel.deleteOne({ _id: existingRequest._id });
+  }
 
   const created = await FriendRequestModel.create({ sender: senderId as any, receiver: receiverId as any } as any);
 
@@ -366,4 +373,28 @@ export const getRelationsForTargets = async (userId: string, targets: string[]) 
   }
 
   return map;
+};
+
+export const banUserService = async (userId: string, reason?: string, until?: Date) => {
+  const user = await UserModel.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+
+  user.isBanned = true;
+  if (reason) (user as any).bannedReason = reason;
+  if (until) (user as any).bannedUntil = until;
+
+  await user.save();
+  return user;
+};
+
+export const unbanUserService = async (userId: string) => {
+  const user = await UserModel.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+
+  user.isBanned = false;
+  (user as any).bannedReason = undefined;
+  (user as any).bannedUntil = undefined;
+
+  await user.save();
+  return user;
 };

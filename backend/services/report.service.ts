@@ -69,6 +69,43 @@ export const ReportService = {
         return report;
     },
 
+    // Báo cáo người dùng
+    async reportUser(reporterId: string, targetId: string, reason: string, description?: string) {
+        // Kiểm tra user có tồn tại không
+        const targetUser = await User.findById(targetId);
+        if (!targetUser) throw createHttpError(404, "User not found");
+
+        // Tạo báo cáo
+        const report = await ReportModel.create({
+            reporter: reporterId,
+            targetId: targetUser._id,
+            targetType: ReportTargetType.User,
+            reason,
+            description,
+            status: 'pending'
+        });
+
+        // Gửi thông báo cho admin
+        const admins = await User.find({ role: "admin" });
+        admins.forEach(admin => {
+            NotificationService.notify(admin._id, {
+                type: NotificationType.USER_REPORTED,
+                title: "User Reported",
+                body: `User ${targetUser.username} has been reported. Reason: ${reason}`,
+                data: { targetUserId: targetUser._id, reportId: report._id }
+            });
+        });
+
+        return report;
+    },
+
+    // Lấy tất cả báo cáo (dành cho admin page)
+    async getAllReports(filter: any = {}) {
+        return ReportModel.find(filter)
+            .populate('reporter', 'username name profilePicture')
+            .sort({ createdAt: -1 });
+    },
+
     // Lấy các báo cáo theo target (Event, Post)
     async getReportsByTarget(targetId: string, targetType: ReportTargetType) {
         return ReportModel.find({ targetId, targetType }).sort({ createdAt: -1 });
@@ -81,6 +118,18 @@ export const ReportService = {
 
         report.status = status;
         await report.save();
+
+        // If resolving a user report, ban the user automatically
+        if (status === 'resolved' && report.targetType === ReportTargetType.User) {
+            try {
+                // Dynamically import to avoid potential circular dependency issues if any arise, 
+                // though currently user.service.ts doesn't import ReportService.
+                const { banUserService } = await import('./user.service.ts');
+                await banUserService(report.targetId.toString(), `Banned due to Report #${report._id}: ${report.reason}`);
+            } catch (err) {
+                console.error("Failed to auto-ban user after report resolve:", err);
+            }
+        }
 
         return report;
     }

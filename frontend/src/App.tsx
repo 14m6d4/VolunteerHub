@@ -1,3 +1,4 @@
+import AdminGuard from "@/components/auth/AdminGuard";
 import "./App.css"
 // Theme CSS files are now loaded dynamically by theme-provider
 import { BrowserRouter, Routes, Route, Outlet, useSearchParams } from "react-router-dom"
@@ -10,6 +11,7 @@ import UserProfilePage from "@/pages/[username]"
 import EventsTest from "./pages/test/TestRouter";
 import FriendsPage from '@/pages/Friends';
 import SearchUsersPage from '@/pages/SearchUsers';
+import AdminReportsPage from "@/pages/admin/Reports";
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"
@@ -21,7 +23,7 @@ import { useEffect } from "react"
 import * as authService from "@/services/auth.service"
 import QueryProvider from "./providers/QueryProvider"
 import { AuthProvider } from "@/context/AuthContext"
-import Feed from "@/pages/test/feed"
+import Feed from "@/pages/test/Feed"
 
 function HomePage() {
   const [searchParams] = useSearchParams()
@@ -68,8 +70,13 @@ function AppContent() {
           {/* Thêm các route chính khác cần footer vào đây */}
           <Route path="/feed" element={<Feed />} />
           <Route path="/test/events" element={<EventsTest />} />
-          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/u" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
+
+          <Route element={<AdminGuard />}>
+            <Route path="/admin/reports" element={<AdminReportsPage />} />
+          </Route>
+
           <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>
 

@@ -26,7 +26,7 @@ export type SecureUpdateProfilePayload = UpdateProfileData & {
 export async function updateProfileSecure(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     // 1. Get the authenticated user ID
-    const userId = req.user._id.toString(); 
+    const userId = req.user._id.toString();
 
     // 2. Extract payload including the current password
     const { currentPassword, ...updateData }: SecureUpdateProfilePayload = req.body;
@@ -37,7 +37,7 @@ export async function updateProfileSecure(req: AuthenticatedRequest, res: Respon
     // 4. Send success response (200 OK)
     return res.status(200).json({
       message: 'Profile updated successfully',
-      user: updatedUser 
+      user: updatedUser
     });
 
   } catch (error) {
@@ -150,16 +150,11 @@ export async function banUser(req: AuthenticatedRequest, res: Response, next: Ne
   try {
     const userId = req.params.id;
     const { reason, until } = req.body as { reason?: string; until?: string };
+    const dateUntil = until ? new Date(until) : undefined;
 
-    const user = await UserModel.findById(userId);
-    if (!user) throw new AppError('User not found', 404);
+    await userService.banUserService(userId, reason, dateUntil);
 
-    user.isBanned = true;
-    (user as any).bannedReason = reason || undefined;
-    (user as any).bannedUntil = until ? new Date(until) : undefined;
-    await user.save();
-
-    return res.status(200).json({ status: 'success', message: 'User banned', userId: user._id.toString() });
+    return res.status(200).json({ status: 'success', message: 'User banned', userId });
   } catch (error) {
     next(error);
   }
@@ -168,15 +163,9 @@ export async function banUser(req: AuthenticatedRequest, res: Response, next: Ne
 export async function unbanUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.params.id;
-    const user = await UserModel.findById(userId);
-    if (!user) throw new AppError('User not found', 404);
+    await userService.unbanUserService(userId);
 
-    user.isBanned = false;
-    (user as any).bannedReason = undefined;
-    (user as any).bannedUntil = undefined;
-    await user.save();
-
-    return res.status(200).json({ status: 'success', message: 'User unbanned', userId: user._id.toString() });
+    return res.status(200).json({ status: 'success', message: 'User unbanned', userId });
   } catch (error) {
     next(error);
   }
