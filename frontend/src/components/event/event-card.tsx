@@ -1,14 +1,17 @@
-import { Calendar, MapPin, Users } from 'lucide-react';
+import { Calendar, MapPin, Users, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type { Event } from '@/types/event';
 
 interface EventCardProps {
   event: Event;
   onClick: () => void;
+  onLeave?: (event: Event) => void;
+  showLeaveButton?: boolean;
 }
 
-export const EventCard = ({ event, onClick }: EventCardProps) => {
+export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: EventCardProps) => {
   const getStatusBadge = () => {
     switch (event.status) {
       case 'joined':
@@ -21,6 +24,28 @@ export const EventCard = ({ event, onClick }: EventCardProps) => {
         return <Badge className="bg-yellow-500 hover:bg-yellow-600">Available</Badge>;
       default:
         return null;
+    }
+  };
+
+  // Check if event date is in the future
+  const isEventInFuture = () => {
+    try {
+      const eventDateStr = event.date.split(' - ')[0]; // "Jan 15, 2026"
+      const eventDate = new Date(eventDateStr);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return eventDate > today;
+    } catch {
+      return false;
+    }
+  };
+
+  const canLeave = showLeaveButton && onLeave && isEventInFuture();
+
+  const handleLeaveClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card onClick from firing
+    if (onLeave) {
+      onLeave(event);
     }
   };
 
@@ -60,6 +85,17 @@ export const EventCard = ({ event, onClick }: EventCardProps) => {
           <MapPin className="h-4 w-4" />
           <span className="line-clamp-1">{event.location}</span>
         </div>
+
+        {canLeave && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="w-full mt-2"
+            onClick={handleLeaveClick}
+          >
+            Leave Event
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

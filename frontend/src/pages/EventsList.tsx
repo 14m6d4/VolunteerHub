@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -190,6 +191,14 @@ export const EventsList = () => {
     setModalOpen(true);
   };
 
+  const handleLeaveEvent = (event: Event) => {
+    // Show confirmation toast
+    toast.success('Left Event', {
+      description: `You have left "${event.title}".`,
+    });
+    // In a real application, this would make an API call to unregister
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header Section */}
@@ -249,6 +258,8 @@ export const EventsList = () => {
                   key={event.id}
                   event={event}
                   onClick={() => handleMyEventClick(event)}
+                  onLeave={handleLeaveEvent}
+                  showLeaveButton={true}
                 />
               ))}
             </div>
