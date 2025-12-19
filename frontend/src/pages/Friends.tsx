@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { searchUsers as apiSearchUsers } from '@/services/user.service';
 
 export default function FriendsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<'friends' | 'requests' | 'search'>('friends');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
@@ -138,6 +140,10 @@ export default function FriendsPage() {
     }
   };
 
+  const handleUserClick = (username: string) => {
+    navigate(`/u/${username}`);
+  };
+
   return (
     <div className="container py-10 max-w-4xl">
       <h1 className="text-2xl mb-4">Users</h1>
@@ -151,7 +157,11 @@ export default function FriendsPage() {
         <TabsContent value="friends">
           <div className="space-y-3">
             {friends.map((f: any) => (
-              <div key={f._id || f.id} className="flex items-center justify-between p-3 border rounded">
+              <div
+                key={f._id || f.id}
+                className="flex items-center justify-between p-3 border rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => handleUserClick(f.username)}
+              >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10"><AvatarImage src={f.profilePicture || undefined} /><AvatarFallback>{(f.username || f.name || '?')[0]?.toUpperCase()}</AvatarFallback></Avatar>
                   <div>
@@ -160,7 +170,16 @@ export default function FriendsPage() {
                   </div>
                 </div>
                 <div>
-                  <Button size="sm" variant="destructive" onClick={() => handleUnfriend(f._id || f.id || f.username)}>Unfriend</Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnfriend(f._id || f.id || f.username);
+                    }}
+                  >
+                    Unfriend
+                  </Button>
                 </div>
               </div>
             ))}
@@ -171,7 +190,11 @@ export default function FriendsPage() {
         <TabsContent value="requests">
           <div className="space-y-3">
             {requests.map((r: any) => (
-              <div key={r._id} className="flex items-center justify-between p-3 border rounded">
+              <div
+                key={r._id}
+                className="flex items-center justify-between p-3 border rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => handleUserClick(r.sender.username)}
+              >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10"><AvatarImage src={r.sender.profilePicture || undefined} /><AvatarFallback>{r.sender.username[0]?.toUpperCase()}</AvatarFallback></Avatar>
                   <div>
@@ -180,7 +203,16 @@ export default function FriendsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleAccept(r._id)} disabled={acceptingId === r._id}>{acceptingId === r._id ? 'Accepting...' : 'Accept'}</Button>
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAccept(r._id);
+                    }}
+                    disabled={acceptingId === r._id}
+                  >
+                    {acceptingId === r._id ? 'Accepting...' : 'Accept'}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -197,7 +229,11 @@ export default function FriendsPage() {
 
           <div className="space-y-3">
             {results.map((u: any) => (
-              <div key={u._id} className="flex items-center justify-between p-3 border rounded">
+              <div
+                key={u._id}
+                className="flex items-center justify-between p-3 border rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => handleUserClick(u.username)}
+              >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10"><AvatarImage src={u.profilePicture || undefined} /><AvatarFallback>{u.username[0]?.toUpperCase()}</AvatarFallback></Avatar>
                   <div>
@@ -210,7 +246,15 @@ export default function FriendsPage() {
                   {u.relation === 'pending_sent' && <Button size="sm" disabled>Pending</Button>}
                   {u.relation === 'pending_received' && <Button size="sm" disabled>Requested you</Button>}
                   {u.relation === 'none' && user && user.id !== u._id && (
-                    <Button size="sm" onClick={() => handleSend(u._id)}>Add friend</Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSend(u._id);
+                      }}
+                    >
+                      Add friend
+                    </Button>
                   )}
                 </div>
               </div>
