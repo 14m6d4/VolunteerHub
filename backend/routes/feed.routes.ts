@@ -1,9 +1,9 @@
-// routes/feed.routes.ts
-import { Router } from "express";
+import express from "express";
 import { FeedController } from "../controllers/feed.controller.ts";
+import { optionalAuthMiddleware } from "../middlewares/auth.middleware.ts";
 
-const router = Router();
+const router = express.Router();
 
-router.get("/feed", FeedController.getFeed); // Route để lấy bảng tin theo tab
+router.get("/", optionalAuthMiddleware, FeedController.getFeed);
 
 export default router;

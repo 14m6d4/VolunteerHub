@@ -18,6 +18,10 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
     ...(opts.headers || {}),
   };
 
+  if (opts.body instanceof FormData) {
+    delete headers['Content-Type'];
+  }
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
     // eslint-disable-next-line no-console
@@ -78,7 +82,7 @@ export function setAuthToken(token: string) {
     localStorage.setItem('accessToken', token);
     // eslint-disable-next-line no-console
     console.debug('[api] set accessToken in localStorage');
-    
+
     // Emit custom event so useAuth hook knows token was set
     window.dispatchEvent(new Event('authTokenChanged'));
   } catch (e) {

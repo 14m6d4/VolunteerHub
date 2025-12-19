@@ -26,4 +26,4 @@ const ReportSchema = new Schema<IReport>({
   status: { type: String, enum: ['pending', 'resolved', 'rejected'], default: 'pending' }
 }, { timestamps: true });
 
-export default mongoose.model<IReport>('Report', ReportSchema);
+export const ReportModel: Model<IReport> = mongoose.model<IReport>('Report', ReportSchema);

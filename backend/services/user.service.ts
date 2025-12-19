@@ -4,7 +4,7 @@
 import type { UpdateProfileData, IUser } from '../types/user.ts';
 import UserModel from '../models/User.model.ts'; // Mongoose User Model
 import AppError from '../utils/appError.ts';
-import ReportModel, { ReportTargetType } from '../models/Report.model.ts';
+import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
 import FriendRequestModel, { FriendRequestStatus } from '../models/FriendRequest.model.ts';
 import * as notificationService from './notification.service.ts';
 
@@ -195,9 +195,9 @@ export const searchUsersService = async (query: string, limit: number = 10) => {
     isActive: true,
     isBanned: false
   })
-  .select('username name profilePicture role')
-  .limit(limit)
-  .lean();
+    .select('username name profilePicture role')
+    .limit(limit)
+    .lean();
 };
 
 // Add friend (Simple logic: push to friends array)
@@ -212,7 +212,7 @@ export const addFriendService = async (userId: string, friendId: string) => {
   // Update both sides
   await UserModel.findByIdAndUpdate(userId, { $addToSet: { friends: friendId } });
   await UserModel.findByIdAndUpdate(friendId, { $addToSet: { friends: userId } });
-  
+
   return { success: true };
 };
 
@@ -287,7 +287,7 @@ export const sendFriendRequestService = async (senderId: string, receiverId: str
 // Accept friend request
 export const acceptFriendRequestService = async (requestId: string, currentUserId: string) => {
   const request = await FriendRequestModel.findById(requestId);
-  
+
   if (!request || request.receiver.toString() !== currentUserId) {
     throw new AppError('Request not found or unauthorized', 404);
   }
