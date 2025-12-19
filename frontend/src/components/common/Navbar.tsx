@@ -29,6 +29,7 @@ type NavbarUser = {
   username?: string
   email?: string
   avatar?: string
+  profilePicture?: string
 }
 
 type Navbar01Props = {
@@ -503,7 +504,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-accent">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={user.avatar || "/placeholder-user.jpg"} alt={user.name || "User"} />
+                        <AvatarImage src={user.avatar || user.profilePicture || "/placeholder-user.jpg"} alt={user.name || "User"} />
                         <AvatarFallback className="bg-muted">
                           {user.name?.charAt(0)?.toUpperCase() || "U"}
                         </AvatarFallback>
@@ -515,7 +516,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                     <div className="flex items-center gap-3 p-4 border-b">
                       <div className="relative">
                         <Avatar className="h-12 w-12">
-                          <AvatarImage src={user.avatar || "/placeholder-user.jpg"} alt={user.name || "User"} />
+                          <AvatarImage src={user.avatar || user.profilePicture || "/placeholder-user.jpg"} alt={user.name || "User"} />
                           <AvatarFallback className="bg-muted">
                             {user.name?.charAt(0)?.toUpperCase() || "U"}
                           </AvatarFallback>
@@ -532,7 +533,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
 
                     {/* Menu items */}
                     <div className="p-2">
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => { if (user?.username) { navigate(`/u/${user.username}`); } else { navigate('/settings'); } }}> 
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => { if (user?.username) { navigate(`/u/${user.username}`); } else { navigate('/settings'); } }}>
                         <UserIcon className="mr-3 h-4 w-4" />
                         <span>Account</span>
                       </DropdownMenuItem>
