@@ -12,7 +12,9 @@ export enum NotificationType {
   EVENT_REMINDER = "event_reminder",
   FRIEND_REQUEST_RECEIVED = 'friend_request_received',
   FRIEND_REQUEST_ACCEPTED = 'friend_request_accepted',
-  EVENT_REPORTED = 'event_report'
+  EVENT_REPORTED = 'event_report',
+  USER_REPORTED = 'user_report',
+  POST_REPORTED = 'post_report'
 }
 
 export interface INotification extends Document {

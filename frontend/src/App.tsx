@@ -10,6 +10,7 @@ import UserProfilePage from "@/pages/[username]"
 import EventsTest from "./pages/test/TestRouter";
 import FriendsPage from '@/pages/Friends';
 import SearchUsersPage from '@/pages/SearchUsers';
+import AdminReportsPage from "@/pages/admin/Reports";
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"
@@ -70,6 +71,7 @@ function AppContent() {
           <Route path="/test/events" element={<EventsTest />} />
           <Route path="/u" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
+          <Route path="/admin/reports" element={<AdminReportsPage />} />
           <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>
 

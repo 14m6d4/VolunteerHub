@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { ReportUserDialog } from '@/components/user/ReportUserDialog';
 import { useState } from 'react';
 import type { User } from '@/types/user';
 
@@ -117,7 +118,6 @@ function PublicProfileView({ user }: { user: any }) {
 function ActionButtons({ user }: { user: any }) {
   const { user: currentUser } = useAuth();
   const [sending, setSending] = useState(false);
-  const [open, setOpen] = useState(false);
 
   const handleSend = async () => {
     if (!currentUser) return alert('You need to sign in to send a friend request');
@@ -137,60 +137,9 @@ function ActionButtons({ user }: { user: any }) {
       {currentUser && currentUser.id !== user.id && (
         <>
           <Button onClick={handleSend} disabled={sending}>{sending ? 'Sending...' : 'Add friend'}</Button>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button variant="ghost">Report</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogTitle>Report user</DialogTitle>
-              <ReportForm userId={user.id} onClose={() => setOpen(false)} />
-            </DialogContent>
-          </Dialog>
+          <ReportUserDialog targetId={user.id} targetName={user.name || user.username} />
         </>
       )}
-    </div>
-  );
-}
-
-function ReportForm({ userId, onClose }: { userId: string; onClose: () => void }) {
-  const [reason, setReason] = useState('harassment');
-  const [description, setDescription] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    try {
-      await (await import('@/services/user.service')).reportUser({ targetId: userId, reason, description });
-      alert('Thank you, report submitted');
-      onClose();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Unable to submit report');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      <label className="block">
-        <span className="text-sm">Reason</span>
-        <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full mt-1">
-          <option value="harassment">Harassment / Abuse</option>
-          <option value="spam">Spam</option>
-          <option value="inappropriate">Inappropriate content</option>
-          <option value="other">Other</option>
-        </select>
-      </label>
-
-      <label className="block">
-        <span className="text-sm">Description (optional)</span>
-        <textarea className="w-full mt-1 p-2 border rounded" value={description} onChange={(e) => setDescription(e.target.value)} />
-      </label>
-
-      <div className="flex justify-end gap-3">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={submitting}>{submitting ? 'Sending...' : 'Submit report'}</Button>
-      </div>
     </div>
   );
 }

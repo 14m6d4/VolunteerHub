@@ -374,3 +374,27 @@ export const getRelationsForTargets = async (userId: string, targets: string[]) 
 
   return map;
 };
+
+export const banUserService = async (userId: string, reason?: string, until?: Date) => {
+  const user = await UserModel.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+
+  user.isBanned = true;
+  if (reason) (user as any).bannedReason = reason;
+  if (until) (user as any).bannedUntil = until;
+
+  await user.save();
+  return user;
+};
+
+export const unbanUserService = async (userId: string) => {
+  const user = await UserModel.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+
+  user.isBanned = false;
+  (user as any).bannedReason = undefined;
+  (user as any).bannedUntil = undefined;
+
+  await user.save();
+  return user;
+};

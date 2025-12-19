@@ -63,9 +63,9 @@ export async function deleteAllNotifications(userId: string) {
 }
 
 export const NotificationService = {
-	async notify(userId, { title, body, data, type }) {
+	async notify(userId: string, { title, body, data, type }: any) {
 		await NotificationModel.create({
-			userId,
+			user: userId,
 			title,
 			body,
 			data,
