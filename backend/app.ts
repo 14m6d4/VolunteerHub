@@ -14,6 +14,7 @@ import errorHandler from './middlewares/error.middleware.ts';
 import passport from "./config/passport.ts";
 import postRoutes from "./routes/post.routes.ts";
 import notificationRoutes from "./routes/notification.routes.ts";
+import reportRoutes from "./routes/report.routes.ts"
 // Strip trailing slash from FRONTEND_URL to avoid CORS issues
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, '');
 
@@ -53,6 +54,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/register", registrationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use("/api/posts", postRoutes)
+app.use("/api/report", reportRoutes)
 // 404 handler for unknown API routes - return JSON
 app.use((req, res) => {
   res.status(404).json({ status: 'fail', message: 'Not Found' });

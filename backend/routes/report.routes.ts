@@ -1,11 +1,10 @@
 import express from "express";
 import { ReportService } from "../services/report.service.ts";
-import { validateReportInput } from "../middlewares/validation.middleware.ts";
 
 const router = express.Router();
 
 // Báo cáo sự kiện
-router.post("/report/event", validateReportInput, async (req, res) => {
+router.post("/report/event", async (req, res) => {
     const { reporterId, eventId, reason, description } = req.body;
     try {
         const report = await ReportService.reportEvent(reporterId, eventId, reason, description);
@@ -16,7 +15,7 @@ router.post("/report/event", validateReportInput, async (req, res) => {
 });
 
 // Báo cáo bài viết
-router.post("/report/post", validateReportInput, async (req, res) => {
+router.post("/report/post", async (req, res) => {
     const { reporterId, postId, reason, description } = req.body;
     try {
         const report = await ReportService.reportPost(reporterId, postId, reason, description);
