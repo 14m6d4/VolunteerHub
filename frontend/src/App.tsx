@@ -1,3 +1,4 @@
+import AdminGuard from "@/components/auth/AdminGuard";
 import "./App.css"
 // Theme CSS files are now loaded dynamically by theme-provider
 import { BrowserRouter, Routes, Route, Outlet, useSearchParams } from "react-router-dom"
@@ -71,7 +72,11 @@ function AppContent() {
           <Route path="/test/events" element={<EventsTest />} />
           <Route path="/u" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
-          <Route path="/admin/reports" element={<AdminReportsPage />} />
+
+          <Route element={<AdminGuard />}>
+            <Route path="/admin/reports" element={<AdminReportsPage />} />
+          </Route>
+
           <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>
 
