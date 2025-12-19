@@ -21,7 +21,7 @@ import { useEffect } from "react"
 import * as authService from "@/services/auth.service"
 import QueryProvider from "./providers/QueryProvider"
 import { AuthProvider } from "@/context/AuthContext"
-import Feed from "@/pages/test/feed"
+import Feed from "@/pages/test/Feed"
 
 function HomePage() {
   const [searchParams] = useSearchParams()
@@ -68,7 +68,7 @@ function AppContent() {
           {/* Thêm các route chính khác cần footer vào đây */}
           <Route path="/feed" element={<Feed />} />
           <Route path="/test/events" element={<EventsTest />} />
-          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/u" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
           <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>

@@ -282,7 +282,7 @@ const defaultNavigationLinks = [
   { href: "/feed", label: "Feed" },
   { href: "/dashboard", label: "Dashboard" },
   // { href: "/search", label: "Search" },
-  { href: "/friends", label: "Friends" },
+  { href: "/u", label: "Users" },
   { href: "/about", label: "About" },
 ]
 
