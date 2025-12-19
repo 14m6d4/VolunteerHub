@@ -14,6 +14,7 @@ import SearchUsersPage from '@/pages/SearchUsers';
 import AdminReportsPage from "@/pages/admin/Reports";
 import AdminUsersPage from "@/pages/admin/Users";
 import { EventsList } from "@/pages/EventsList";
+import { ManagerEventDashboard } from "@/pages/manager/ManagerEventDashboard";
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"
@@ -72,6 +73,7 @@ function AppContent() {
           {/* Thêm các route chính khác cần footer vào đây */}
           <Route path="/feed" element={<Feed />} />
           <Route path="/events" element={<EventsList />} />
+          <Route path="/manage-events" element={<ManagerEventDashboard />} />
           <Route path="/test/events" element={<EventsTest />} />
           <Route path="/u" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
