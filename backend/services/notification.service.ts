@@ -51,20 +51,31 @@ export async function markAllRead(userId: string) {
 	return true;
 }
 
-export const NotificationService = {
-    async notify(userId, { title, body, data, type }) {
-        await NotificationModel.create({
-            userId,
-            title,
-            body,
-            data,
-            type
-        });
+export async function deleteNotification(notificationId: string, userId: string) {
+	const doc = await NotificationModel.findOneAndDelete({ _id: notificationId, user: userId });
+	if (!doc) throw new AppError('Notification not found', 404);
+	return doc;
+}
 
-        await WebPushService.sendToUser(userId, {
-            title,
-            body,
-            data
-        });
-    }
+export async function deleteAllNotifications(userId: string) {
+	await NotificationModel.deleteMany({ user: userId });
+	return true;
+}
+
+export const NotificationService = {
+	async notify(userId, { title, body, data, type }) {
+		await NotificationModel.create({
+			userId,
+			title,
+			body,
+			data,
+			type
+		});
+
+		await WebPushService.sendToUser(userId, {
+			title,
+			body,
+			data
+		});
+	}
 };

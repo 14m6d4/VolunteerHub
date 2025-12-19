@@ -16,8 +16,18 @@ export async function markRead(id: string) {
 }
 
 export async function markAllRead() {
-  const data = await apiFetch<any>('/notifications/mark-all-read', { method: 'PATCH' });
-  return data;
+  const res = await apiFetch('/notifications/mark-all-read', { method: 'PATCH' });
+  return res.data;
+}
+
+export async function deleteNotification(id: string) {
+  const res = await apiFetch(`/notifications/${id}`, { method: 'DELETE' });
+  return res.data;
+}
+
+export async function deleteAllNotifications() {
+  const res = await apiFetch('/notifications', { method: 'DELETE' });
+  return res.data;
 }
 
 export async function createNotification(payload: any) {
