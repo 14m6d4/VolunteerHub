@@ -1,11 +1,15 @@
 import "./App.css"
+// Theme CSS files are now loaded dynamically by theme-provider
 import { BrowserRouter, Routes, Route, Outlet, useSearchParams } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import LoginPage from "@/pages/auth/Login"
+import BannedPage from "@/pages/auth/Banned"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
 import UserProfilePage from "@/pages/[username]"
 import EventsTest from "./pages/test/TestRouter";
+import FriendsPage from '@/pages/Friends';
+import SearchUsersPage from '@/pages/SearchUsers';
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"
@@ -62,6 +66,8 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           {/* Thêm các route chính khác cần footer vào đây */}
           <Route path="/test/events" element={<EventsTest />} />
+          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/search" element={<SearchUsersPage />} />
           <Route path="/u/:username" element={<UserProfilePage />} />
         </Route>
 
@@ -74,6 +80,7 @@ function AppContent() {
           }
         >
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/banned" element={<BannedPage />} />
           <Route path="/register" element={<SignupPage />} />
           <Route path="/password_reset" element={<PasswordResetPage />} />
           <Route path="500" element={<Error500 />} />

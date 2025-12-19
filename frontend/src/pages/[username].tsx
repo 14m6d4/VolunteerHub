@@ -1,5 +1,5 @@
 // frontend/src/pages/[username].tsx
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,10 @@ import useAuth from '@/hooks/useAuth';
 import { getPublicProfile } from '@/services/user.service';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import type { User, UserRole } from '@/types/user';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useState } from 'react';
+import type { User } from '@/types/user';
 
 export default function UserProfilePage() {
   const { username } = useParams<{ username: string }>();
@@ -43,7 +46,7 @@ export default function UserProfilePage() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
-                <AvatarImage src={profileUser.profilePicture} />
+                <AvatarImage src={profileUser.profilePicture || undefined} />
                 <AvatarFallback>{profileUser.username[0].toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>
@@ -104,8 +107,90 @@ function PublicProfileView({ user }: { user: any }) {
 
       <Separator className="my-8" />
 
-      <p className="text-center text-muted-foreground">
-      </p>
+      <div className="flex items-center justify-center gap-4">
+        <ActionButtons user={user} />
+      </div>
+    </div>
+  );
+}
+
+function ActionButtons({ user }: { user: any }) {
+  const { user: currentUser } = useAuth();
+  const [sending, setSending] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const handleSend = async () => {
+    if (!currentUser) return alert('You need to sign in to send a friend request');
+    setSending(true);
+    try {
+      await (await import('@/services/user.service')).sendFriendRequest(user.id);
+      alert('Friend request sent');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Unable to send friend request');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      {currentUser && currentUser.id !== user.id && (
+        <>
+          <Button onClick={handleSend} disabled={sending}>{sending ? 'Sending...' : 'Add friend'}</Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost">Report</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogTitle>Report user</DialogTitle>
+              <ReportForm userId={user.id} onClose={() => setOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ReportForm({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const [reason, setReason] = useState('harassment');
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      await (await import('@/services/user.service')).reportUser({ targetId: userId, reason, description });
+      alert('Thank you, report submitted');
+      onClose();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Unable to submit report');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <label className="block">
+        <span className="text-sm">Reason</span>
+        <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full mt-1">
+          <option value="harassment">Harassment / Abuse</option>
+          <option value="spam">Spam</option>
+          <option value="inappropriate">Inappropriate content</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="text-sm">Description (optional)</span>
+        <textarea className="w-full mt-1 p-2 border rounded" value={description} onChange={(e) => setDescription(e.target.value)} />
+      </label>
+
+      <div className="flex justify-end gap-3">
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSubmit} disabled={submitting}>{submitting ? 'Sending...' : 'Submit report'}</Button>
+      </div>
     </div>
   );
 }

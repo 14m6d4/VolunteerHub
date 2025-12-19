@@ -6,10 +6,13 @@ import type { UpdateProfileData } from '../types/user.ts';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.ts';
 import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
+import * as userService from '../services/user.service.ts';
+import { UserRole } from '../types/user.ts';
+import { roleMiddleware } from '../middlewares/role.middleware.ts';
 
 // Combine the password field with the profile data payload for the API request
 export type SecureUpdateProfilePayload = UpdateProfileData & {
-  currentPassword: string;
+  currentPassword?: string;
 };
 
 /**
@@ -50,9 +53,10 @@ export async function getPublicProfile(
 ) {
   try {
     const { username } = req.params;
+    if (!username) throw new AppError('Username parameter required', 400);
     console.log('[user.controller] getPublicProfile requested username:', username);
 
-    const user = await UserModel.findOne({ username, isActive: true })
+    const user = await UserModel.findOne({ username: username as string, isActive: true })
       .select('username name birthdate profilePicture role createdAt')
       .lean();
 
@@ -70,6 +74,7 @@ export async function getPublicProfile(
 
     return res.status(200).json({
       user: {
+        id: user._id.toString(),
         username: user.username,
         name: user.name || null,
         birthdate: birthdateIso,
@@ -78,6 +83,143 @@ export async function getPublicProfile(
         createdAt: createdAtIso,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function sendFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const senderId = req.user._id.toString();
+    const { receiverId } = req.body as { receiverId: string };
+    const created = await userService.sendFriendRequestService(senderId, receiverId);
+    return res.status(201).json({ status: 'success', data: created });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function acceptFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const { requestId } = req.body as { requestId: string };
+    const currentUserId = req.user._id.toString();
+    await userService.acceptFriendRequestService(requestId, currentUserId);
+    return res.status(200).json({ status: 'success', message: 'Friend request accepted' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listFriendRequests(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const requests = await userService.listIncomingFriendRequestsService(userId);
+    return res.status(200).json({ status: 'success', data: requests });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listFriends(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const friends = await userService.listFriendsService(userId);
+    return res.status(200).json({ status: 'success', data: friends });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function friendRelations(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const ids = req.body.ids as string[];
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'fail', message: 'ids required' });
+    const map = await userService.getRelationsForTargets(userId, ids);
+    return res.status(200).json({ status: 'success', data: map });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Admin action: Ban a user by id
+ * Expects optional body: { reason?: string, until?: string }
+ */
+export async function banUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.params.id;
+    const { reason, until } = req.body as { reason?: string; until?: string };
+
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+
+    user.isBanned = true;
+    (user as any).bannedReason = reason || undefined;
+    (user as any).bannedUntil = until ? new Date(until) : undefined;
+    await user.save();
+
+    return res.status(200).json({ status: 'success', message: 'User banned', userId: user._id.toString() });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function unbanUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.params.id;
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+
+    user.isBanned = false;
+    (user as any).bannedReason = undefined;
+    (user as any).bannedUntil = undefined;
+    await user.save();
+
+    return res.status(200).json({ status: 'success', message: 'User unbanned', userId: user._id.toString() });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function searchUsers(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const { q } = req.query; // query string
+    const users = await userService.searchUsersService(q as string);
+    return res.status(200).json({ status: 'success', data: users });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function addFriend(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const { friendId } = req.body;
+    await userService.addFriendService(userId, friendId);
+    return res.status(200).json({ status: 'success', message: 'Friend added' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function unfriendUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const { friendId } = req.body as { friendId: string };
+    await userService.removeFriendService(userId, friendId);
+    return res.status(200).json({ status: 'success', message: 'Friend removed' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function reportUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const reporterId = req.user._id.toString();
+    const { targetId, reason, description } = req.body;
+    await userService.reportUserService(reporterId, targetId, reason, description);
+    return res.status(201).json({ status: 'success', message: 'Report submitted' });
   } catch (error) {
     next(error);
   }

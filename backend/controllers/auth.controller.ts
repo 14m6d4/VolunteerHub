@@ -168,9 +168,15 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
         email: user.email,
         username: user.username,
         name: user.name,
+        birthdate: user.birthdate ? new Date(user.birthdate).toISOString().split('T')[0] : undefined,
+        profilePicture: user.profilePicture || undefined,
         role: user.role,
+        authProvider: user.authProvider,
         isVerified: user.isVerified,
         isActive: user.isActive,
+        isBanned: (user as any).isBanned || false,
+        bannedReason: (user as any).bannedReason || undefined,
+        bannedUntil: (user as any).bannedUntil || undefined,
       },
     });
   } catch (error) {
@@ -179,16 +185,29 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
 }
 
 export const googleAuthCallback = (req: Request, res: Response, next: NextFunction) => {
-    const { token, user } = req.user as any;
+    const payload = req.user as any;
+
+    // If Passport returned a ban payload, redirect to a friendly banned page
+    if (payload?.banned) {
+      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+      const redirectUrl = new URL(`${frontendUrl}/banned`);
+      if (payload.reason) redirectUrl.searchParams.set('reason', payload.reason);
+      if (payload.until) redirectUrl.searchParams.set('until', payload.until);
+
+      console.log('[googleAuthCallback] User is banned, redirecting to:', redirectUrl.toString());
+      return res.redirect(redirectUrl.toString());
+    }
+
+    const { token, user } = payload ?? {};
 
     if (!token) {
-        const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=google_auth_failed`;
-        return res.redirect(loginUrl);
+      const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login?error=google_auth_failed`;
+      return res.redirect(loginUrl);
     }
 
     // Strip trailing slash from FRONTEND_URL to avoid URL issues
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
-    
+
     // Pass token as query parameter so frontend can capture and store it in localStorage
     const redirectUrl = new URL(frontendUrl);
     redirectUrl.searchParams.set('accessToken', token);

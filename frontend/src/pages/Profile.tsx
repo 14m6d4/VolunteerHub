@@ -15,9 +15,9 @@ export default function Profile() {
     <div className="container max-w-4xl mx-auto py-10">
       <Card>
         <CardHeader>
-          <CardTitle>Thông tin cá nhân</CardTitle>
+          <CardTitle>Profile</CardTitle>
           <CardDescription>
-            Cập nhật hồ sơ của bạn. Bạn cần nhập mật khẩu hiện tại để xác nhận thay đổi.
+            Update your current profile. Please type your current password to confirm changes.
           </CardDescription>
         </CardHeader>
         <CardContent>

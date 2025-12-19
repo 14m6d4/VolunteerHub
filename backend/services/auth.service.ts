@@ -58,6 +58,16 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
     throw new AppError('Account is inactive. Please contact support.', 403);
   }
 
+  // Check if user is banned
+  if ((user as any).isBanned || (((user as any).bannedUntil) && ((user as any).bannedUntil as Date) > new Date())) {
+    const reason = (user as any).bannedReason || '';
+    const until = (user as any).bannedUntil ? ((user as any).bannedUntil as Date).toISOString() : undefined;
+    let message = 'Account is banned.';
+    if (reason) message += ` Reason: ${reason}.`;
+    if (until) message += ` Until: ${until}.`;
+    throw new AppError(message, 403);
+  }
+
   // 2. Create JWT Payload
   const payload: ITokenPayload = {
     id: user._id.toString(),

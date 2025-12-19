@@ -4,6 +4,9 @@
 import type { UpdateProfileData, IUser } from '../types/user.ts';
 import UserModel from '../models/User.model.ts'; // Mongoose User Model
 import AppError from '../utils/appError.ts';
+import ReportModel, { ReportTargetType } from '../models/Report.model.ts';
+import FriendRequestModel, { FriendRequestStatus } from '../models/FriendRequest.model.ts';
+import * as notificationService from './notification.service.ts';
 
 /**
  * Updates the user's profile after verifying the current password.
@@ -15,7 +18,7 @@ import AppError from '../utils/appError.ts';
  */
 export async function updateProfileWithPasswordCheck(
   userId: string,
-  currentPassword: string,
+  currentPassword: string | undefined,
   updateData: UpdateProfileData
 ): Promise<IUser> {
 
@@ -28,10 +31,15 @@ export async function updateProfileWithPasswordCheck(
   }
 
   // 2. Password Verification
-  const isMatch = await user.comparePassword(currentPassword);
-
-  if (!isMatch) {
-    throw new AppError('Incorrect current password', 401); // Unauthorized
+  // If the user signed up via Google, allow changing profile without password
+  if (user.authProvider === 'local') {
+    if (!currentPassword) {
+      throw new AppError('Current password is required for local accounts', 400);
+    }
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      throw new AppError('Incorrect current password', 401); // Unauthorized
+    }
   }
 
   // 3. Check if any fields were actually provided for update
@@ -39,9 +47,22 @@ export async function updateProfileWithPasswordCheck(
     throw new AppError('No update fields provided', 400); // Bad Request
   }
 
-  // Sanitize updateData (Mongoose model might have 'username' instead of 'firstName/lastName')
-  // We assume UpdateProfileData matches the updatable fields in the Mongoose model schema (e.g., username, profilePicture, notificationsEnabled, etc.)
-  const validUpdates = { ...updateData };
+  // Sanitize updateData and coerce types where necessary
+  const validUpdates: any = { ...updateData };
+
+  // Convert birthdate string (YYYY-MM-DD) into a Date object to satisfy Mongoose Date schema
+  if (validUpdates.birthdate && typeof validUpdates.birthdate === 'string') {
+    const d = new Date(validUpdates.birthdate);
+    if (isNaN(d.getTime())) {
+      throw new AppError('Invalid birthdate format', 400);
+    }
+    validUpdates.birthdate = d;
+  }
+
+  // Treat empty profilePicture string as removing the picture
+  if (Object.prototype.hasOwnProperty.call(validUpdates, 'profilePicture') && validUpdates.profilePicture === '') {
+    validUpdates.profilePicture = undefined;
+  }
 
   try {
     // 4. Perform the update operation
@@ -164,3 +185,185 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
 
   return username;
 }
+
+export const searchUsersService = async (query: string, limit: number = 10) => {
+  return await UserModel.find({
+    $or: [
+      { username: { $regex: query, $options: 'i' } },
+      { name: { $regex: query, $options: 'i' } }
+    ],
+    isActive: true,
+    isBanned: false
+  })
+  .select('username name profilePicture role')
+  .limit(limit)
+  .lean();
+};
+
+// Add friend (Simple logic: push to friends array)
+export const addFriendService = async (userId: string, friendId: string) => {
+  if (userId === friendId) throw new AppError('Cannot add yourself', 400);
+
+  const user = await UserModel.findById(userId);
+  if (user?.friends?.includes(friendId as any)) {
+    throw new AppError('Already friends', 400);
+  }
+
+  // Update both sides
+  await UserModel.findByIdAndUpdate(userId, { $addToSet: { friends: friendId } });
+  await UserModel.findByIdAndUpdate(friendId, { $addToSet: { friends: userId } });
+  
+  return { success: true };
+};
+
+// Remove friend from both users' friends arrays
+export const removeFriendService = async (userId: string, friendId: string) => {
+  if (userId === friendId) throw new AppError('Cannot remove yourself', 400);
+
+  const user = await UserModel.findById(userId);
+  if (!user) throw new AppError('User not found', 404);
+
+  // If not friends, return an error
+  if (!((user as any).friends || []).map((f: any) => f.toString()).includes(friendId)) {
+    throw new AppError('Not friends', 400);
+  }
+
+  await UserModel.findByIdAndUpdate(userId, { $pull: { friends: friendId } });
+  await UserModel.findByIdAndUpdate(friendId, { $pull: { friends: userId } });
+
+  return { success: true };
+};
+
+// Report user service
+export const reportUserService = async (reporterId: string, targetId: string, reason: string, description?: string) => {
+  return await ReportModel.create({
+    reporter: reporterId as any,
+    targetId: targetId as any,
+    targetType: ReportTargetType.User,
+    reason,
+    description
+  } as any);
+};
+
+export const sendFriendRequestService = async (senderId: string, receiverId: string) => {
+  if (senderId === receiverId) throw new AppError('Cannot add yourself', 400);
+
+  // Check if already friends
+  const sender = await UserModel.findById(senderId);
+  if (sender?.friends?.includes(receiverId as any)) {
+    throw new AppError('Already friends', 400);
+  }
+
+  // Check if a request already exists
+  const existingRequest = await FriendRequestModel.findOne({
+    sender: senderId as any,
+    receiver: receiverId as any,
+    status: FriendRequestStatus.Pending
+  } as any);
+  if (existingRequest) throw new AppError('Request already sent', 400);
+
+  const created = await FriendRequestModel.create({ sender: senderId as any, receiver: receiverId as any } as any);
+
+  // Create a notification for the receiver (if they allow notifications)
+  try {
+    const receiver = await UserModel.findById(receiverId).select('notificationsEnabled');
+    if (receiver && (receiver as any).notificationsEnabled !== false) {
+      await notificationService.createNotification({
+        userId: receiverId,
+        actorId: senderId,
+        type: 'friend_request_received',
+        title: 'New friend request',
+        body: 'You received a friend request',
+        data: { senderId }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to create friend request notification:', err);
+  }
+
+  return created;
+};
+
+// Accept friend request
+export const acceptFriendRequestService = async (requestId: string, currentUserId: string) => {
+  const request = await FriendRequestModel.findById(requestId);
+  
+  if (!request || request.receiver.toString() !== currentUserId) {
+    throw new AppError('Request not found or unauthorized', 404);
+  }
+
+  if (request.status !== FriendRequestStatus.Pending) {
+    throw new AppError('Request is no longer pending', 400);
+  }
+
+  // Update status
+  request.status = FriendRequestStatus.Accepted;
+  await request.save();
+
+  // Add to friends array for both users
+  await UserModel.findByIdAndUpdate(request.sender, { $addToSet: { friends: request.receiver } });
+  await UserModel.findByIdAndUpdate(request.receiver, { $addToSet: { friends: request.sender } });
+
+  // Notify the sender that their request was accepted
+  try {
+    const sender = request.sender.toString();
+    await notificationService.createNotification({
+      userId: sender,
+      actorId: currentUserId,
+      type: 'friend_request_accepted',
+      title: 'Friend request accepted',
+      body: 'Your friend request was accepted',
+      data: { by: currentUserId }
+    });
+  } catch (err) {
+    console.error('Failed to create friend-accepted notification:', err);
+  }
+
+  return { success: true };
+};
+
+export const listIncomingFriendRequestsService = async (userId: string) => {
+  return await FriendRequestModel.find({ receiver: userId, status: FriendRequestStatus.Pending })
+    .populate('sender', 'username name profilePicture')
+    .lean();
+};
+
+// List friends for a user (populate basic public fields)
+export const listFriendsService = async (userId: string) => {
+  const doc = await UserModel.findById(userId)
+    .select('friends')
+    .populate({ path: 'friends', select: 'username name profilePicture' })
+    .lean();
+
+  return (doc && (doc as any).friends) || [];
+};
+
+// Return relations for multiple target ids: 'friends' | 'pending_sent' | 'pending_received' | 'none'
+export const getRelationsForTargets = async (userId: string, targets: string[]) => {
+  // fetch user's friends
+  const user = await UserModel.findById(userId).select('friends').lean();
+  const friendSet = new Set((user && (user as any).friends) || []);
+
+  // fetch pending requests where user is sender or receiver
+  const pending = await FriendRequestModel.find({
+    $or: [
+      { sender: userId as any, receiver: { $in: targets as any }, status: FriendRequestStatus.Pending },
+      { receiver: userId as any, sender: { $in: targets as any }, status: FriendRequestStatus.Pending }
+    ]
+  } as any).lean();
+
+  const map: Record<string, string> = {};
+  for (const t of targets) {
+    if (friendSet.has(t)) map[t] = 'friends';
+    else map[t] = 'none';
+  }
+
+  for (const p of pending) {
+    const s = p.sender.toString();
+    const r = p.receiver.toString();
+    if (s === userId) map[r] = 'pending_sent';
+    if (r === userId) map[s] = 'pending_received';
+  }
+
+  return map;
+};
