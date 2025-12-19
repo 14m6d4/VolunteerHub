@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Users, X } from 'lucide-react';
+import { Calendar, MapPin, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -85,6 +85,16 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
           <MapPin className="h-4 w-4" />
           <span className="line-clamp-1">{event.location}</span>
         </div>
+
+        {event.tags && event.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {event.tags.map((tag) => (
+              <Badge key={tag} variant="outline" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
 
         {canLeave && (
           <Button

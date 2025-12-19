@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -10,6 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EventCard } from '@/components/event/event-card';
 import { EventDetailModal } from '@/components/event/event-detail';
@@ -27,6 +34,7 @@ const mockEvents: Event[] = [
     isJoined: true,
     isPast: false,
     status: 'joined',
+    tags: ['Environment', 'Outdoor', 'Community'],
     description: 'Join us for a morning of environmental stewardship as we clean up Santa Monica Beach. We\'ll provide all necessary equipment including gloves, bags, and collection tools. This is a great opportunity to make a tangible difference in our local ecosystem while meeting like-minded volunteers.\n\nWhat to bring: Sunscreen, water bottle, comfortable walking shoes.\nAll ages welcome! Refreshments will be provided after the cleanup.'
   },
   {
@@ -39,6 +47,7 @@ const mockEvents: Event[] = [
     isJoined: true,
     isPast: false,
     status: 'pending',
+    tags: ['Food', 'Community', 'Social Services'],
     description: 'Help us sort and distribute food to families in need. We\'re looking for enthusiastic volunteers to assist with organizing donations, packing boxes, and helping with distribution.\n\nNo experience necessary - full training provided on-site. Shifts available from 9 AM to 5 PM. Even a few hours of your time makes a huge impact in our community.'
   },
   {
@@ -51,6 +60,7 @@ const mockEvents: Event[] = [
     isJoined: true,
     isPast: false,
     status: 'joined',
+    tags: ['Education', 'Seniors', 'Technology'],
     description: 'Share your tech knowledge with seniors! We\'re hosting a workshop to help older adults learn smartphone basics, video calling, and online safety. Your patience and guidance can help bridge the digital divide.\n\nIdeal for volunteers with good communication skills and basic tech knowledge. Materials and curriculum provided. Small group sessions ensure personalized attention.'
   },
   {
@@ -63,6 +73,7 @@ const mockEvents: Event[] = [
     isJoined: false,
     isPast: false,
     status: 'available',
+    tags: ['Environment', 'Outdoor', 'Gardening'],
     description: 'Get your hands dirty and help build a sustainable community garden! We\'ll be planting vegetables, herbs, and flowers that will benefit the entire neighborhood. Learn about organic gardening techniques and sustainable agriculture.\n\nPerfect for nature lovers and anyone interested in local food systems. Tools provided, but bring your own gardening gloves if you have them. Light refreshments served.'
   },
   {
@@ -75,6 +86,7 @@ const mockEvents: Event[] = [
     isJoined: false,
     isPast: false,
     status: 'available',
+    tags: ['Animals', 'Community', 'Care'],
     description: 'Spend a rewarding day helping our furry friends! Activities include walking dogs, socializing cats, cleaning facilities, and assisting with adoption events. This is perfect for animal lovers who want to make a direct impact.\n\nOrientation session at 9 AM. Please wear comfortable, washable clothing. All volunteers must be 16+ or accompanied by an adult. Your love and care brighten these animals\' days!'
   },
   {
@@ -87,6 +99,7 @@ const mockEvents: Event[] = [
     isJoined: false,
     isPast: false,
     status: 'available',
+    tags: ['Education', 'Youth', 'Mentorship'],
     description: 'Make a lasting impact as a youth mentor! We\'re launching a new program connecting volunteers with students who need academic support and positive role models. Commitment is one afternoon per week for the semester.\n\nIdeal for college students, professionals, and retirees. Background check required. Training sessions will cover mentoring best practices and program expectations. Change a young person\'s life trajectory!'
   },
   {
@@ -99,6 +112,7 @@ const mockEvents: Event[] = [
     isJoined: false,
     isPast: false,
     status: 'available',
+    tags: ['Sports', 'Community', 'Outdoor'],
     description: 'Support marathon runners at our water station! We need energetic volunteers to hand out water, sports drinks, and encouragement to thousands of runners. It\'s an exciting, high-energy atmosphere.\n\nEarly morning start (6 AM) but you\'ll be done by noon. Free event t-shirt and breakfast provided. Perfect for groups, families, or anyone who loves the energy of race day!'
   },
   {
@@ -111,6 +125,7 @@ const mockEvents: Event[] = [
     isJoined: false,
     isPast: false,
     status: 'available',
+    tags: ['Construction', 'Community', 'Housing'],
     description: 'Help build homes and hope! Join us for a weekend construction project with Habitat for Humanity. No construction experience necessary - skilled supervisors will guide all activities. Tasks include painting, landscaping, and light carpentry.\n\nPhysical work, so please bring water and wear sturdy shoes and weather-appropriate clothing. Lunch provided both days. See the direct result of your efforts as families move into affordable housing!'
   },
   {
@@ -123,6 +138,7 @@ const mockEvents: Event[] = [
     isJoined: true,
     isPast: true,
     status: 'past',
+    tags: ['Community', 'Food', 'Holiday'],
     description: 'Our annual holiday charity drive was a huge success! We collected toys, clothing, and food for families in need during the holiday season. Volunteers helped sort donations, wrap gifts, and distribute items to local families.\n\nThank you to all who participated in making this a memorable event for our community!'
   },
   {
@@ -135,6 +151,7 @@ const mockEvents: Event[] = [
     isJoined: true,
     isPast: true,
     status: 'past',
+    tags: ['Environment', 'Outdoor', 'Community'],
     description: 'We planted over 100 trees in Riverside Park to help combat climate change and beautify our neighborhood. Volunteers learned proper tree planting techniques and contributed to our city\'s green initiatives.\n\nA fantastic day of environmental action that will benefit our community for generations to come!'
   },
   {
@@ -147,6 +164,7 @@ const mockEvents: Event[] = [
     isJoined: true,
     isPast: true,
     status: 'past',
+    tags: ['Food', 'Community', 'Holiday'],
     description: 'We served over 300 meals to community members during our annual Thanksgiving dinner. Volunteers helped with cooking, serving, and creating a warm, welcoming atmosphere for all attendees.\n\nA heartwarming event that brought our community together during the holiday season!'
   }
 ];
@@ -156,15 +174,28 @@ export const EventsList = () => {
   const [filters, setFilters] = useState<EventFilters>({
     searchQuery: '',
     sortBy: 'date',
+    selectedTags: [],
   });
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Get all unique tags from events
+  const allTags = useMemo(() => {
+    const tags = new Set<string>();
+    mockEvents.forEach(event => {
+      event.tags.forEach(tag => tags.add(tag));
+    });
+    return Array.from(tags).sort();
+  }, []);
+
   // Filter and sort events
   const processedEvents = useMemo(() => {
-    let filtered = mockEvents.filter(event =>
-      event.title.toLowerCase().includes(filters.searchQuery.toLowerCase())
-    );
+    let filtered = mockEvents.filter(event => {
+      const matchesSearch = event.title.toLowerCase().includes(filters.searchQuery.toLowerCase());
+      const matchesTags = filters.selectedTags.length === 0 || 
+        filters.selectedTags.some(tag => event.tags.includes(tag));
+      return matchesSearch && matchesTags;
+    });
 
     // Sort events
     filtered.sort((a, b) => {
@@ -199,40 +230,113 @@ export const EventsList = () => {
     // In a real application, this would make an API call to unregister
   };
 
+  const toggleTag = (tag: string) => {
+    setFilters(prev => ({
+      ...prev,
+      selectedTags: prev.selectedTags.includes(tag)
+        ? prev.selectedTags.filter(t => t !== tag)
+        : [...prev.selectedTags, tag]
+    }));
+  };
+
+  const clearTags = () => {
+    setFilters(prev => ({ ...prev, selectedTags: [] }));
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header Section */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">Volunteer Events</h1>
         
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search Bar */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search events..."
-              className="pl-9"
-              value={filters.searchQuery}
-              onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
-            />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search Bar */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search events..."
+                className="pl-9"
+                value={filters.searchQuery}
+                onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
+              />
+            </div>
+
+            {/* Tags Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-[200px] justify-start">
+                  <span className="truncate">
+                    {filters.selectedTags.length === 0
+                      ? 'Filter by Tags'
+                      : `${filters.selectedTags.length} tag${filters.selectedTags.length > 1 ? 's' : ''} selected`}
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[280px] p-4" align="start">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-sm">Filter by Tags</h4>
+                    {filters.selectedTags.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearTags}
+                        className="h-auto p-1 text-xs"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {allTags.map(tag => (
+                      <Badge
+                        key={tag}
+                        variant={filters.selectedTags.includes(tag) ? 'default' : 'outline'}
+                        className="cursor-pointer"
+                        onClick={() => toggleTag(tag)}
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Sort Dropdown */}
+            <Select
+              value={filters.sortBy}
+              onValueChange={(value: 'date' | 'members') => 
+                setFilters(prev => ({ ...prev, sortBy: value }))
+              }
+            >
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Sort by..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Sort by Date</SelectItem>
+                <SelectItem value="members">Sort by Members</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Sort Dropdown */}
-          <Select
-            value={filters.sortBy}
-            onValueChange={(value: 'date' | 'members') => 
-              setFilters(prev => ({ ...prev, sortBy: value }))
-            }
-          >
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="date">Sort by Date</SelectItem>
-              <SelectItem value="members">Sort by Members</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Selected Tags Display */}
+          {filters.selectedTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-sm text-muted-foreground">Active filters:</span>
+              {filters.selectedTags.map(tag => (
+                <Badge key={tag} variant="secondary" className="gap-1">
+                  {tag}
+                  <X
+                    className="h-3 w-3 cursor-pointer"
+                    onClick={() => toggleTag(tag)}
+                  />
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import type { Event } from '@/types/event';
 
@@ -70,6 +71,17 @@ export const EventDetailModal = ({ event, open, onOpenChange }: EventDetailModal
               <span className="font-medium">{event.location}</span>
             </div>
           </div>
+
+          {/* Tags */}
+          {event.tags && event.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {event.tags.map((tag) => (
+                <Badge key={tag} variant="outline">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
 
           {/* Description */}
           <div className="pt-2">

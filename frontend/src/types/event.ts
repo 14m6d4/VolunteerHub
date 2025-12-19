@@ -10,10 +10,12 @@ export interface Event {
   isJoined: boolean;
   isPast: boolean;
   status: EventStatus;
+  tags: string[];
   description: string;
 }
 
 export interface EventFilters {
   searchQuery: string;
   sortBy: 'date' | 'members';
+  selectedTags: string[];
 }
