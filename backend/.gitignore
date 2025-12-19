@@ -54,3 +54,5 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+gen-lang-client-0832452172-8abcd5c682b5.json
