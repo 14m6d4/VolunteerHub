@@ -2,40 +2,45 @@ import { PostModel } from "../models/Post.model.ts";
 import { getGFS } from "../utils/gridfs.ts";
 
 export const PostService = {
-    async createPost({ userId, discussionId, content, files }) {
-        const gfs = getGFS();
-        const attachments = [];
+    async createPost({ userId, discussionId, content, file }: { userId: string, discussionId?: string, content?: string, file?: Express.Multer.File }) {
+        try {
+            const gfs = getGFS();
+            let image = undefined;
 
-        if (files?.length) {
-            for (const file of files) {
+            if (file) {
                 const uploadStream = gfs.openUploadStream(file.originalname, {
                     contentType: file.mimetype
                 });
 
                 uploadStream.end(file.buffer);
 
-                const savedFile: any = await new Promise((resolve, reject) => {
+                await new Promise((resolve, reject) => {
                     uploadStream.on("finish", resolve);
                     uploadStream.on("error", reject);
                 });
 
-                attachments.push({
-                    fileId: savedFile._id,
-                    type: savedFile.contentType
-                });
+                image = {
+                    fileId: uploadStream.id,
+                    type: file.mimetype
+                };
             }
-        }
 
-        if (!content && attachments.length === 0) {
-            throw new Error("Post must contain either text or image.");
+            if (!content && !image) {
+                throw new Error("Post must contain either text or image.");
+            }
+            console.log("last")
+            const post = PostModel.create({
+                discussionId,
+                authorId: userId,
+                content,
+                image
+            });
+            console.log("create")
+            return post
+        } catch (error) {
+            console.error("Create post error", error)
+            throw (error)
         }
-
-        return PostModel.create({
-            discussionId,
-            authorId: userId,
-            content,
-            attachments
-        });
     },
 
     async getPostsByDiscussion(discussionId: string) {
@@ -45,19 +50,23 @@ export const PostService = {
 
         return posts.map(post => ({
             ...post,
-            attachments: post.attachments?.map(att => ({
-                ...att,
-                url: `${process.env.SERVER_URL}/file/${att.fileId}`
-            })) || []
+            image: post.image ? {
+                ...post.image,
+                url: `${process.env.SERVER_URL}/file/${post.image.fileId}`
+            } : undefined
         }));
     },
 
     async likePost(userId: string, postId: string) {
-        return PostModel.findByIdAndUpdate(
-            postId,
-            { $addToSet: { likes: userId } },
-            { new: true }
-        );
+        const post = await PostModel.findById(postId);
+        if (!post) throw new Error("Post not found");
+
+        const isLiked = post.likes.includes(userId as any);
+        const update = isLiked
+            ? { $pull: { likes: userId } }
+            : { $addToSet: { likes: userId } };
+
+        return PostModel.findByIdAndUpdate(postId, update, { new: true });
     },
 
     async deletePost(postId: string) {
