@@ -10,6 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -30,6 +33,7 @@ type NavbarUser = {
   email?: string
   avatar?: string
   profilePicture?: string
+  role?: string
 }
 
 type Navbar01Props = {
@@ -516,7 +520,15 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                             <div key={n._id} className="group relative flex items-start gap-1 rounded-md p-3 hover:bg-accent cursor-pointer">
                               <div
                                 className={cn("flex-1 space-y-1", !n.isRead && "font-semibold")}
-                                onClick={() => onMarkRead?.(n._id)}
+                                onClick={() => {
+                                  onMarkRead?.(n._id);
+                                  // Handle navigation based on type
+                                  if (n.type === 'friend_request_received') {
+                                    navigate('/u?tab=requests');
+                                  } else if (['event_report', 'user_report', 'post_report'].includes(n.type)) {
+                                    navigate('/admin/reports');
+                                  }
+                                }}
                               >
                                 <div className="text-sm font-medium leading-none">{n.title}</div>
                                 {n.body ? (
@@ -583,6 +595,25 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
 
                     {/* Menu items */}
                     <div className="p-2">
+                      {user.role === 'admin' && (
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger className="cursor-pointer">
+                            <SettingsIcon className="mr-3 h-4 w-4" />
+                            <span>Manage</span>
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/admin/reports")}>
+                              <span className="mr-2 h-4 w-4 flex items-center justify-center">🚩</span>
+                              <span>Reports</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/admin/users")}>
+                              <UserIcon className="mr-3 h-4 w-4" />
+                              <span>Users</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      )}
+
                       <DropdownMenuItem className="cursor-pointer" onClick={() => { if (user?.username) { navigate(`/u/${user.username}`); } else { navigate('/settings'); } }}>
                         <UserIcon className="mr-3 h-4 w-4" />
                         <span>Account</span>

@@ -1,6 +1,6 @@
 // backend/routes/user.routes.ts
 import { Router } from 'express';
-import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, addFriend, reportUser, sendFriendRequest, acceptFriendRequest, listFriendRequests, listFriends, friendRelations, unfriendUser } from '../controllers/user.controller.ts';
+import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, addFriend, reportUser, sendFriendRequest, acceptFriendRequest, listFriendRequests, listFriends, friendRelations, unfriendUser, adminSearchUsersController, getBannedUsersController } from '../controllers/user.controller.ts';
 import { authMiddleware } from '../middlewares/auth.middleware.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
@@ -40,6 +40,12 @@ router.post('/friends/remove', authMiddleware, unfriendUser as any);
 
 // Report user
 router.post('/report-user', authMiddleware, reportUser as any);
+
+// Admin Routes (Search & Ban management)
+router.get('/admin/search', authMiddleware, adminSearchUsersController as any);
+router.get('/admin/banned', authMiddleware, getBannedUsersController as any);
+router.post('/admin/ban/:id', authMiddleware, banUser as any);
+router.post('/admin/unban/:id', authMiddleware, unbanUser as any);
 
 // NEW: Lấy thông tin công khai theo username (catch-all, keep last)
 router.get('/:username', getPublicProfile as any);

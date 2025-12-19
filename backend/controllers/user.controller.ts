@@ -148,7 +148,7 @@ export async function friendRelations(req: AuthenticatedRequest, res: Response, 
  */
 export async function banUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const userId = req.params.id;
+    const userId = req.params.id as string;
     const { reason, until } = req.body as { reason?: string; until?: string };
     const dateUntil = until ? new Date(until) : undefined;
 
@@ -203,12 +203,37 @@ export async function unfriendUser(req: AuthenticatedRequest, res: Response, nex
   }
 }
 
+import { ReportService } from '../services/report.service.ts';
+
+// ...
+
 export async function reportUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const reporterId = req.user._id.toString();
     const { targetId, reason, description } = req.body;
-    await userService.reportUserService(reporterId, targetId, reason, description);
+    await ReportService.reportUser(reporterId, targetId, reason, description);
     return res.status(201).json({ status: 'success', message: 'Report submitted' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function adminSearchUsersController(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const { q } = req.query;
+    if (!q) return res.status(200).json({ status: 'success', data: [] });
+
+    const users = await userService.adminSearchUsers(q as string);
+    return res.status(200).json({ status: 'success', data: users });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getBannedUsersController(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const users = await userService.getBannedUsers();
+    return res.status(200).json({ status: 'success', data: users });
   } catch (error) {
     next(error);
   }

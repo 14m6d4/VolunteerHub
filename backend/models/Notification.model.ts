@@ -33,7 +33,7 @@ export interface INotification extends Document {
 const NotificationSchema = new Schema<INotification>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    actor: { type: Schema.Types.ObjectId, enum: Object.values(NotificationType), ref: 'User' },
+    actor: { type: Schema.Types.ObjectId, ref: 'User' },
     type: { type: String, required: true },
     title: { type: String, required: true },
     body: { type: String },
