@@ -19,6 +19,7 @@ router.patch("/:id/approve", authMiddleware, roleMiddleware(["admin"]), EventCon
 router.delete("/:id", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.delete);
 router.post("/:eventId/pin", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.pinPost);
 router.get("/:id/stats", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.stats);
+router.get("/:id/posts", EventController.getPosts);
 router.get("/:id", EventController.getById);
 
 

@@ -10,10 +10,11 @@ interface EventHeaderProps {
 
 export function EventHeader({ event }: EventHeaderProps) {
   const formatMembersCount = (count: number) => {
-    if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K`;
+    const safeCount = count || 0;
+    if (safeCount >= 1000) {
+      return `${(safeCount / 1000).toFixed(1)}K`;
     }
-    return count.toString();
+    return safeCount.toString();
   };
 
   const getInitials = (name: string) => {
@@ -26,15 +27,15 @@ export function EventHeader({ event }: EventHeaderProps) {
   };
 
   // Show top 3 members for avatar stack
-  const displayMembers = event.members.slice(0, 3);
-  const remainingCount = Math.max(0, event.members.length - 3);
+  const displayMembers = (event.members || []).slice(0, 3);
+  const remainingCount = Math.max(0, (event.members || []).length - 3);
 
   return (
     <div className="w-full">
       {/* Banner Image */}
       <div className="relative w-full h-48 sm:h-64 md:h-80 overflow-hidden rounded-b-xl">
         <img
-          src={event.bannerImage}
+          src={event.bannerImage || event.image}
           alt={event.title}
           className="w-full h-full object-cover"
         />
@@ -63,7 +64,7 @@ export function EventHeader({ event }: EventHeaderProps) {
                     className="ring-2 ring-background h-9 w-9"
                     style={{ zIndex: displayMembers.length - index }}
                   >
-                    <AvatarImage src={member.avatarUrl} alt={member.name} />
+                    <AvatarImage src={member.avatar || (member as any).avatarUrl} alt={member.name} />
                     <AvatarFallback className="text-xs">
                       {getInitials(member.name)}
                     </AvatarFallback>

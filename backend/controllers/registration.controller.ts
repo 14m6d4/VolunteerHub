@@ -4,7 +4,7 @@ import { RegistrationService } from "../services/registration.service.ts";
 export const RegistrationController = {
     async register(req: Request, res: Response, next: NextFunction) {
         try {
-            const eventId = req.params.eventId;
+            const eventId = req.params.eventId as string;
             const volunteerId = (req.user as any)._id;
             const reg = await RegistrationService.register(eventId, volunteerId);
             return res.status(201).json({ success: true, data: reg });
@@ -16,7 +16,7 @@ export const RegistrationController = {
     async cancel(req: Request, res: Response, next: NextFunction) {
         try {
             const event = await RegistrationService.cancelRegistration(
-                req.params.eventId,          // eventId
+                req.params.eventId as string,          // eventId
                 (req.user as any)._id   // volunteerId
             );
             return res.json({ success: true, ...event }); // trước đây là dữ liệu reg, bây giờ là { message: ... }
@@ -28,7 +28,7 @@ export const RegistrationController = {
 
     async approve(req: Request, res: Response, next: NextFunction) {
         try {
-            const regId = req.params.regId;
+            const regId = req.params.regId as string;
             const managerId = (req.user as any)._id;
             const reg = await RegistrationService.approveRegistration(regId, managerId);
             return res.json({ success: true, data: reg });
@@ -39,7 +39,7 @@ export const RegistrationController = {
 
     async reject(req: Request, res: Response, next: NextFunction) {
         try {
-            const regId = req.params.regId;
+            const regId = req.params.regId as string;
             const managerId = (req.user as any)._id;
             const result = await RegistrationService.rejectRegistration(regId, managerId);
             return res.json({ success: true, data: result });
@@ -50,7 +50,7 @@ export const RegistrationController = {
 
     async markCompleted(req: Request, res: Response, next: NextFunction) {
         try {
-            const regId = req.params.regId;
+            const regId = req.params.regId as string;
             const reg = await RegistrationService.markCompleted(regId);
             return res.json({ success: true, data: reg });
         } catch (err) {
@@ -60,7 +60,14 @@ export const RegistrationController = {
 
     async listForEvent(req: Request, res: Response, next: NextFunction) {
         try {
-            const eventId = req.params.eventId;
+            const eventId = req.params.eventId as string;
+            const user = req.user as any;
+
+            // If user is not manager/admin, they can only see approved members
+            if (user.role !== 'manager' && user.role !== 'admin') {
+                req.query.status = 'approved';
+            }
+
             const items = await RegistrationService.getRegistrationsForEvent(eventId, req.query);
             return res.json({ success: true, data: items });
         } catch (err) {
@@ -81,10 +88,10 @@ export const RegistrationController = {
 
     async kickFromEvent(req: Request, res: Response, next: NextFunction) {
         try {
-            const eventId = req.params.eventId;
-            const volunteerId = req.params.volunteerId;
-            const managerId = (req.user as any)._id;
-            const result = await RegistrationService.kickVolunteerFromEvent(eventId, volunteerId, managerId);
+            const eventId = req.params.eventId as string;
+            const volunteerId = req.params.volunteerId as any;
+
+            const result = await RegistrationService.kickMember(eventId, volunteerId);
             return res.json({ success: true, data: result });
         } catch (err) {
             next(err);

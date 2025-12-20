@@ -10,9 +10,10 @@ import type { DiscussionUser } from '@/types/discussion';
 
 interface MembersListProps {
   members: DiscussionUser[];
+  managerId?: string;
 }
 
-export function MembersList({ members }: MembersListProps) {
+export function MembersList({ members, managerId }: MembersListProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredMembers = useMemo(() => {
@@ -51,24 +52,28 @@ export function MembersList({ members }: MembersListProps) {
 
       {/* Members Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {filteredMembers.map((member) => (
-          <Card key={member.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={member.avatarUrl} alt={member.name} />
-                  <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{member.name}</p>
-                  <Badge variant={getRoleBadgeVariant(member.role)} className="mt-1 capitalize">
-                    {member.role}
-                  </Badge>
+        {filteredMembers.map((member) => {
+          const isManager = managerId && (member.id === managerId || (member as any).userId === managerId);
+          const displayRole = isManager ? 'manager' : member.role;
+          return (
+            <Card key={member.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={member.avatar} alt={member.name} />
+                    <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{member.name}</p>
+                    <Badge variant={getRoleBadgeVariant(displayRole)} className="mt-1 capitalize">
+                      {displayRole}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {filteredMembers.length === 0 && (

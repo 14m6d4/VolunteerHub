@@ -78,3 +78,11 @@ export async function deleteEvent(eventId: string) {
         method: "DELETE",
     });
 }
+
+export async function getEventById(eventId: string) {
+    return apiFetch(`/events/${eventId}`);
+}
+
+export async function getEventPosts(eventId: string) {
+    return apiFetch(`/events/${eventId}/posts`);
+}

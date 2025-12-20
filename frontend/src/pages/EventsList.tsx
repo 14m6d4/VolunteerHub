@@ -64,7 +64,7 @@ export const EventsList = () => {
         const isPending = registrationStatus === 'pending';
         const isJoined = isApproved || isPending;
 
-        const eventDate = new Date(be.date);
+        const eventDate = new Date(be.startAt || be.date);
         const isPast = eventDate < new Date();
 
         let status: Event['status'] = 'available';
@@ -76,7 +76,7 @@ export const EventsList = () => {
           id: eventId,
           title: be.title,
           image: be.image || 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=400&fit=crop', // Fallback image
-          date: new Date(be.date).toLocaleString('en-US', {
+          date: new Date(be.startAt || be.date).toLocaleString('en-US', {
             month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true
           }),
           location: be.location || 'TBD',
@@ -137,6 +137,12 @@ export const EventsList = () => {
   const pastEvents = processedEvents.filter(event => event.isJoined && event.isPast);
 
   const handleMyEventClick = (event: Event) => {
+    if (event.status === 'pending') {
+      toast.error('Discussion Access Denied', {
+        description: 'You cannot access the discussion until your registration is approved.',
+      });
+      return;
+    }
     navigate(`/events/${event.id}`);
   };
 

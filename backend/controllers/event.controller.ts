@@ -160,4 +160,13 @@ export const EventController = {
             next(err);
         }
     },
+
+    async getPosts(req: Request, res: Response, next: NextFunction) {
+        try {
+            const posts = await import("../services/post.service").then(m => m.PostService.getPostsByEvent(req.params.id));
+            return res.json({ success: true, data: posts });
+        } catch (err) {
+            next(err);
+        }
+    }
 };

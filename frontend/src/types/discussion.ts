@@ -1,11 +1,11 @@
 // frontend/src/types/discussion.ts
 
-export type DiscussionUserRole = 'volunteer' | 'manager';
+export type DiscussionUserRole = 'volunteer' | 'manager' | 'admin';
 
 export interface DiscussionUser {
   id: string;
   name: string;
-  avatarUrl: string;
+  avatar?: string;
   role: DiscussionUserRole;
 }
 
@@ -23,20 +23,22 @@ export interface Post {
   imageUrl?: string;
   timestamp: Date;
   likes: number;
+  likedByMe?: boolean;
   comments: Comment[];
 }
 
 export interface DiscussionEvent {
   id: string;
   title: string;
-  bannerImage: string;
+  bannerImage?: string; // Support both mock and real
+  image?: string;
   location: string;
-  date: Date;
-  createdAt: Date;
+  date: Date | string;
+  createdAt?: Date;
   membersCount: number;
   description: string;
   tags: string[];
-  members: DiscussionUser[];
+  members?: DiscussionUser[];
 }
 
 // Helper type to combine post with user data

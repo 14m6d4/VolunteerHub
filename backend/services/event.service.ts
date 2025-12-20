@@ -156,7 +156,7 @@ export const EventService = {
 
         console.log("Constructed query:", query);
         console.log(`Found ${total} events matching criteria.`);
-
+        console.log("Items:", items);
         return { items, total, page, limit };
     },
 
@@ -165,13 +165,31 @@ export const EventService = {
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
         if (event.status === EventStatus.APPROVED) return event;
+
         event.status = EventStatus.APPROVED;
+
+        // Add manager as the first member
+        try {
+            await RegistrationModel.create({
+                eventId: event._id,
+                volunteerId: event.managerId,
+                status: RegistrationStatus.APPROVED
+            });
+            event.currentMembers += 1;
+        } catch (error: any) {
+            if (error.code !== 11000) {
+                console.error("Failed to register manager for event approval:", error);
+            }
+        }
+
         await event.save();
+
         await DiscussionModel.findOneAndUpdate(
             { eventId: event._id },
             { eventId: event._id },
             { upsert: true, new: true }
         );
+
         NotificationService.notify(event.managerId, {
             type: NotificationType.EVENT_APPROVED,
             title: "Event Approved",

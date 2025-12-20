@@ -76,6 +76,13 @@ export const ManagerEventDashboard = () => {
       const response = await getEvents();
       const fetchedEvents = (response.items || []).map((event: any) => ({
         ...event,
+        date: new Date(event.startAt).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+        }),
         managerStatus: event.status === 'pending' ? 'pending'
           : event.status === 'approved' ? 'active'
             : 'completed'
@@ -98,7 +105,13 @@ export const ManagerEventDashboard = () => {
 
   // Get all unique tags from events
   const allTags = useMemo(() => {
-    const tags = new Set<string>();
+    const predefinedTags = [
+      "Education", "Environment", "Health", "Community", "Technology",
+      "Arts & Culture", "Sports", "Crisis Relief", "Animal Welfare",
+      "Senior Care", "Child Care", "Food Security", "Housing",
+      "Human Rights", "Mentorship"
+    ];
+    const tags = new Set<string>(predefinedTags);
     events.forEach(event => {
       (event.tags || []).forEach(tag => tags.add(tag));
     });
@@ -203,7 +216,8 @@ export const ManagerEventDashboard = () => {
 
     try {
       // Fetch registrations for this event to populate members/requests
-      const registrations = await getEventRegistrations(event.id);
+      const registrationsData = await getEventRegistrations(event.id);
+      const registrations = registrationsData.data || registrationsData || [];
 
       const newRegistrationMap: Record<string, string> = {};
       const members: User[] = [];

@@ -54,7 +54,7 @@ export function EventAbout({ event }: EventAboutProps) {
             <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
               <p className="font-medium">Created</p>
-              <p className="text-sm text-muted-foreground">{formatDateTime(event.createdAt)}</p>
+              <p className="text-sm text-muted-foreground">{event.createdAt ? formatDateTime(event.createdAt) : 'N/A'}</p>
             </div>
           </div>
         </CardContent>
@@ -70,7 +70,7 @@ export function EventAbout({ event }: EventAboutProps) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {event.tags.map((tag) => (
+            {(event.tags || []).map((tag) => (
               <Badge key={tag} variant="secondary">
                 {tag}
               </Badge>

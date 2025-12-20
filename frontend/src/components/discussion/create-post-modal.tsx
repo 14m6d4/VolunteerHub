@@ -13,17 +13,19 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Image, X } from 'lucide-react';
-import { currentUser } from '@/data/discussion-mock';
+import { useAuth } from '@/context/AuthContext';
 
 interface CreatePostModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPost: (content: string, imageUrl?: string) => void;
+  onPost: (content: string, imageFile?: File) => void;
 }
 
 export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalProps) {
+  const { user } = useAuth();
   const [content, setContent] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | undefined>();
   const [isPosting, setIsPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,6 +41,7 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -49,6 +52,7 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
 
   const removeImage = () => {
     setImagePreview(null);
+    setSelectedFile(undefined);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -58,23 +62,28 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
     if (!content.trim()) return;
 
     setIsPosting(true);
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    onPost(content.trim(), imagePreview || undefined);
-
-    // Reset form
-    setContent('');
-    setImagePreview(null);
-    setIsPosting(false);
-    onOpenChange(false);
+    try {
+      await onPost(content.trim(), selectedFile);
+      // Reset form
+      setContent('');
+      setImagePreview(null);
+      setSelectedFile(undefined);
+      onOpenChange(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   const handleClose = () => {
     setContent('');
     setImagePreview(null);
+    setSelectedFile(undefined);
     onOpenChange(false);
   };
+
+  if (!user) return null;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -89,12 +98,12 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
           {/* User Info */}
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-              <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
+              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-semibold text-sm">{currentUser.name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{currentUser.role}</p>
+              <p className="font-semibold text-sm">{user.name}</p>
+              <p className="text-xs text-muted-foreground capitalize">{user.role}</p>
             </div>
           </div>
 

@@ -8,6 +8,24 @@ export enum EventStatus {
     FINISHED = "finished"
 }
 
+export const EventTags = [
+    "Education",
+    "Environment",
+    "Health",
+    "Community",
+    "Technology",
+    "Arts & Culture",
+    "Sports",
+    "Crisis Relief",
+    "Animal Welfare",
+    "Senior Care",
+    "Child Care",
+    "Food Security",
+    "Housing",
+    "Human Rights",
+    "Mentorship"
+];
+
 export interface IEvent extends Document {
     title: string;
     description?: string;
