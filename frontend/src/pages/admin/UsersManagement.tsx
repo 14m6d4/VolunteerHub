@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
-import { 
-  Download, 
-  Search, 
-  MoreHorizontal, 
+import { useState, useMemo, useEffect } from 'react';
+import {
+  Download,
+  Search,
+  MoreHorizontal,
   ArrowUpDown,
   Pencil,
   Ban,
@@ -53,24 +53,39 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
-import { mockUsers } from '@/data/admin-mock';
-import type { MockUser } from '@/data/admin-mock';
 import { toast } from 'sonner';
+import { apiFetch } from '@/services/api';
 
 type SortField = 'fullName' | 'username' | 'email' | null;
 type SortOrder = 'asc' | 'desc';
 
+interface User {
+  _id: string; // id
+  username: string;
+  name?: string;
+  email?: string;
+  role: string;
+  isBanned: boolean;
+  bannedReason?: string;
+  bannedUntil?: string;
+  profilePicture?: string;
+  createdAt?: string;
+  isActive: boolean;
+}
+
 export default function UsersManagement() {
   // State
-  const [users, setUsers] = useState<MockUser[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [sortField, setSortField] = useState<SortField>(null);
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [sortField, setSortField] = useState<SortField>('createdAt');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Dialog states
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -81,62 +96,46 @@ export default function UsersManagement() {
   const [bulkAction, setBulkAction] = useState<'ban' | 'delete' | null>(null);
 
   // Form state
-  const [editingUser, setEditingUser] = useState<MockUser | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
-    fullName: '',
+    name: '',
     username: '',
     email: '',
-    role: 'volunteer' as 'volunteer' | 'manager',
+    role: 'volunteer' as 'volunteer' | 'manager' | 'admin',
     password: '',
     confirmPassword: '',
   });
-  const [userToDelete, setUserToDelete] = useState<MockUser | null>(null);
-  const [userToBan, setUserToBan] = useState<MockUser | null>(null);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [userToBan, setUserToBan] = useState<User | null>(null);
+  const [banReason, setBanReason] = useState("");
 
-  // Filtering and sorting logic
-  const filteredAndSortedUsers = useMemo(() => {
-    let result = [...users];
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      // Construct query params
+      const params = new URLSearchParams();
+      if (searchQuery) params.append('q', searchQuery);
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (roleFilter !== 'all') params.append('role', roleFilter);
+      if (sortField) params.append('sortBy', sortField === 'fullName' ? 'name' : sortField);
+      params.append('sortOrder', sortOrder);
+      params.append('page', currentPage.toString());
+      params.append('limit', rowsPerPage.toString());
 
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(user => 
-        user.fullName.toLowerCase().includes(query)
-      );
+      const res = await apiFetch(`/users/admin/search?${params.toString()}`);
+      setUsers(res.data);
+      setTotalPages(res.meta.totalPages);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to fetch users");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      result = result.filter(user => user.status === statusFilter);
-    }
-
-    // Apply role filter
-    if (roleFilter !== 'all') {
-      result = result.filter(user => user.role === roleFilter);
-    }
-
-    // Apply sorting
-    if (sortField) {
-      result.sort((a, b) => {
-        const aValue = a[sortField].toLowerCase();
-        const bValue = b[sortField].toLowerCase();
-        if (sortOrder === 'asc') {
-          return aValue.localeCompare(bValue);
-        } else {
-          return bValue.localeCompare(aValue);
-        }
-      });
-    }
-
-    return result;
-  }, [users, searchQuery, statusFilter, roleFilter, sortField, sortOrder]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedUsers.length / rowsPerPage);
-  const paginatedUsers = filteredAndSortedUsers.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage
-  );
+  useEffect(() => {
+    fetchUsers();
+  }, [searchQuery, statusFilter, roleFilter, sortField, sortOrder, currentPage, rowsPerPage]);
 
   // Handlers
   const handleSort = (field: SortField) => {
@@ -150,7 +149,7 @@ export default function UsersManagement() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRows(new Set(paginatedUsers.map(u => u.id)));
+      setSelectedRows(new Set(users.map(u => u._id)));
     } else {
       setSelectedRows(new Set());
     }
@@ -169,7 +168,7 @@ export default function UsersManagement() {
   const openAddDialog = () => {
     setEditingUser(null);
     setFormData({
-      fullName: '',
+      name: '',
       username: '',
       email: '',
       role: 'volunteer',
@@ -179,95 +178,118 @@ export default function UsersManagement() {
     setUserDialogOpen(true);
   };
 
-  const openEditDialog = (user: MockUser) => {
+  const openEditDialog = (user: User) => {
     setEditingUser(user);
     setFormData({
-      fullName: user.fullName,
+      name: user.name || '',
       username: user.username,
-      email: user.email,
-      role: user.role,
+      email: user.email || '',
+      role: user.role as any,
       password: '',
       confirmPassword: '',
     });
     setUserDialogOpen(true);
   };
 
-  const handleSaveUser = () => {
-    if (!formData.fullName || !formData.username || !formData.email) {
-      toast.error('Please fill in all required fields');
+  const handleSaveUser = async () => {
+    if (!formData.username || !formData.email) {
+      toast.error('Username and Email are required');
       return;
     }
 
-    if (!editingUser && formData.password !== formData.confirmPassword) {
+    if (!editingUser && !formData.password) {
+      toast.error('Password is required for new users');
+      return;
+    }
+
+    if (formData.password && formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
 
-    if (editingUser) {
-      // Edit existing user
-      setUsers(users.map(u => 
-        u.id === editingUser.id 
-          ? { ...u, ...formData }
-          : u
-      ));
-      toast.success('User updated successfully');
-    } else {
-      // Add new user
-      const newUser: MockUser = {
-        id: Date.now().toString(),
-        fullName: formData.fullName,
-        username: formData.username,
-        email: formData.email,
-        role: formData.role,
-        status: 'active',
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-      setUsers([...users, newUser]);
-      toast.success('User added successfully');
+    try {
+      if (editingUser) {
+        await apiFetch(`/users/admin/${editingUser._id}`, {
+          method: 'PUT',
+          body: formData
+        });
+        toast.success('User updated successfully');
+      } else {
+        await apiFetch('/users/admin/create', {
+          method: 'POST',
+          body: formData
+        });
+        toast.success('User created successfully');
+      }
+      setUserDialogOpen(false);
+      fetchUsers();
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Operation failed");
     }
-
-    setUserDialogOpen(false);
   };
 
-  const handleBanUser = () => {
+  const handleBanUser = async () => {
     if (userToBan) {
-      setUsers(users.map(u => 
-        u.id === userToBan.id 
-          ? { ...u, status: u.status === 'banned' ? 'active' : 'banned' as const }
-          : u
-      ));
-      toast.success(`User ${userToBan.status === 'banned' ? 'unbanned' : 'banned'} successfully`);
-      setUserToBan(null);
-      setBanDialogOpen(false);
+      try {
+        const url = userToBan.isBanned
+          ? `/users/admin/unban/${userToBan._id}`
+          : `/users/admin/ban/${userToBan._id}`;
+
+        await apiFetch(url, {
+          method: 'POST',
+          body: userToBan.isBanned ? {} : { reason: banReason }
+        });
+
+        toast.success(`User ${userToBan.isBanned ? 'unbanned' : 'banned'} successfully`);
+        setUserToBan(null);
+        setBanDialogOpen(false);
+        setBanReason("");
+        fetchUsers();
+      } catch (error: any) {
+        toast.error(error.message || "Action failed");
+      }
     }
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (userToDelete) {
-      setUsers(users.filter(u => u.id !== userToDelete.id));
-      toast.success('User deleted successfully');
-      setUserToDelete(null);
-      setDeleteDialogOpen(false);
+      try {
+        await apiFetch(`/users/admin/${userToDelete._id}`, { method: 'DELETE' });
+        toast.success('User deleted successfully');
+        setUserToDelete(null);
+        setDeleteDialogOpen(false);
+        fetchUsers();
+      } catch (error: any) {
+        toast.error(error.message || "Delete failed");
+      }
     }
   };
 
-  const handleBulkAction = () => {
+  const handleBulkAction = async () => {
+    // Not implemented in backend yet for bulk, would loop frontend calls or add bulk endpoint
+    // For now, let's just loop
     if (bulkAction === 'ban') {
-      setUsers(users.map(u => 
-        selectedRows.has(u.id) ? { ...u, status: 'banned' as const } : u
-      ));
-      toast.success(`${selectedRows.size} users banned successfully`);
+      for (const id of selectedRows) {
+        await apiFetch(`/users/admin/ban/${id}`, { method: 'POST' });
+      }
+      toast.success(`${selectedRows.size} users banned`);
     } else if (bulkAction === 'delete') {
-      setUsers(users.filter(u => !selectedRows.has(u.id)));
-      toast.success(`${selectedRows.size} users deleted successfully`);
+      for (const id of selectedRows) {
+        await apiFetch(`/users/admin/${id}`, { method: 'DELETE' });
+      }
+      toast.success(`${selectedRows.size} users deleted`);
     }
     setSelectedRows(new Set());
     setBulkActionDialogOpen(false);
+    fetchUsers();
   };
 
   const handleExport = (format: 'csv' | 'json') => {
-    const dataToExport = filteredAndSortedUsers.map(({ id, ...rest }) => rest);
-    
+    // Export ALL users (need to fetch all or export current view)
+    // For simplicity export current view
+    const dataToExport = users.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
+
     if (format === 'csv') {
       const headers = Object.keys(dataToExport[0]).join(',');
       const rows = dataToExport.map(row => Object.values(row).join(','));
@@ -277,7 +299,7 @@ export default function UsersManagement() {
       const json = JSON.stringify(dataToExport, null, 2);
       downloadFile(json, 'users.json', 'application/json');
     }
-    
+
     setExportDialogOpen(false);
     toast.success(`Exported as ${format.toUpperCase()}`);
   };
@@ -319,7 +341,7 @@ export default function UsersManagement() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by full name..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -344,6 +366,7 @@ export default function UsersManagement() {
               <SelectItem value="all">All Roles</SelectItem>
               <SelectItem value="volunteer">Volunteer</SelectItem>
               <SelectItem value="manager">Manager</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -354,8 +377,8 @@ export default function UsersManagement() {
         <div className="flex items-center gap-2 rounded-lg border bg-muted/50 p-3">
           <span className="text-sm font-medium">{selectedRows.size} selected</span>
           <div className="flex gap-2 ml-auto">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => {
                 setBulkAction('ban');
@@ -365,8 +388,8 @@ export default function UsersManagement() {
               <Ban className="mr-2 h-4 w-4" />
               Ban Selected
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               size="sm"
               onClick={() => {
                 setBulkAction('delete');
@@ -387,14 +410,14 @@ export default function UsersManagement() {
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
-                  checked={paginatedUsers.length > 0 && selectedRows.size === paginatedUsers.length}
+                  checked={users.length > 0 && selectedRows.size === users.length}
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
               <TableHead>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="-ml-3 h-8"
                   onClick={() => handleSort('fullName')}
                 >
@@ -403,9 +426,9 @@ export default function UsersManagement() {
                 </Button>
               </TableHead>
               <TableHead>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="-ml-3 h-8"
                   onClick={() => handleSort('username')}
                 >
@@ -414,9 +437,9 @@ export default function UsersManagement() {
                 </Button>
               </TableHead>
               <TableHead>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="-ml-3 h-8"
                   onClick={() => handleSort('email')}
                 >
@@ -430,27 +453,31 @@ export default function UsersManagement() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedUsers.length === 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center">Loading...</TableCell>
+              </TableRow>
+            ) : users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center">
                   No users found.
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedUsers.map((user) => (
-                <TableRow key={user.id} data-state={selectedRows.has(user.id) ? 'selected' : undefined}>
+              users.map((user) => (
+                <TableRow key={user._id} data-state={selectedRows.has(user._id) ? 'selected' : undefined}>
                   <TableCell>
                     <Checkbox
-                      checked={selectedRows.has(user.id)}
-                      onCheckedChange={(checked) => handleSelectRow(user.id, !!checked)}
+                      checked={selectedRows.has(user._id)}
+                      onCheckedChange={(checked) => handleSelectRow(user._id, !!checked)}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{user.fullName}</TableCell>
+                  <TableCell className="font-medium">{user.name || '-'}</TableCell>
                   <TableCell>{user.username}</TableCell>
-                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.email || '-'}</TableCell>
                   <TableCell>
-                    <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
-                      {user.status === 'active' ? 'Active' : 'Banned'}
+                    <Badge variant={user.isBanned ? 'destructive' : 'default'}>
+                      {user.isBanned ? 'Banned' : 'Active'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -470,16 +497,16 @@ export default function UsersManagement() {
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => {
                             setUserToBan(user);
                             setBanDialogOpen(true);
                           }}
                         >
                           <Ban className="mr-2 h-4 w-4" />
-                          {user.status === 'banned' ? 'Unban' : 'Ban'}
+                          {user.isBanned ? 'Unban' : 'Ban'}
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           variant="destructive"
                           onClick={() => {
                             setUserToDelete(user);
@@ -576,8 +603,8 @@ export default function UsersManagement() {
               <Label htmlFor="fullName">Full Name</Label>
               <Input
                 id="fullName"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="John Doe"
               />
             </div>
@@ -602,13 +629,14 @@ export default function UsersManagement() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={formData.role} onValueChange={(v: 'volunteer' | 'manager') => setFormData({ ...formData, role: v })}>
+              <Select value={formData.role} onValueChange={(v: 'volunteer' | 'manager' | 'admin') => setFormData({ ...formData, role: v })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="volunteer">Volunteer</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -646,7 +674,7 @@ export default function UsersManagement() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{userToDelete?.fullName}</strong>? This action cannot be undone.
+              Are you sure you want to delete <strong>{userToDelete?.name || userToDelete?.username}</strong>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -662,15 +690,26 @@ export default function UsersManagement() {
       <AlertDialog open={banDialogOpen} onOpenChange={setBanDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{userToBan?.status === 'banned' ? 'Unban' : 'Ban'} User</AlertDialogTitle>
+            <AlertDialogTitle>{userToBan?.isBanned ? 'Unban' : 'Ban'} User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to {userToBan?.status === 'banned' ? 'unban' : 'ban'} <strong>{userToBan?.fullName}</strong>?
+              Are you sure you want to {userToBan?.isBanned ? 'unban' : 'ban'} <strong>{userToBan?.name || userToBan?.username}</strong>?
+              {!userToBan?.isBanned && (
+                <div className="mt-2">
+                  <Label htmlFor="banReason">Reason (optional):</Label>
+                  <Input
+                    id="banReason"
+                    value={banReason}
+                    onChange={(e) => setBanReason(e.target.value)}
+                    placeholder="Violation of terms..."
+                  />
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleBanUser}>
-              {userToBan?.status === 'banned' ? 'Unban' : 'Ban'}
+              {userToBan?.isBanned ? 'Unban' : 'Ban'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -684,13 +723,13 @@ export default function UsersManagement() {
               {bulkAction === 'ban' ? 'Ban Selected Users' : 'Delete Selected Users'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to {bulkAction} {selectedRows.size} selected users? 
+              Are you sure you want to {bulkAction} {selectedRows.size} selected users?
               {bulkAction === 'delete' && ' This action cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleBulkAction}
               className={bulkAction === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
             >

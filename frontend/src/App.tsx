@@ -137,6 +137,8 @@ function AppContent() {
   )
 }
 
+import { Toaster } from "@/components/ui/sonner"
+
 function App() {
   return (
 
@@ -145,6 +147,7 @@ function App() {
         <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
           <BrowserRouter>
             <AppContent />
+            <Toaster />
           </BrowserRouter>
         </ThemeProvider>
       </AuthProvider>

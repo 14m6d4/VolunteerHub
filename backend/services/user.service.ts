@@ -387,19 +387,127 @@ export const banUserService = async (userId: string, reason?: string, until?: Da
   return user;
 };
 
-export const adminSearchUsers = async (query: string) => {
-  // Search ALL users (active or banned)
-  return await UserModel.find({
-    $or: [
-      { username: { $regex: query, $options: 'i' } },
-      { name: { $regex: query, $options: 'i' } },
-      { email: { $regex: query, $options: 'i' } }
-    ]
-  })
-    .select('username name profilePicture role isBanned bannedReason bannedUntil email')
-    .sort({ createdAt: -1 })
-    .lean();
+export const adminSearchUsers = async (filters: {
+  q?: string;
+  role?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}) => {
+  const { q, role, status, sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10 } = filters;
+
+  const query: any = {};
+
+  if (q) {
+    query.$or = [
+      { username: { $regex: q, $options: 'i' } },
+      { name: { $regex: q, $options: 'i' } },
+      { email: { $regex: q, $options: 'i' } }
+    ];
+  }
+
+  if (role && role !== 'all') {
+    query.role = role;
+  }
+
+  if (status && status !== 'all') {
+    if (status === 'banned') query.isBanned = true;
+    else if (status === 'active') query.isBanned = false; // Assuming active means not banned. If you have isActive field, use it too.
+  }
+
+  const sort: any = {};
+  sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+  const skip = (page - 1) * limit;
+
+  const [users, total] = await Promise.all([
+    UserModel.find(query)
+      .select('username name profilePicture role isBanned bannedReason bannedUntil email createdAt isActive')
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    UserModel.countDocuments(query)
+  ]);
+
+  return { users, total, page, limit, totalPages: Math.ceil(total / limit) };
 };
+
+export const createUserService = async (data: any) => {
+  // Check if username/email exists
+  const exists = await UserModel.findOne({ $or: [{ username: data.username }, { email: data.email }] });
+  if (exists) throw new AppError('Username or email already exists', 400);
+
+  // Map password to passwordHash for the model
+  if (data.password) {
+    data.passwordHash = data.password;
+    delete data.password;
+  }
+
+  // Ensure default birthdate if not provided (required for local auth)
+  if (!data.birthdate) {
+    data.birthdate = new Date('2000-01-01');
+  }
+
+  // Note: Password hashing is handled by pre-save hook in User model
+  const user = await UserModel.create({
+    ...data,
+    isActive: true, // Default active
+    isVerified: true // Admin created users are verified
+  });
+
+  return user;
+}
+
+export const deleteUserService = async (userId: string) => {
+  const user = await UserModel.findByIdAndDelete(userId);
+  if (!user) throw new AppError('User not found', 404);
+  return { success: true };
+}
+
+export const updateUserAdminService = async (userId: string, data: any) => {
+  // If password is provided but empty, remove it so we don't overwrite with empty string
+  if (data.password === '' || data.password === undefined) {
+    delete data.password;
+  }
+
+  // Check uniqueness if username/email changed
+  if (data.username || data.email) {
+    const query: any = { _id: { $ne: userId }, $or: [] };
+    if (data.username) query.$or.push({ username: data.username });
+    if (data.email) query.$or.push({ email: data.email });
+
+    if (query.$or.length > 0) {
+      const exists = await UserModel.findOne(query);
+      if (exists) throw new AppError('Username or email already in use', 400);
+    }
+  }
+
+  // Use findById first to leverage save() hook if password needs hashing
+  // BUT for simplicity if password is NOT changed, findByIdAndUpdate is faster.
+  // If password IS changed, we need to save() to trigger pre-save hash.
+
+  if (data.password) {
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('User not found', 404);
+
+    // Map password to passwordHash
+    user.passwordHash = data.password;
+
+    // Update other fields
+    const { password, ...otherData } = data;
+    Object.assign(user, otherData);
+
+    await user.save();
+    return user;
+  } else {
+    const user = await UserModel.findByIdAndUpdate(userId, data, { new: true, runValidators: true });
+    if (!user) throw new AppError('User not found', 404);
+    return user;
+  }
+}
 
 export const getBannedUsers = async () => {
   return await UserModel.find({ isBanned: true })
