@@ -16,6 +16,7 @@ interface PostCardProps {
   post: PostWithUser;
   comments: CommentWithUser[];
   currentUserId: string;
+  currentUser: { id: string; name: string; avatarUrl: string };
   onLike: (postId: string) => void;
   onAddComment: (postId: string, content: string) => void;
 }
@@ -24,6 +25,7 @@ export function PostCard({
   post,
   comments,
   currentUserId,
+  currentUser,
   onLike,
   onAddComment,
 }: PostCardProps) {
@@ -63,7 +65,7 @@ export function PostCard({
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
+                <AvatarImage src={post.author.avatar} alt={post.author.name} />
                 <AvatarFallback>{getInitials(post.author.name)}</AvatarFallback>
               </Avatar>
               <div>
@@ -103,9 +105,8 @@ export function PostCard({
           <div className="w-full flex items-center gap-4 text-sm text-muted-foreground">
             <button
               onClick={handleLike}
-              className={`flex items-center gap-1 hover:text-red-500 transition-colors ${
-                isLiked ? 'text-red-500' : ''
-              }`}
+              className={`flex items-center gap-1 hover:text-red-500 transition-colors ${isLiked ? 'text-red-500' : ''
+                }`}
             >
               <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
               <span>{likeCount}</span>
@@ -126,28 +127,29 @@ export function PostCard({
             comments={previewComments}
             hasMoreComments={hasMoreComments}
             totalComments={comments.length}
-            currentUserId={currentUserId}
+            currentUser={currentUser}
             onViewAllComments={() => setShowDetailDialog(true)}
             onAddComment={(content: string) => onAddComment(post.id, content)}
           />
         </CardFooter>
-      </Card>
+      </Card >
 
       {/* Report Dialog */}
-      <ReportDialog
+      < ReportDialog
         open={showReportDialog}
         onOpenChange={setShowReportDialog}
         postId={post.id}
       />
 
       {/* Post Detail Dialog */}
-      <PostDetailDialog
+      < PostDetailDialog
         open={showDetailDialog}
         onOpenChange={setShowDetailDialog}
         post={post}
         comments={comments}
         currentUserId={currentUserId}
-        onAddComment={(content: string) => onAddComment(post.id, content)}
+        onAddComment={(content: string) => onAddComment(post.id, content)
+        }
         onLike={() => handleLike()}
         isLiked={isLiked}
         likeCount={likeCount}

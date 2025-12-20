@@ -10,6 +10,7 @@ interface SearchPostsProps {
   posts: PostWithUser[];
   getCommentsForPost: (postId: string) => CommentWithUser[];
   currentUserId: string;
+  currentUser: { id: string; name: string; avatarUrl: string };
   onLike: (postId: string) => void;
   onAddComment: (postId: string, content: string) => void;
 }
@@ -18,6 +19,7 @@ export function SearchPosts({
   posts,
   getCommentsForPost,
   currentUserId,
+  currentUser,
   onLike,
   onAddComment,
 }: SearchPostsProps) {
@@ -63,6 +65,7 @@ export function SearchPosts({
                   post={post}
                   comments={getCommentsForPost(post.id)}
                   currentUserId={currentUserId}
+                  currentUser={currentUser}
                   onLike={onLike}
                   onAddComment={onAddComment}
                 />

@@ -18,6 +18,7 @@ interface FeedPostCardProps {
   post: FeedPostWithUser;
   comments: CommentWithUser[];
   currentUserId: string;
+  currentUser: { id: string; name: string; avatarUrl: string };
   onLike: (postId: string) => void;
   onAddComment: (postId: string, content: string) => void;
 }
@@ -26,6 +27,7 @@ export function FeedPostCard({
   post,
   comments,
   currentUserId,
+  currentUser,
   onLike,
   onAddComment,
 }: FeedPostCardProps) {
@@ -35,6 +37,8 @@ export function FeedPostCard({
   const handleLike = () => {
     onLike(post.id);
   };
+  // ...
+
 
   const isLiked = post.likedByMe || false;
   const likeCount = post.likes;
@@ -146,7 +150,7 @@ export function FeedPostCard({
             comments={previewComments}
             hasMoreComments={hasMoreComments}
             totalComments={comments.length}
-            currentUserId={currentUserId}
+            currentUser={currentUser}
             onViewAllComments={() => setShowDetailDialog(true)}
             onAddComment={(content: string) => onAddComment(post.id, content)}
           />

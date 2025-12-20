@@ -40,13 +40,13 @@ export default function DiscussionPage() {
       // Map backend comments (populated author) to frontend CommentWithUser
       const mappedComments = (res.data || res || []).map((c: any) => ({
         id: c._id,
-        userId: c.userId?._id || c.userId,
+        userId: c.authorId?._id || c.authorId,
         content: c.content,
         timestamp: new Date(c.createdAt),
         author: {
-          id: c.userId?._id || 'unknown',
-          name: c.userId?.name || 'Unknown',
-          avatar: c.userId?.image,
+          id: c.authorId?._id || 'unknown',
+          name: c.authorId?.name || 'Unknown',
+          avatar: c.authorId?.profilePicture,
           role: 'volunteer' // backend might not populated role on comment author yet, assume volunteer or populate
         }
       }));
@@ -264,6 +264,7 @@ export default function DiscussionPage() {
                     post={post}
                     comments={commentsMap[post.id] || []}
                     currentUserId={user?.id || ''}
+                    currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
                     onLike={handleLike}
                     onAddComment={handleAddComment}
                   />
@@ -293,6 +294,7 @@ export default function DiscussionPage() {
                     post={post}
                     comments={commentsMap[post.id] || []}
                     currentUserId={user?.id || ''}
+                    currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
                     onLike={handleLike}
                     onAddComment={handleAddComment}
                   />
@@ -322,6 +324,7 @@ export default function DiscussionPage() {
                 posts={posts}
                 getCommentsForPost={(id) => commentsMap[id] || []}
                 currentUserId={user?.id || ''}
+                currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
                 onLike={handleLike}
                 onAddComment={handleAddComment}
               />

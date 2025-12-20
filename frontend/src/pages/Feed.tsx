@@ -244,6 +244,11 @@ export default function FeedPage() {
                     post={item.data}
                     comments={item.data.comments} // Pass pre-fetched comments
                     currentUserId={user.id}
+                    currentUser={{
+                      id: user.id,
+                      name: user.name,
+                      avatarUrl: user.profilePicture || ''
+                    }}
                     onLike={handleLike}
                     onAddComment={handleAddComment}
                   />
