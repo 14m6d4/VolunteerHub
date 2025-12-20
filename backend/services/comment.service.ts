@@ -1,10 +1,13 @@
 import createHttpError from "http-errors";
 import { CommentModel } from "../models/Comment.model.ts";
 import { PostModel } from "../models/Post.model.ts";
+import { NotificationService } from "./notification.service.ts";
+import { NotificationType } from "../models/Notification.model.ts";
+import User from "../models/User.model.ts";
 
 export const CommentService = {
     async createComment(userId: string, postId: string, content: string) {
-        const post = await PostModel.findById(postId);
+        const post = await PostModel.findById(postId).populate('authorId');
         if (!post) throw createHttpError(404, "Post not found");
 
         const comment = await CommentModel.create({
@@ -12,6 +15,23 @@ export const CommentService = {
             authorId: userId,
             content
         });
+
+        // Send notification to post author if someone else comments
+        if (post.authorId._id.toString() !== userId) {
+            try {
+                const commenter = await User.findById(userId).select('name username');
+                if (commenter) {
+                    await NotificationService.notify(post.authorId._id.toString(), {
+                        type: NotificationType.POST_COMMENTED,
+                        title: "New Comment",
+                        body: `${commenter.name} commented on your post: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+                        data: { postId, commentId: comment._id.toString(), userId, commenterName: commenter.name }
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to send comment notification:", err);
+            }
+        }
 
         return comment;
     },
