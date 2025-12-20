@@ -22,9 +22,10 @@ interface ReportDialogProps {
   onOpenChange: (open: boolean) => void;
   postId: string;
   reporterId: string;
+  eventId?: string;
 }
 
-export function ReportDialog({ open, onOpenChange, postId, reporterId }: ReportDialogProps) {
+export function ReportDialog({ open, onOpenChange, postId, reporterId, eventId }: ReportDialogProps) {
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -34,7 +35,7 @@ export function ReportDialog({ open, onOpenChange, postId, reporterId }: ReportD
 
     setIsSubmitting(true);
     try {
-      await ReportService.reportPost(reporterId, postId, reason);
+      await ReportService.reportPost(reporterId, postId, reason, eventId);
       // eslint-disable-next-line no-console
       console.log('Report submitted for post:', postId, 'Reason:', reason);
 

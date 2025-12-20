@@ -173,6 +173,7 @@ export function FeedPostCard({
         onOpenChange={setShowReportDialog}
         postId={post.id}
         reporterId={currentUserId}
+        eventId={post.eventId}
       />
 
       {/* Post Detail Dialog */}

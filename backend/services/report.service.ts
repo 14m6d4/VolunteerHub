@@ -58,7 +58,7 @@ export const ReportService = {
                         type: NotificationType.POST_REPORTED,
                         title: "Post Reported",
                         body: `Post has been reported for the following reason: ${reason}`,
-                        data: { postId: post._id, reportId: report._id }
+                        data: { postId: post._id, reportId: report._id, eventId: post.eventId }
                     });
                     console.log(`[ReportService] reportPost: Notified manager: ${event.managerId} (${event.managerId})`);
                 }
