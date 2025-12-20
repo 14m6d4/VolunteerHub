@@ -74,7 +74,12 @@ export const ManagerEventDashboard = () => {
       // For now, fetching all events and assuming backend filters or we filter client side if needed
       // Ideally backend endpoint /events?manager=me or similar
       const response = await getEvents();
-      const fetchedEvents = response.items || [];
+      const fetchedEvents = (response.items || []).map((event: any) => ({
+        ...event,
+        managerStatus: event.status === 'pending' ? 'pending'
+          : event.status === 'approved' ? 'active'
+            : 'completed'
+      }));
 
       // In a real app we might only show events created by this manager
       // fetching events
