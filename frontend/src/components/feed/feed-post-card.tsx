@@ -162,6 +162,7 @@ export function FeedPostCard({
         open={showReportDialog}
         onOpenChange={setShowReportDialog}
         postId={post.id}
+        reporterId={currentUserId}
       />
 
       {/* Post Detail Dialog */}
@@ -171,6 +172,7 @@ export function FeedPostCard({
         post={postForDialog}
         comments={comments}
         currentUserId={currentUserId}
+        currentUser={currentUser}
         onAddComment={(content: string) => onAddComment(post.id, content)}
         onLike={() => handleLike()}
         isLiked={isLiked}

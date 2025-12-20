@@ -37,36 +37,37 @@ export const ReportService = {
         return report;
     },
 
-    // Báo cáo bài viết
     async reportPost(reporterId: string, postId: string, reason: string, description?: string) {
-        // Kiểm tra bài viết có tồn tại không
-        const post = await PostModel.findById(postId);
-        if (!post) throw createHttpError(404, "Post not found");
+        try {
+            const post = await PostModel.findById(postId);
+            if (!post) throw createHttpError(404, "Post not found");
 
-        // Tạo báo cáo
-        const report = await ReportModel.create({
-            reporter: reporterId,
-            targetId: post._id,
-            targetType: ReportTargetType.Post,
-            reason,
-            description,
-            status: 'pending'
-        });
+            const report = await ReportModel.create({
+                reporter: reporterId,
+                targetId: post._id,
+                targetType: ReportTargetType.Post,
+                reason,
+                description,
+                status: 'pending'
+            });
 
-        // Gửi thông báo cho manager của event (nếu có)
-        if (post.eventId) {
-            const event = await EventModel.findById(post.eventId);
-            if (event) {
-                NotificationService.notify(event.managerId, {
-                    type: NotificationType.POST_REPORTED,
-                    title: "Post Reported",
-                    body: `Post has been reported for the following reason: ${reason}`,
-                    data: { postId: post._id, reportId: report._id }
-                });
+            if (post.eventId) {
+                const event = await EventModel.findById(post.eventId);
+                if (event) {
+                    NotificationService.notify(event.managerId, {
+                        type: NotificationType.POST_REPORTED,
+                        title: "Post Reported",
+                        body: `Post has been reported for the following reason: ${reason}`,
+                        data: { postId: post._id, reportId: report._id }
+                    });
+                    console.log(`[ReportService] reportPost: Notified manager: ${event.managerId} (${event.managerId})`);
+                }
             }
+            return report;
+        } catch (error) {
+            console.error("Failed to report post:", error);
+            throw error;
         }
-
-        return report;
     },
 
     // Báo cáo người dùng

@@ -147,6 +147,7 @@ export function PostCard({
         open={showReportDialog}
         onOpenChange={setShowReportDialog}
         postId={post.id}
+        reporterId={currentUserId}
       />
 
       {/* Post Detail Dialog */}
@@ -156,6 +157,7 @@ export function PostCard({
         post={post}
         comments={comments}
         currentUserId={currentUserId}
+        currentUser={currentUser}
         onAddComment={(content: string) => onAddComment(post.id, content)
         }
         onLike={() => handleLike()}

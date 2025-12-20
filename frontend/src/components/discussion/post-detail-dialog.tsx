@@ -14,7 +14,6 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Heart, Send } from 'lucide-react';
 import type { PostWithUser, CommentWithUser } from '@/types/discussion';
-import { currentUser } from '@/data/discussion-mock';
 import { formatRelativeTime } from '@/utils/formatDate';
 
 interface PostDetailDialogProps {
@@ -23,6 +22,7 @@ interface PostDetailDialogProps {
   post: PostWithUser;
   comments: CommentWithUser[];
   currentUserId: string;
+  currentUser: { id: string; name: string; avatarUrl: string };
   onAddComment: (content: string) => void;
   onLike: () => void;
   isLiked: boolean;
@@ -35,6 +35,7 @@ export function PostDetailDialog({
   post,
   comments,
   onAddComment,
+  currentUser,
   onLike,
   isLiked,
   likeCount,
@@ -97,9 +98,8 @@ export function PostDetailDialog({
             <div className="flex items-center gap-4 pt-2">
               <button
                 onClick={onLike}
-                className={`flex items-center gap-1 text-sm hover:text-red-500 transition-colors ${
-                  isLiked ? 'text-red-500' : 'text-muted-foreground'
-                }`}
+                className={`flex items-center gap-1 text-sm hover:text-red-500 transition-colors ${isLiked ? 'text-red-500' : 'text-muted-foreground'
+                  }`}
               >
                 <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                 <span>{likeCount} likes</span>
