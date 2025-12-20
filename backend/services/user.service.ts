@@ -527,3 +527,52 @@ export const unbanUserService = async (userId: string) => {
   await user.save();
   return user;
 };
+
+export const getFriendSuggestionsService = async (userId: string, limit: number = 10) => {
+  // Get current user's friends to calculate intersection and exclusion
+  const currentUser = await UserModel.findById(userId).select('friends').lean();
+  if (!currentUser) throw new AppError('User not found', 404);
+
+  const myFriends = (currentUser as any).friends || [];
+
+  return await UserModel.aggregate([
+    {
+      $match: {
+        _id: {
+          $ne: currentUser._id, // Not me
+          $nin: myFriends       // Not my friends
+        },
+        role: { $ne: 'admin' }, // No admins
+        isActive: true,
+        isBanned: false
+      }
+    },
+    {
+      $addFields: {
+        mutualFriendsCount: {
+          $size: {
+            $setIntersection: [
+              { $ifNull: ["$friends", []] },
+              myFriends
+            ]
+          }
+        }
+      }
+    },
+    {
+      $sort: { mutualFriendsCount: -1, createdAt: -1 } // Most mutual friends first, then newest
+    },
+    {
+      $limit: limit
+    },
+    {
+      $project: {
+        _id: 1,
+        username: 1,
+        name: 1,
+        profilePicture: 1,
+        mutualFriends: "$mutualFriendsCount" // Rename for frontend consistency if needed
+      }
+    }
+  ]);
+};

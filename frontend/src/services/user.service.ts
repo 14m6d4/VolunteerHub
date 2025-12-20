@@ -7,6 +7,10 @@ export async function searchUsers(query: string) {
   });
 }
 
+export async function getFriendSuggestions() {
+  return apiFetch("/users/friends/suggestions");
+}
+
 export async function updateProfile(data: any) {
   return apiFetch("/users/profile/secure", {
     method: "PATCH",

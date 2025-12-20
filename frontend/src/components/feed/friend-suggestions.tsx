@@ -12,10 +12,12 @@ import type { FriendSuggestion } from '@/types/feed';
 
 interface FriendSuggestionsProps {
   suggestions: FriendSuggestion[];
+  onAddFriend?: (id: string) => Promise<void>;
 }
 
-export function FriendSuggestions({ suggestions }: FriendSuggestionsProps) {
+export function FriendSuggestions({ suggestions, onAddFriend }: FriendSuggestionsProps) {
   const [addedFriends, setAddedFriends] = useState<Set<string>>(new Set());
+  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
 
   const getInitials = (name: string) => {
     return name
@@ -26,11 +28,25 @@ export function FriendSuggestions({ suggestions }: FriendSuggestionsProps) {
       .slice(0, 2);
   };
 
-  const handleAddFriend = (suggestion: FriendSuggestion) => {
-    setAddedFriends((prev) => new Set([...prev, suggestion.id]));
-    toast.success('Friend request sent!', {
-      description: `Request sent to ${suggestion.name}`,
-    });
+  const handleAddFriendClick = async (suggestion: FriendSuggestion) => {
+    if (!onAddFriend) return;
+
+    setLoadingIds(prev => new Set([...prev, suggestion.id]));
+    try {
+      await onAddFriend(suggestion.id);
+      setAddedFriends((prev) => new Set([...prev, suggestion.id]));
+      toast.success(`Friend request sent to ${suggestion.name}`);
+    } catch (error) {
+      console.error(error);
+      // Toast is likely handled by parent or interceptor, but safe to show generic error if needed
+      // toast.error("Failed to send request");
+    } finally {
+      setLoadingIds(prev => {
+        const next = new Set(prev);
+        next.delete(suggestion.id);
+        return next;
+      });
+    }
   };
 
   return (
@@ -68,9 +84,9 @@ export function FriendSuggestions({ suggestions }: FriendSuggestionsProps) {
                       {suggestion.name}
                     </Link>
                     <p className="text-xs text-muted-foreground">@{suggestion.username}</p>
-                    {suggestion.mutualFriends && suggestion.mutualFriends > 0 && (
+                    {(suggestion.mutualFriends || 0) > 0 && (
                       <p className="text-[10px] text-muted-foreground">
-                        {suggestion.mutualFriends} mutual friend{suggestion.mutualFriends > 1 ? 's' : ''}
+                        {suggestion.mutualFriends} mutual friend{suggestion.mutualFriends! > 1 ? 's' : ''}
                       </p>
                     )}
                   </div>
@@ -80,10 +96,12 @@ export function FriendSuggestions({ suggestions }: FriendSuggestionsProps) {
                     variant={isAdded ? 'secondary' : 'outline'}
                     size="icon"
                     className="h-8 w-8 shrink-0"
-                    onClick={() => !isAdded && handleAddFriend(suggestion)}
-                    disabled={isAdded}
+                    onClick={() => !isAdded && handleAddFriendClick(suggestion)}
+                    disabled={isAdded || loadingIds.has(suggestion.id)}
                   >
-                    {isAdded ? (
+                    {loadingIds.has(suggestion.id) ? (
+                      <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                    ) : isAdded ? (
                       <Check className="h-4 w-4" />
                     ) : (
                       <UserPlus className="h-4 w-4" />
