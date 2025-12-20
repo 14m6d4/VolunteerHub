@@ -62,6 +62,8 @@ app.use("/api/report", reportRoutes)
 app.use("/api/feed", feedRoutes)
 app.use("/api/comments", commentRoutes)
 app.use("/file", fileRoutes)
+app.use("/uploads", express.static("uploads"));
+
 // 404 handler for unknown API routes - return JSON
 app.use((req, res) => {
   res.status(404).json({ status: 'fail', message: 'Not Found' });

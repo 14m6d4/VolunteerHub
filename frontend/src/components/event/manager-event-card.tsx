@@ -46,17 +46,29 @@ export const ManagerEventCard = ({
     action();
   };
 
+  // Helper to fix malformed URLs
+  const getImageUrl = (url?: string) => {
+    if (!url) return undefined;
+    if (url.startsWith('//uploads')) {
+      return `http://localhost:5000${url.substring(1)}`; // Removes one slash: /uploads/...
+    }
+    return url;
+  };
+
   return (
-    <Card 
-      className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-300 group"
-      onClick={onClick}
-    >
-      <div className="relative h-48 overflow-hidden">
-        <img 
-          src={event.image} 
-          alt={event.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+    <Card className="flex flex-col h-full hover:shadow-lg transition-shadow bg-card" onClick={onClick}>
+      <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-muted">
+        {event.image ? (
+          <img
+            src={getImageUrl(event.image)}
+            alt={event.title}
+            className="h-full w-full object-cover transition-transform hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-muted-foreground">
+            <Calendar className="h-12 w-12" />
+          </div>
+        )}
         <div className="absolute top-3 left-3">
           {getStatusBadge()}
         </div>
@@ -83,7 +95,7 @@ export const ManagerEventCard = ({
                 Edit Details
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={(e) => handleMenuAction(e, () => onDelete(event))}
                 className="text-destructive focus:text-destructive"
               >
@@ -94,12 +106,12 @@ export const ManagerEventCard = ({
           </DropdownMenu>
         </div>
       </div>
-      
+
       <CardContent className="p-4 space-y-3">
         <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem]">
           {event.title}
         </h3>
-        
+
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
@@ -110,7 +122,7 @@ export const ManagerEventCard = ({
             <span>{event.membersCount}</span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <MapPin className="h-4 w-4" />
           <span className="line-clamp-1">{event.location}</span>

@@ -15,25 +15,32 @@ export const EventService = {
     },
 
     async createEvent(payload: Partial<IEvent>, managerId: Types.ObjectId) {
-        console.log("Start at:", payload.startAt);
-        const event = await EventModel.create({ ...payload, managerId });
-        if (event.status === EventStatus.APPROVED) {
-            await DiscussionModel.findOneAndUpdate(
-                { eventId: event._id },
-                { eventId: event._id },
-                { upsert: true, new: true }
+        try {
+
+
+            console.log("Start at:", payload.startAt);
+            const event = await EventModel.create({ ...payload, managerId });
+            if (event.status === EventStatus.APPROVED) {
+                await DiscussionModel.findOneAndUpdate(
+                    { eventId: event._id },
+                    { upsert: true, new: true }
+                );
+            }
+            const admins = await User.find({ role: "admin" });
+            admins.forEach(admin =>
+                NotificationService.notify(admin._id, {
+                    type: NotificationType.EVENT_PENDING,
+                    title: "Event Pending Approval",
+                    body: `New event ${event.title} is pending your approval`,
+                    data: { eventId: event._id }
+                })
             );
+            console.log("Event created:", event);
+            return event;
+        } catch (error) {
+            console.log("Error creating event:", error);
+            throw error;
         }
-        const admins = await User.find({ role: "admin" });
-        admins.forEach(admin =>
-            NotificationService.notify(admin._id, {
-                type: NotificationType.EVENT_PENDING,
-                title: "Event Pending Approval",
-                body: `New event ${event.title} is pending your approval`,
-                data: { eventId: event._id }
-            })
-        );
-        return event;
     },
 
     async updateEvent(eventId: string, updates: Partial<IEvent>, currentUserId: Types.ObjectId) {
@@ -179,6 +186,12 @@ export const EventService = {
         if (!event) throw createHttpError(404, "Event not found");
         event.status = EventStatus.CANCELLED;
         await event.save();
+
+        const members = await RegistrationModel.find({
+            eventId,
+            status: RegistrationStatus.APPROVED
+        });
+
         for (const m of members) {
             NotificationService.notify(m.volunteerId, {
                 type: NotificationType.EVENT_UPDATED,
@@ -187,8 +200,10 @@ export const EventService = {
                 data: { eventId }
             });
         }
+
         return event;
     },
+
 
     async pinPostOnEvent(eventId: string, postId: string, managerId: Types.ObjectId) {
         const post = await PostModel.findById(postId);
@@ -211,5 +226,25 @@ export const EventService = {
             regsCount,
             currentMembers: event.currentMembers
         };
+    },
+
+    async deleteEvent(eventId: string) {
+        try {
+            const event = await EventModel.findById(eventId);
+            if (!event) throw createHttpError(404, "Event not found");
+
+            // Delete associated data
+            await Promise.all([
+                DiscussionModel.deleteOne({ eventId }),
+                PostModel.deleteMany({ eventId }),
+                (await import("../models/Registration.model.ts")).RegistrationModel.deleteMany({ eventId }),
+                EventModel.findByIdAndDelete(eventId)
+            ]);
+
+            return { message: "Event deleted successfully" };
+        } catch (err) {
+            console.log(err);
+            throw createHttpError(500, "Failed to delete event");
+        }
     }
 };

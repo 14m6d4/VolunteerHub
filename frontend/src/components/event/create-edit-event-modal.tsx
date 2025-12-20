@@ -45,6 +45,7 @@ export const CreateEditEventModal = ({
     description: '',
   });
   const [eventDate, setEventDate] = useState<Date | undefined>();
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (event) {
@@ -56,6 +57,7 @@ export const CreateEditEventModal = ({
         tags: event.tags || [],
         description: event.description,
       });
+      setImageFile(null); // Reset file on edit open
       // Parse date string to Date object
       // Assuming format: "Jan 15, 2026 - 8:00 AM"
       try {
@@ -80,6 +82,7 @@ export const CreateEditEventModal = ({
         description: '',
       });
       setEventDate(undefined);
+      setImageFile(null);
     }
   }, [event, open]);
 
@@ -88,10 +91,19 @@ export const CreateEditEventModal = ({
     if (!eventDate) {
       return;
     }
-    // Format date back to string: "Jan 15, 2026 - 8:00 AM"
-    const formattedDate = format(eventDate, 'MMM d, yyyy') + ' - ' + format(eventDate, 'h:mm a');
-    onSave({ ...formData, date: formattedDate });
+    // Pass startAt as ISO string for backend validation
+    onSave({ ...formData, startAt: eventDate.toISOString(), imageFile } as any);
     onOpenChange(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      setFormData(prev => ({ ...prev, image: previewUrl }));
+    }
   };
 
   const toggleTag = (tag: string) => {
@@ -116,7 +128,7 @@ export const CreateEditEventModal = ({
         <DialogHeader>
           <DialogTitle>{event ? 'Edit Event' : 'Create New Event'}</DialogTitle>
           <DialogDescription>
-            {event 
+            {event
               ? 'Update event details. Saving will reset status to pending and require admin re-approval.'
               : 'Fill in the event details. The event will be pending until approved by an admin.'}
           </DialogDescription>
@@ -135,16 +147,40 @@ export const CreateEditEventModal = ({
             />
           </div>
 
-          {/* Image URL */}
+          {/* Image Upload */}
           <div className="space-y-2">
-            <Label htmlFor="image">Image URL *</Label>
-            <Input
-              id="image"
-              value={formData.image}
-              onChange={(e) => setFormData(prev => ({ ...prev, image: e.target.value }))}
-              placeholder="https://example.com/image.jpg"
-              required
-            />
+            <Label htmlFor="image">Event Image *</Label>
+            <div className="flex flex-col gap-2">
+              <Input
+                id="image"
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="cursor-pointer"
+                required={!event && !imageFile} // Required only if creating new event and no file selected yet
+              />
+              {formData.image && (
+                <div className="relative h-40 w-full overflow-hidden rounded-md border">
+                  <img
+                    src={formData.image}
+                    alt="Preview"
+                    className="h-full w-full object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6"
+                    onClick={() => {
+                      setImageFile(null);
+                      setFormData(prev => ({ ...prev, image: '' }));
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Date & Location Row */}
@@ -195,7 +231,7 @@ export const CreateEditEventModal = ({
                 </div>
               </PopoverContent>
             </Popover>
-            
+
             {/* Selected Tags Display */}
             {formData.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">

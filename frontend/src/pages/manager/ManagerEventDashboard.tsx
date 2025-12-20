@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,95 +32,23 @@ import { ManagerEventCard } from '@/components/event/manager-event-card';
 import { CreateEditEventModal } from '@/components/event/create-edit-event-modal';
 import { ManageMembersModal } from '@/components/event/manage-members-modal';
 import type { Event, EventFilters, User } from '@/types/event';
+import {
+  getEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  getEventRegistrations,
+  approveRegistration,
+  rejectRegistration,
+  kickMember
+} from '@/services/event.service';
 
-// Mock Manager Events Data
-const mockManagerEvents: Event[] = [
-  {
-    id: 'm1',
-    title: 'Beach Cleanup Initiative',
-    image: 'https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?w=800&h=400&fit=crop',
-    date: 'Jan 15, 2026 - 8:00 AM',
-    location: 'Santa Monica Beach, CA',
-    membersCount: 45,
-    isJoined: false,
-    isPast: false,
-    status: 'available',
-    managerStatus: 'active',
-    tags: ['Environment', 'Outdoor', 'Community'],
-    description: 'Join us for a morning of environmental stewardship as we clean up Santa Monica Beach.',
-    members: [
-      { id: '1', name: 'John Doe', username: 'johndoe', email: 'john@example.com' },
-      { id: '2', name: 'Jane Smith', username: 'janesmith', email: 'jane@example.com' },
-      { id: '3', name: 'Bob Johnson', username: 'bobjohnson', email: 'bob@example.com' },
-      { id: '4', name: 'Alice Williams', username: 'alicew', email: 'alice@example.com' },
-      { id: '5', name: 'Charlie Brown', username: 'charlieb', email: 'charlie@example.com' },
-      { id: '6', name: 'Diana Prince', username: 'dprince', email: 'diana@example.com' },
-    ],
-    requests: [
-      { id: '7', name: 'Eve Davis', username: 'eved', email: 'eve@example.com' },
-      { id: '8', name: 'Frank Miller', username: 'frankm', email: 'frank@example.com' },
-    ],
-  },
-  {
-    id: 'm2',
-    title: 'Food Bank Distribution Center',
-    image: 'https://images.unsplash.com/photo-1593113598332-cd288d649433?w=800&h=400&fit=crop',
-    date: 'Jan 22, 2026 - 9:00 AM',
-    location: 'Downtown Community Center',
-    membersCount: 32,
-    isJoined: false,
-    isPast: false,
-    status: 'available',
-    managerStatus: 'pending',
-    tags: ['Food', 'Community', 'Social Services'],
-    description: 'Help us sort and distribute food to families in need.',
-    members: [],
-    requests: [],
-  },
-  {
-    id: 'm3',
-    title: 'Senior Center Tech Workshop',
-    image: 'https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&h=400&fit=crop',
-    date: 'Feb 5, 2026 - 2:00 PM',
-    location: 'Riverside Senior Center',
-    membersCount: 18,
-    isJoined: false,
-    isPast: false,
-    status: 'available',
-    managerStatus: 'active',
-    tags: ['Education', 'Seniors', 'Technology'],
-    description: 'Share your tech knowledge with seniors!',
-    members: [
-      { id: '9', name: 'Grace Lee', username: 'gracee', email: 'grace@example.com' },
-      { id: '10', name: 'Henry Adams', username: 'henrya', email: 'henry@example.com' },
-    ],
-    requests: [
-      { id: '11', name: 'Iris Chen', username: 'irisc', email: 'iris@example.com' },
-    ],
-  },
-  {
-    id: 'm4',
-    title: 'Holiday Charity Drive',
-    image: 'https://images.unsplash.com/photo-1607344645866-009c320b63e0?w=800&h=400&fit=crop',
-    date: 'Dec 10, 2025 - 10:00 AM',
-    location: 'City Hall Plaza',
-    membersCount: 89,
-    isJoined: false,
-    isPast: true,
-    status: 'available',
-    managerStatus: 'completed',
-    tags: ['Community', 'Food', 'Holiday'],
-    description: 'Our annual holiday charity drive was a huge success!',
-    members: [
-      { id: '12', name: 'Jack Wilson', username: 'jackw', email: 'jack@example.com' },
-    ],
-    requests: [],
-  },
-];
+
 
 export const ManagerEventDashboard = () => {
   const navigate = useNavigate();
-  const [events, setEvents] = useState<Event[]>(mockManagerEvents);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<EventFilters>({
     searchQuery: '',
     sortBy: 'date',
@@ -134,11 +62,40 @@ export const ManagerEventDashboard = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
 
+  // Registration mapping for selected event
+  // Maps userId -> registrationId for actions
+  const [registrationMap, setRegistrationMap] = useState<Record<string, string>>({});
+
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      // Fetch all events for the manager
+      // Assuming getEvents returns events specific to the user or we filter them
+      // For now, fetching all events and assuming backend filters or we filter client side if needed
+      // Ideally backend endpoint /events?manager=me or similar
+      const response = await getEvents();
+      const fetchedEvents = response.items || [];
+
+      // In a real app we might only show events created by this manager
+      // fetching events
+      setEvents(fetchedEvents);
+    } catch (error) {
+      console.error("Failed to fetch events:", error);
+      toast.error("Failed to load events");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
   // Get all unique tags from events
   const allTags = useMemo(() => {
     const tags = new Set<string>();
     events.forEach(event => {
-      event.tags.forEach(tag => tags.add(tag));
+      (event.tags || []).forEach(tag => tags.add(tag));
     });
     return Array.from(tags).sort();
   }, [events]);
@@ -147,8 +104,8 @@ export const ManagerEventDashboard = () => {
   const processedEvents = useMemo(() => {
     let filtered = events.filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(filters.searchQuery.toLowerCase());
-      const matchesTags = filters.selectedTags.length === 0 || 
-        filters.selectedTags.some(tag => event.tags.includes(tag));
+      const matchesTags = filters.selectedTags.length === 0 ||
+        (event.tags || []).some(tag => filters.selectedTags.includes(tag));
       return matchesSearch && matchesTags;
     });
 
@@ -163,9 +120,15 @@ export const ManagerEventDashboard = () => {
     return filtered;
   }, [events, filters]);
 
-  const activeEvents = processedEvents.filter(event => event.managerStatus === 'active');
+  // Categorize events
+  // Assuming 'managerStatus' comes from backend, or we derive it
+  // If backend doesn't provide managerStatus, we default to 'active' or derive from date
+  const activeEvents = processedEvents.filter(event => !event.isPast && event.managerStatus !== 'completed' && event.managerStatus !== 'pending');
+  // Pending events might be those waiting for admin approval (if that workflow exists)
+  // Or if we treat 'available' as active. 
+  // Let's rely on event.managerStatus if present, otherwise default logic
   const pendingEvents = processedEvents.filter(event => event.managerStatus === 'pending');
-  const completedEvents = processedEvents.filter(event => event.managerStatus === 'completed');
+  const completedEvents = processedEvents.filter(event => event.managerStatus === 'completed' || (event.isPast && event.managerStatus !== 'active'));
 
   const handleCreateEvent = () => {
     setSelectedEvent(null);
@@ -177,139 +140,189 @@ export const ManagerEventDashboard = () => {
     setCreateEditModalOpen(true);
   };
 
-  const handleSaveEvent = (eventData: Partial<Event>) => {
-    if (selectedEvent) {
-      // Edit existing event - reset to pending
-      setEvents(prev => prev.map(e => 
-        e.id === selectedEvent.id 
-          ? { ...e, ...eventData, managerStatus: 'pending' as const }
-          : e
-      ));
-      toast.success('Event Updated', {
-        description: 'Event has been updated and reset to pending status for admin approval.',
-      });
-    } else {
-      // Create new event
-      const newEvent: Event = {
-        id: `m${Date.now()}`,
-        ...eventData as Omit<Event, 'id'>,
-        membersCount: 0,
-        isJoined: false,
-        isPast: false,
-        status: 'available',
-        managerStatus: 'pending',
-        members: [],
-        requests: [],
-      };
-      setEvents(prev => [...prev, newEvent]);
-      toast.success('Event Created', {
-        description: 'Event has been created and is pending admin approval.',
-      });
+  const handleSaveEvent = async (eventData: Partial<Event> & { imageFile?: File }) => {
+    try {
+      let dataToSend: any = eventData;
+      const isMultipart = !!eventData.imageFile;
+
+      if (isMultipart) {
+        const formData = new FormData();
+        // Append all fields to FormData
+        Object.keys(eventData).forEach(key => {
+          if (key === 'imageFile') {
+            formData.append('image', eventData.imageFile!);
+          } else if (key === 'tags') {
+            // Handle array for tags
+            const tags = eventData.tags || [];
+            tags.forEach(tag => formData.append('tags', tag));
+          } else if (key === 'image' || key === 'date') {
+            // Skip the preview URL image string and the legacy formatted date string
+          } else {
+            const value = (eventData as any)[key];
+            if (value !== undefined && value !== null) {
+              formData.append(key, value.toString());
+            }
+          }
+        });
+        dataToSend = formData;
+      } else {
+        // If not multipart, we still verify we don't send 'date' if backend strict mode complains
+        const { date, ...rest } = eventData as any;
+        dataToSend = rest;
+      }
+
+      if (selectedEvent) {
+        // Edit existing event
+        await updateEvent(selectedEvent.id, dataToSend);
+        toast.success('Event Updated', {
+          description: 'Event has been updated successfully.',
+        });
+      } else {
+        // Create new event
+        await createEvent(dataToSend);
+        toast.success('Event Created', {
+          description: 'Event has been created successfully.',
+        });
+      }
+      setCreateEditModalOpen(false);
+      fetchEvents(); // Refresh list
+    } catch (error) {
+      console.error("Failed to save event:", error);
+      toast.error("Failed to save event");
     }
   };
 
-  const handleManageMembers = (event: Event) => {
+  const handleManageMembers = async (event: Event) => {
     setSelectedEvent(event);
-    setManageMembersModalOpen(true);
-  };
+    setManageMembersModalOpen(true); // Open modal immediately
 
-  const handleRemoveMember = (userId: string) => {
-    if (!selectedEvent) return;
-    setEvents(prev => prev.map(e => 
-      e.id === selectedEvent.id
-        ? { 
-            ...e, 
-            members: e.members?.filter(m => m.id !== userId),
-            membersCount: (e.members?.length || 1) - 1,
+    try {
+      // Fetch registrations for this event to populate members/requests
+      const registrations = await getEventRegistrations(event.id);
+
+      const newRegistrationMap: Record<string, string> = {};
+      const members: User[] = [];
+      const requests: User[] = [];
+
+      registrations.forEach((reg: any) => {
+        if (reg.volunteerId) {
+          newRegistrationMap[reg.volunteerId._id || reg.volunteerId.id] = reg._id || reg.id;
+          const user: User = {
+            id: reg.volunteerId._id || reg.volunteerId.id,
+            name: reg.volunteerId.name,
+            username: reg.volunteerId.name, // Fallback if no username
+            email: reg.volunteerId.email
+          };
+
+          if (reg.status === 'approved') {
+            members.push(user);
+          } else if (reg.status === 'pending') {
+            requests.push(user);
           }
-        : e
-    ));
-    setSelectedEvent(prev => prev ? {
-      ...prev,
-      members: prev.members?.filter(m => m.id !== userId),
-      membersCount: (prev.members?.length || 1) - 1,
-    } : null);
-    toast.success('Member Removed');
+        }
+      });
+
+      setRegistrationMap(newRegistrationMap);
+
+      // Update selected event with fetched members for the modal to display
+      setSelectedEvent(prev => prev ? {
+        ...prev,
+        members,
+        requests
+      } : null);
+
+    } catch (error) {
+      console.error("Failed to fetch members:", error);
+      toast.error("Failed to load members, showing local data if available");
+    }
   };
 
-  const handleApproveRequest = (userId: string) => {
-    if (!selectedEvent) return;
-    const user = selectedEvent.requests?.find(r => r.id === userId);
-    if (!user) return;
-
-    setEvents(prev => prev.map(e => 
-      e.id === selectedEvent.id
-        ? { 
-            ...e, 
-            requests: e.requests?.filter(r => r.id !== userId),
-            members: [...(e.members || []), user],
-            membersCount: (e.members?.length || 0) + 1,
-          }
-        : e
-    ));
-    setSelectedEvent(prev => prev ? {
-      ...prev,
-      requests: prev.requests?.filter(r => r.id !== userId),
-      members: [...(prev.members || []), user],
-      membersCount: (prev.members?.length || 0) + 1,
-    } : null);
-    toast.success('Request Approved');
+  const handleRemoveMember = async (userId: string) => {
+    const regId = registrationMap[userId];
+    if (!regId) return;
+    try {
+      await kickMember(regId);
+      toast.success('Member Removed');
+      if (selectedEvent) handleManageMembers(selectedEvent); // Refresh modal data
+    } catch (error) {
+      console.error("Failed to remove member:", error);
+      toast.error("Failed to remove member");
+    }
   };
 
-  const handleRejectRequest = (userId: string) => {
-    if (!selectedEvent) return;
-    setEvents(prev => prev.map(e => 
-      e.id === selectedEvent.id
-        ? { ...e, requests: e.requests?.filter(r => r.id !== userId) }
-        : e
-    ));
-    setSelectedEvent(prev => prev ? {
-      ...prev,
-      requests: prev.requests?.filter(r => r.id !== userId),
-    } : null);
-    toast.success('Request Rejected');
+  const handleApproveRequest = async (userId: string) => {
+    const regId = registrationMap[userId];
+    if (!regId) return;
+    try {
+      await approveRegistration(regId);
+      toast.success('Request Approved');
+      if (selectedEvent) handleManageMembers(selectedEvent); // Refresh modal data
+    } catch (error) {
+      console.error("Failed to approve request:", error);
+      toast.error("Failed to approve request");
+    }
   };
 
-  const handleApproveAll = () => {
-    if (!selectedEvent || !selectedEvent.requests?.length) return;
-    
-    setEvents(prev => prev.map(e => 
-      e.id === selectedEvent.id
-        ? { 
-            ...e, 
-            members: [...(e.members || []), ...(e.requests || [])],
-            requests: [],
-            membersCount: (e.members?.length || 0) + (e.requests?.length || 0),
-          }
-        : e
-    ));
-    setSelectedEvent(prev => prev ? {
-      ...prev,
-      members: [...(prev.members || []), ...(prev.requests || [])],
-      requests: [],
-      membersCount: (prev.members?.length || 0) + (prev.requests?.length || 0),
-    } : null);
-    toast.success('All Requests Approved');
+  const handleRejectRequest = async (userId: string) => {
+    const regId = registrationMap[userId];
+    if (!regId) return;
+    try {
+      await rejectRegistration(regId);
+      toast.success('Request Rejected');
+      if (selectedEvent) handleManageMembers(selectedEvent); // Refresh modal data
+    } catch (error) {
+      console.error("Failed to reject request:", error);
+      toast.error("Failed to reject request");
+    }
   };
 
-  const handleRejectAll = () => {
-    if (!selectedEvent) return;
-    setEvents(prev => prev.map(e => 
-      e.id === selectedEvent.id
-        ? { ...e, requests: [] }
-        : e
-    ));
-    setSelectedEvent(prev => prev ? { ...prev, requests: [] } : null);
-    toast.success('All Requests Rejected');
+  const handleApproveAll = async () => {
+    if (!selectedEvent || !selectedEvent.requests) return;
+    try {
+      await Promise.all(
+        selectedEvent.requests.map(user => {
+          const regId = registrationMap[user.id];
+          if (regId) return approveRegistration(regId);
+          return Promise.resolve();
+        })
+      );
+      toast.success('All Requests Approved');
+      if (selectedEvent) handleManageMembers(selectedEvent);
+    } catch (error) {
+      console.error("Failed to approve all:", error);
+      toast.error("Failed to approve all requests");
+    }
   };
 
-  const handleMarkCompleted = (event: Event) => {
-    setEvents(prev => prev.map(e => 
-      e.id === event.id
-        ? { ...e, managerStatus: 'completed' as const }
-        : e
-    ));
-    toast.success('Event Marked as Completed');
+  const handleRejectAll = async () => {
+    if (!selectedEvent || !selectedEvent.requests) return;
+    try {
+      await Promise.all(
+        selectedEvent.requests.map(user => {
+          const regId = registrationMap[user.id];
+          if (regId) return rejectRegistration(regId);
+          return Promise.resolve();
+        })
+      );
+      toast.success('All Requests Rejected');
+      if (selectedEvent) handleManageMembers(selectedEvent);
+    } catch (error) {
+      console.error("Failed to reject all:", error);
+      toast.error("Failed to reject all requests");
+    }
+  };
+
+  const handleMarkCompleted = async (event: Event) => {
+    try {
+      // Assuming we update the event status to 'past' or use a managerStatus logic
+      // Currently creating updateEvent
+      await updateEvent(event.id, { managerStatus: 'completed' });
+      toast.success('Event Marked as Completed');
+      fetchEvents();
+    } catch (error) {
+      console.error("Failed to mark completed:", error);
+      toast.error("Failed to update event");
+    }
   };
 
   const handleDeleteEvent = (event: Event) => {
@@ -317,20 +330,23 @@ export const ManagerEventDashboard = () => {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (eventToDelete) {
-      setEvents(prev => prev.filter(e => e.id !== eventToDelete.id));
-      toast.success('Event Deleted');
+      try {
+        await deleteEvent(eventToDelete.id);
+        toast.success('Event Deleted');
+        fetchEvents();
+      } catch (error) {
+        console.error("Failed to delete event:", error);
+        toast.error("Failed to delete event");
+      }
       setEventToDelete(null);
     }
     setDeleteDialogOpen(false);
   };
 
   const handleCardClick = (event: Event) => {
-    // Only navigate for active events
-    if (event.managerStatus === 'active') {
-      navigate(`/events/${event.id}`);
-    }
+    navigate(`/events/${event.id}`);
   };
 
   const toggleTag = (tag: string) => {
@@ -357,7 +373,7 @@ export const ManagerEventDashboard = () => {
             Create Event
           </Button>
         </div>
-        
+
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search Bar */}
@@ -417,7 +433,7 @@ export const ManagerEventDashboard = () => {
             {/* Sort Dropdown */}
             <Select
               value={filters.sortBy}
-              onValueChange={(value: 'date' | 'members') => 
+              onValueChange={(value: 'date' | 'members') =>
                 setFilters(prev => ({ ...prev, sortBy: value }))
               }
             >
@@ -449,86 +465,92 @@ export const ManagerEventDashboard = () => {
         </div>
       </div>
 
-      {/* Tabs Section */}
-      <Tabs defaultValue="active" className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
-          <TabsTrigger value="active">Active Events ({activeEvents.length})</TabsTrigger>
-          <TabsTrigger value="pending">Pending ({pendingEvents.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({completedEvents.length})</TabsTrigger>
-        </TabsList>
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-pulse text-muted-foreground">Loading dashboard...</div>
+        </div>
+      ) : (
+        /* Tabs Section */
+        <Tabs defaultValue="active" className="w-full">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
+            <TabsTrigger value="active">Active Events ({activeEvents.length})</TabsTrigger>
+            <TabsTrigger value="pending">Pending ({pendingEvents.length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed ({completedEvents.length})</TabsTrigger>
+          </TabsList>
 
-        {/* Active Events Tab */}
-        <TabsContent value="active" className="mt-6">
-          {activeEvents.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p className="text-lg">No active events found.</p>
-              <p className="text-sm mt-2">Create a new event to get started.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {activeEvents.map(event => (
-                <ManagerEventCard
-                  key={event.id}
-                  event={event}
-                  onClick={() => handleCardClick(event)}
-                  onManageMembers={handleManageMembers}
-                  onMarkCompleted={handleMarkCompleted}
-                  onEdit={handleEditEvent}
-                  onDelete={handleDeleteEvent}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
+          {/* Active Events Tab */}
+          <TabsContent value="active" className="mt-6">
+            {activeEvents.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-lg">No active events found.</p>
+                <p className="text-sm mt-2">Create a new event to get started.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {activeEvents.map(event => (
+                  <ManagerEventCard
+                    key={event.id}
+                    event={event}
+                    onClick={() => handleCardClick(event)}
+                    onManageMembers={handleManageMembers}
+                    onMarkCompleted={handleMarkCompleted}
+                    onEdit={handleEditEvent}
+                    onDelete={handleDeleteEvent}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Pending Events Tab */}
-        <TabsContent value="pending" className="mt-6">
-          {pendingEvents.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p className="text-lg">No pending events.</p>
-              <p className="text-sm mt-2">All events are approved.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pendingEvents.map(event => (
-                <ManagerEventCard
-                  key={event.id}
-                  event={event}
-                  onClick={() => {}} // No navigation for pending events
-                  onManageMembers={handleManageMembers}
-                  onMarkCompleted={handleMarkCompleted}
-                  onEdit={handleEditEvent}
-                  onDelete={handleDeleteEvent}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
+          {/* Pending Events Tab */}
+          <TabsContent value="pending" className="mt-6">
+            {pendingEvents.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-lg">No pending events.</p>
+                <p className="text-sm mt-2">All events are approved.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pendingEvents.map(event => (
+                  <ManagerEventCard
+                    key={event.id}
+                    event={event}
+                    onClick={() => { }} // No navigation for pending events
+                    onManageMembers={handleManageMembers}
+                    onMarkCompleted={handleMarkCompleted}
+                    onEdit={handleEditEvent}
+                    onDelete={handleDeleteEvent}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Completed Events Tab */}
-        <TabsContent value="completed" className="mt-6">
-          {completedEvents.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p className="text-lg">No completed events.</p>
-              <p className="text-sm mt-2">Mark active events as completed when they finish.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {completedEvents.map(event => (
-                <ManagerEventCard
-                  key={event.id}
-                  event={event}
-                  onClick={() => {}} // No navigation for completed events
-                  onManageMembers={handleManageMembers}
-                  onMarkCompleted={handleMarkCompleted}
-                  onEdit={handleEditEvent}
-                  onDelete={handleDeleteEvent}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          {/* Completed Events Tab */}
+          <TabsContent value="completed" className="mt-6">
+            {completedEvents.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-lg">No completed events.</p>
+                <p className="text-sm mt-2">Mark active events as completed when they finish.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {completedEvents.map(event => (
+                  <ManagerEventCard
+                    key={event.id}
+                    event={event}
+                    onClick={() => { }} // No navigation for completed events
+                    onManageMembers={handleManageMembers}
+                    onMarkCompleted={handleMarkCompleted}
+                    onEdit={handleEditEvent}
+                    onDelete={handleDeleteEvent}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
 
       {/* Modals */}
       <CreateEditEventModal

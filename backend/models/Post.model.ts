@@ -6,7 +6,7 @@ export interface IPost extends Document {
     authorId: mongoose.Types.ObjectId;
 
     content?: string;
-    image?: { fileId: mongoose.Types.ObjectId; type?: string };
+    image?: string; // ImgBB URL
 
     likes: mongoose.Types.ObjectId[];
     pinned?: boolean;
@@ -23,10 +23,7 @@ const PostSchema = new Schema<IPost>(
 
         content: { type: String, required: false },
 
-        image: {
-            fileId: { type: Schema.Types.ObjectId },
-            type: { type: String }
-        },
+        image: { type: String },
 
         likes: [{ type: Schema.Types.ObjectId, ref: "User" }],
         pinned: { type: Boolean, default: false }

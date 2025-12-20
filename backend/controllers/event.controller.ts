@@ -4,6 +4,9 @@ import { RegistrationService } from "../services/registration.service";
 import createHttpError from "http-errors";
 import { Types } from "mongoose";
 
+import fs from "fs";
+import { uploadToImgBB } from "../services/imgbb.service.ts";
+
 export const EventController = {
     async getAll(req: Request, res: Response, next: NextFunction) {
         try {
@@ -16,11 +19,26 @@ export const EventController = {
     async create(req: Request, res: Response, next: NextFunction) {
         try {
             console.log("Creating event with body:", req.body);
+            if (req.file) {
+                // Read file from disk
+                const fileBuffer = await fs.promises.readFile(req.file.path);
+                // Upload to ImgBB
+                const imageUrl = await uploadToImgBB(fileBuffer, req.file.filename);
+                // Delete local file
+                await fs.promises.unlink(req.file.path);
+
+                req.body.image = imageUrl;
+            }
+
             // managerId from auth middleware
             const managerId = (req.user as any)._id;
             const event = await EventService.createEvent(req.body, managerId);
             return res.status(201).json({ success: true, data: event });
         } catch (err) {
+            // Cleanup on error if file exists
+            if (req.file && fs.existsSync(req.file.path)) {
+                await fs.promises.unlink(req.file.path).catch(() => { });
+            }
             next(err);
         }
     },
@@ -28,10 +46,25 @@ export const EventController = {
     async update(req: Request, res: Response, next: NextFunction) {
         try {
             const eventId = req.params.id;
+            if (req.file) {
+                // Read file from disk
+                const fileBuffer = await fs.promises.readFile(req.file.path);
+                // Upload to ImgBB
+                const imageUrl = await uploadToImgBB(fileBuffer, req.file.filename);
+                // Delete local file
+                await fs.promises.unlink(req.file.path);
+
+                req.body.image = imageUrl;
+            }
+
             // permission check: manager or admin
             const updated = await EventService.updateEvent(eventId, req.body, (req.user as any)?._id);
             return res.json({ success: true, data: updated });
         } catch (err) {
+            // Cleanup on error if file exists
+            if (req.file && fs.existsSync(req.file.path)) {
+                await fs.promises.unlink(req.file.path).catch(() => { });
+            }
             next(err);
         }
     },
@@ -59,7 +92,7 @@ export const EventController = {
         try {
             const user = req.user; // undefined nếu không login
             const status = req.query.status as string | undefined;
-            console.log("List Events - User:", user ? { id: (user as any)._id, role: (user as any).role } : null, "Status:", status);
+            console.log("List Events - User:", user ? { id: (user as any)._id, role: (user as any).role } : null);
             // Phân quyền status
             if (status === "pending") {
                 if (!user) {
@@ -128,6 +161,14 @@ export const EventController = {
         try {
             const stats = await EventService.getEventStats(req.params.id);
             return res.json({ success: true, data: stats });
+        } catch (err) {
+            next(err);
+        }
+    },
+    async delete(req: Request, res: Response, next: NextFunction) {
+        try {
+            await EventService.deleteEvent(req.params.id);
+            return res.json({ success: true, message: "Event deleted" });
         } catch (err) {
             next(err);
         }

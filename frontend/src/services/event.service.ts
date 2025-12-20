@@ -14,9 +14,11 @@ export async function getEvents(filters?: {
 }
 
 export async function createEvent(data: any) {
+    const isFormData = data instanceof FormData;
     return apiFetch("/events", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: isFormData ? data : JSON.stringify(data),
+        headers: isFormData ? {} : { "Content-Type": "application/json" },
     });
 }
 
@@ -40,18 +42,39 @@ export async function getEventRegistrations(eventId: string) {
 
 export async function approveRegistration(registrationId: string) {
     return apiFetch(`/register/${registrationId}/approve`, {
-        method: "PATCH",
+        method: "POST", // Changed to POST to match routes
     });
 }
 
 export async function rejectRegistration(registrationId: string) {
     return apiFetch(`/register/${registrationId}/reject`, {
-        method: "PATCH",
+        method: "POST", // Changed to POST to match routes
+    });
+}
+
+export async function kickMember(registrationId: string) {
+    return apiFetch(`/register/${registrationId}/kick`, {
+        method: "POST",
     });
 }
 
 export async function getMyRegistrations() {
     return apiFetch(`/register/me`, {
         method: "GET",
+    });
+}
+
+export async function updateEvent(eventId: string, data: any) {
+    const isFormData = data instanceof FormData;
+    return apiFetch(`/events/${eventId}`, {
+        method: "PUT",
+        body: isFormData ? data : JSON.stringify(data),
+        headers: isFormData ? {} : { "Content-Type": "application/json" },
+    });
+}
+
+export async function deleteEvent(eventId: string) {
+    return apiFetch(`/events/${eventId}`, {
+        method: "DELETE",
     });
 }
