@@ -10,27 +10,27 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import type { Event } from '@/types/event';
 
 interface EventDetailModalProps {
   event: Event | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onApply?: (event: Event) => void;
 }
 
-export const EventDetailModal = ({ event, open, onOpenChange }: EventDetailModalProps) => {
-  const [applied, setApplied] = useState(false);
+export const EventDetailModal = ({ event, open, onOpenChange, onApply }: EventDetailModalProps) => {
+  const [loading, setLoading] = useState(false);
 
-  const handleApply = () => {
-    setApplied(true);
-    toast.success(`Application Submitted!`, {
-      description: `You have successfully applied for "${event?.title}".`,
-    });
+  const handleApply = async () => {
+    if (event && onApply) {
+      setLoading(true);
+      await onApply(event);
+      setLoading(false);
+    }
   };
 
   const handleClose = () => {
-    setApplied(false);
     onOpenChange(false);
   };
 
@@ -96,15 +96,16 @@ export const EventDetailModal = ({ event, open, onOpenChange }: EventDetailModal
           <Button
             variant="outline"
             onClick={handleClose}
+            disabled={loading}
           >
             Close
           </Button>
           <Button
             onClick={handleApply}
-            disabled={applied}
+            disabled={loading}
             className="min-w-[100px]"
           >
-            {applied ? 'Applied' : 'Apply'}
+            {loading ? 'Joining...' : 'Apply'}
           </Button>
         </DialogFooter>
       </DialogContent>

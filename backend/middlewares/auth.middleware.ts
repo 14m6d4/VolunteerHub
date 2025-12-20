@@ -15,7 +15,7 @@ export interface AuthenticatedRequest extends Request {
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
     try {
         const authHeader = req.headers.authorization;
-        console.log("Auth Middleware - authHeader:", authHeader);
+        console.log("Auth Middleware");
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return next(createHttpError(401, "Authentication token missing"));
         }
