@@ -165,11 +165,30 @@ export const ReportService = {
 
     // Cập nhật trạng thái của báo cáo (resolved, rejected)
     async updateReportStatus(reportId: string, status: 'resolved' | 'rejected') {
-        const report = await ReportModel.findById(reportId);
+        const report = await ReportModel.findById(reportId).populate('reporter', 'username');
         if (!report) throw createHttpError(404, "Report not found");
 
         report.status = status;
         await report.save();
+
+        // Notify the reporter about the resolution
+        try {
+            const notificationTitle = status === 'resolved'
+                ? 'Report Resolved'
+                : 'Report Rejected';
+            const notificationBody = status === 'resolved'
+                ? `Your report has been resolved. Action has been taken.`
+                : `Your report has been reviewed and rejected.`;
+
+            await NotificationService.notify(report.reporter._id.toString(), {
+                type: status === 'resolved' ? NotificationType.REPORT_RESOLVED : NotificationType.REPORT_REJECTED,
+                title: notificationTitle,
+                body: notificationBody,
+                data: { reportId: report._id.toString(), targetType: report.targetType, targetId: report.targetId.toString() }
+            });
+        } catch (err) {
+            console.error("Failed to notify reporter about report status:", err);
+        }
 
         // If resolving a user report, ban the user automatically
         if (status === 'resolved' && report.targetType === ReportTargetType.User) {
