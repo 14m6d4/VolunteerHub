@@ -16,6 +16,7 @@ import AdminUsersPage from "@/pages/admin/Users";
 import { EventsList } from "@/pages/EventsList";
 import { ManagerEventDashboard } from "@/pages/manager/ManagerEventDashboard";
 import DiscussionPage from "@/pages/discussion/Discussion";
+import FeedPage from "@/pages/Feed";
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"
@@ -27,7 +28,6 @@ import { useEffect } from "react"
 import * as authService from "@/services/auth.service"
 import QueryProvider from "./providers/QueryProvider"
 import { AuthProvider } from "@/context/AuthContext"
-import Feed from "@/pages/test/Feed"
 
 function HomePage() {
   const [searchParams] = useSearchParams()
@@ -72,11 +72,11 @@ function AppContent() {
         >
           <Route path="/" element={<HomePage />} />
           {/* Thêm các route chính khác cần footer vào đây */}
-          <Route path="/feed" element={<Feed />} />
+          <Route path="/feed" element={<FeedPage />} />
           <Route path="/events" element={<EventsList />} />
           <Route path="/events/:eventId" element={<DiscussionPage />} />
           <Route path="/manage-events" element={<ManagerEventDashboard />} />
-          <Route path="/test/events" element={<EventsTest />} />
+          {/* <Route path="/test/events" element={<EventsTest />} /> */}
           <Route path="/u" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
 
