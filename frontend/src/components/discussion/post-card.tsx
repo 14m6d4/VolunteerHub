@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Heart, MessageCircle, Flag } from 'lucide-react';
@@ -19,6 +20,7 @@ interface PostCardProps {
   currentUser: { id: string; name: string; avatarUrl: string };
   onLike: (postId: string) => void;
   onAddComment: (postId: string, content: string) => void;
+  onViewDetail?: () => void;
 }
 
 export function PostCard({
@@ -28,6 +30,7 @@ export function PostCard({
   currentUser,
   onLike,
   onAddComment,
+  onViewDetail,
 }: PostCardProps) {
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -69,7 +72,14 @@ export function PostCard({
                 <AvatarFallback>{getInitials(post.author.name)}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-semibold text-sm">{post.author.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm">{post.author.name}</p>
+                  {post.author.role === 'manager' && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                      Manager
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {formatRelativeTime(post.timestamp)}
                 </p>
@@ -112,7 +122,7 @@ export function PostCard({
               <span>{likeCount}</span>
             </button>
             <button
-              onClick={() => setShowDetailDialog(true)}
+              onClick={() => onViewDetail ? onViewDetail() : setShowDetailDialog(true)}
               className="flex items-center gap-1 hover:text-primary transition-colors"
             >
               <MessageCircle className="h-4 w-4" />
@@ -128,7 +138,7 @@ export function PostCard({
             hasMoreComments={hasMoreComments}
             totalComments={comments.length}
             currentUser={currentUser}
-            onViewAllComments={() => setShowDetailDialog(true)}
+            onViewAllComments={() => onViewDetail ? onViewDetail() : setShowDetailDialog(true)}
             onAddComment={(content: string) => onAddComment(post.id, content)}
           />
         </CardFooter>
@@ -139,6 +149,8 @@ export function PostCard({
         open={showReportDialog}
         onOpenChange={setShowReportDialog}
         postId={post.id}
+        reporterId={currentUserId}
+        eventId={post.eventId}
       />
 
       {/* Post Detail Dialog */}
@@ -148,6 +160,7 @@ export function PostCard({
         post={post}
         comments={comments}
         currentUserId={currentUserId}
+        currentUser={currentUser}
         onAddComment={(content: string) => onAddComment(post.id, content)
         }
         onLike={() => handleLike()}

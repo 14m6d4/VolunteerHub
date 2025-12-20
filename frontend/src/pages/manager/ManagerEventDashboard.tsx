@@ -40,7 +40,8 @@ import {
   getEventRegistrations,
   approveRegistration,
   rejectRegistration,
-  kickMember
+  kickMember,
+  completeEvent,
 } from '@/services/event.service';
 
 
@@ -85,7 +86,8 @@ export const ManagerEventDashboard = () => {
         }),
         managerStatus: event.status === 'pending' ? 'pending'
           : event.status === 'approved' ? 'active'
-            : 'completed'
+            : 'completed',
+        membersCount: event.currentMembers || 0
       }));
 
       // In a real app we might only show events created by this manager
@@ -333,14 +335,14 @@ export const ManagerEventDashboard = () => {
 
   const handleMarkCompleted = async (event: Event) => {
     try {
-      // Assuming we update the event status to 'past' or use a managerStatus logic
-      // Currently creating updateEvent
-      await updateEvent(event.id, { managerStatus: 'completed' });
-      toast.success('Event Marked as Completed');
+      await completeEvent(event.id);
+      toast.success('Event Marked as Completed', {
+        description: 'All participants have been notified and marked as completed.',
+      });
       fetchEvents();
     } catch (error) {
       console.error("Failed to mark completed:", error);
-      toast.error("Failed to update event");
+      toast.error("Failed to complete event");
     }
   };
 

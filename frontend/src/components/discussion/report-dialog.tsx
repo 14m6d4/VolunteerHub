@@ -14,13 +14,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Flag, AlertTriangle } from 'lucide-react';
 
+import { ReportService } from '@/services/report.service';
+import { toast } from 'sonner';
+
 interface ReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   postId: string;
+  reporterId: string;
+  eventId?: string;
 }
 
-export function ReportDialog({ open, onOpenChange, postId }: ReportDialogProps) {
+export function ReportDialog({ open, onOpenChange, postId, reporterId, eventId }: ReportDialogProps) {
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -29,21 +34,25 @@ export function ReportDialog({ open, onOpenChange, postId }: ReportDialogProps) 
     if (!reason.trim()) return;
 
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      await ReportService.reportPost(reporterId, postId, reason, eventId);
+      // eslint-disable-next-line no-console
+      console.log('Report submitted for post:', postId, 'Reason:', reason);
 
-    // eslint-disable-next-line no-console
-    console.log('Report submitted for post:', postId, 'Reason:', reason);
+      setIsSubmitting(false);
+      setSubmitted(true);
 
-    setIsSubmitting(false);
-    setSubmitted(true);
-
-    // Reset and close after showing success
-    setTimeout(() => {
-      setReason('');
-      setSubmitted(false);
-      onOpenChange(false);
-    }, 1500);
+      // Reset and close after showing success
+      setTimeout(() => {
+        setReason('');
+        setSubmitted(false);
+        onOpenChange(false);
+      }, 1500);
+    } catch (error) {
+      console.error('Failed to submit report:', error);
+      toast.error('Failed to submit report. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (

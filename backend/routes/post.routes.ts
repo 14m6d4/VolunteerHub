@@ -11,5 +11,6 @@ router.post("/", authMiddleware, upload.single("image"), PostController.create);
 router.post("/:postId/like", authMiddleware, PostController.like);
 router.delete("/:postId", authMiddleware, PostController.delete);
 router.post("/:postId/pin", authMiddleware, PostController.pin);
+router.get("/:postId", authMiddleware, PostController.getById);
 
 export default router;

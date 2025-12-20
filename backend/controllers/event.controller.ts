@@ -168,5 +168,14 @@ export const EventController = {
         } catch (err) {
             next(err);
         }
+    },
+
+    async complete(req: Request, res: Response, next: NextFunction) {
+        try {
+            const event = await EventService.completeEvent(req.params.id);
+            return res.json({ success: true, data: event });
+        } catch (err) {
+            next(err);
+        }
     }
 };
