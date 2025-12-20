@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { UserPlus, Users, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import type { FriendSuggestion } from '@/data/feed-mock';
+import type { FriendSuggestion } from '@/types/feed';
 
 interface FriendSuggestionsProps {
   suggestions: FriendSuggestion[];

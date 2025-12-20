@@ -6,12 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, MapPin, Users, TrendingUp, Sparkles } from 'lucide-react';
 import { EventDetailModal } from '@/components/event/event-detail';
-import type { FeedEvent } from '@/data/feed-mock';
+import type { TrendingEvent } from '@/types/feed';
 import { toEventType } from '@/data/feed-mock';
 
 interface TrendingEventCardProps {
-  event: FeedEvent;
+  event: TrendingEvent;
 }
+
 
 export function TrendingEventCard({ event }: TrendingEventCardProps) {
   const [showDetail, setShowDetail] = useState(false);
@@ -96,7 +97,7 @@ export function TrendingEventCard({ event }: TrendingEventCardProps) {
 
       {/* Event Detail Modal */}
       <EventDetailModal
-        event={toEventType(event)}
+        event={toEventType(event as any)}
         open={showDetail}
         onOpenChange={setShowDetail}
       />

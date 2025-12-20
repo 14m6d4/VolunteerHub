@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Heart, MessageCircle, Flag } from 'lucide-react';
 import type { CommentWithUser } from '@/types/discussion';
-import type { FeedPostWithUser } from '@/data/feed-mock';
+import type { FeedPostWithUser } from '@/types/feed';
 import { CommentSection } from '@/components/discussion/comment-section';
 import { ReportDialog } from '@/components/discussion/report-dialog';
 import { PostDetailDialog } from '@/components/discussion/post-detail-dialog';
@@ -31,19 +31,13 @@ export function FeedPostCard({
 }: FeedPostCardProps) {
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(post.likes);
 
   const handleLike = () => {
-    if (!isLiked) {
-      setLikeCount((prev) => prev + 1);
-      setIsLiked(true);
-      onLike(post.id);
-    } else {
-      setLikeCount((prev) => prev - 1);
-      setIsLiked(false);
-    }
+    onLike(post.id);
   };
+
+  const isLiked = post.likedByMe || false;
+  const likeCount = post.likes;
 
   const previewComments = comments.slice(0, 2);
   const hasMoreComments = comments.length > 2;
@@ -130,9 +124,8 @@ export function FeedPostCard({
           <div className="w-full flex items-center gap-4 text-sm text-muted-foreground">
             <button
               onClick={handleLike}
-              className={`flex items-center gap-1 hover:text-red-500 transition-colors ${
-                isLiked ? 'text-red-500' : ''
-              }`}
+              className={`flex items-center gap-1 hover:text-red-500 transition-colors ${isLiked ? 'text-red-500' : ''
+                }`}
             >
               <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
               <span>{likeCount}</span>
