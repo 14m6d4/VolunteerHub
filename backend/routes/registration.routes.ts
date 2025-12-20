@@ -13,7 +13,7 @@ router.post("/:regId/reject", authMiddleware, roleMiddleware(["manager", "admin"
 
 router.post("/:regId/kick", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.kickFromEvent);
 
-router.get("/:eventId", authMiddleware, roleMiddleware(["manager", "admin"]), RegistrationController.listForEvent);
+router.get("/:eventId", authMiddleware, RegistrationController.listForEvent);
 
 router.post("/:eventId", authMiddleware, RegistrationController.register);
 

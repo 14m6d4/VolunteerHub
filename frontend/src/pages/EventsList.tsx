@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,153 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EventCard } from '@/components/event/event-card';
 import { EventDetailModal } from '@/components/event/event-detail';
 import type { Event, EventFilters } from '@/types/event';
-
-// Mock Data
-const mockEvents: Event[] = [
-  {
-    id: '1',
-    title: 'Beach Cleanup Initiative',
-    image: 'https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?w=800&h=400&fit=crop',
-    date: 'Jan 15, 2026 - 8:00 AM',
-    location: 'Santa Monica Beach, CA',
-    membersCount: 45,
-    isJoined: true,
-    isPast: false,
-    status: 'joined',
-    tags: ['Environment', 'Outdoor', 'Community'],
-    description: 'Join us for a morning of environmental stewardship as we clean up Santa Monica Beach. We\'ll provide all necessary equipment including gloves, bags, and collection tools. This is a great opportunity to make a tangible difference in our local ecosystem while meeting like-minded volunteers.\n\nWhat to bring: Sunscreen, water bottle, comfortable walking shoes.\nAll ages welcome! Refreshments will be provided after the cleanup.'
-  },
-  {
-    id: '2',
-    title: 'Food Bank Distribution Center',
-    image: 'https://images.unsplash.com/photo-1593113598332-cd288d649433?w=800&h=400&fit=crop',
-    date: 'Jan 22, 2026 - 9:00 AM',
-    location: 'Downtown Community Center',
-    membersCount: 32,
-    isJoined: true,
-    isPast: false,
-    status: 'pending',
-    tags: ['Food', 'Community', 'Social Services'],
-    description: 'Help us sort and distribute food to families in need. We\'re looking for enthusiastic volunteers to assist with organizing donations, packing boxes, and helping with distribution.\n\nNo experience necessary - full training provided on-site. Shifts available from 9 AM to 5 PM. Even a few hours of your time makes a huge impact in our community.'
-  },
-  {
-    id: '3',
-    title: 'Senior Center Tech Workshop',
-    image: 'https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&h=400&fit=crop',
-    date: 'Feb 5, 2026 - 2:00 PM',
-    location: 'Riverside Senior Center',
-    membersCount: 18,
-    isJoined: true,
-    isPast: false,
-    status: 'joined',
-    tags: ['Education', 'Seniors', 'Technology'],
-    description: 'Share your tech knowledge with seniors! We\'re hosting a workshop to help older adults learn smartphone basics, video calling, and online safety. Your patience and guidance can help bridge the digital divide.\n\nIdeal for volunteers with good communication skills and basic tech knowledge. Materials and curriculum provided. Small group sessions ensure personalized attention.'
-  },
-  {
-    id: '4',
-    title: 'Community Garden Project',
-    image: 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=800&h=400&fit=crop',
-    date: 'Feb 12, 2026 - 10:00 AM',
-    location: 'Greenfield Park',
-    membersCount: 28,
-    isJoined: false,
-    isPast: false,
-    status: 'available',
-    tags: ['Environment', 'Outdoor', 'Gardening'],
-    description: 'Get your hands dirty and help build a sustainable community garden! We\'ll be planting vegetables, herbs, and flowers that will benefit the entire neighborhood. Learn about organic gardening techniques and sustainable agriculture.\n\nPerfect for nature lovers and anyone interested in local food systems. Tools provided, but bring your own gardening gloves if you have them. Light refreshments served.'
-  },
-  {
-    id: '5',
-    title: 'Animal Shelter Support Day',
-    image: 'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=800&h=400&fit=crop',
-    date: 'Feb 18, 2026 - 9:00 AM',
-    location: 'Happy Paws Animal Shelter',
-    membersCount: 52,
-    isJoined: false,
-    isPast: false,
-    status: 'available',
-    tags: ['Animals', 'Community', 'Care'],
-    description: 'Spend a rewarding day helping our furry friends! Activities include walking dogs, socializing cats, cleaning facilities, and assisting with adoption events. This is perfect for animal lovers who want to make a direct impact.\n\nOrientation session at 9 AM. Please wear comfortable, washable clothing. All volunteers must be 16+ or accompanied by an adult. Your love and care brighten these animals\' days!'
-  },
-  {
-    id: '6',
-    title: 'Youth Mentorship Program Kickoff',
-    image: 'https://images.unsplash.com/photo-1529390079861-591de354faf5?w=800&h=400&fit=crop',
-    date: 'Mar 1, 2026 - 3:30 PM',
-    location: 'Lincoln High School',
-    membersCount: 35,
-    isJoined: false,
-    isPast: false,
-    status: 'available',
-    tags: ['Education', 'Youth', 'Mentorship'],
-    description: 'Make a lasting impact as a youth mentor! We\'re launching a new program connecting volunteers with students who need academic support and positive role models. Commitment is one afternoon per week for the semester.\n\nIdeal for college students, professionals, and retirees. Background check required. Training sessions will cover mentoring best practices and program expectations. Change a young person\'s life trajectory!'
-  },
-  {
-    id: '7',
-    title: 'Marathon Water Station Volunteers',
-    image: 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=800&h=400&fit=crop',
-    date: 'Mar 8, 2026 - 6:00 AM',
-    location: 'City Marathon Route - Mile 18',
-    membersCount: 67,
-    isJoined: false,
-    isPast: false,
-    status: 'available',
-    tags: ['Sports', 'Community', 'Outdoor'],
-    description: 'Support marathon runners at our water station! We need energetic volunteers to hand out water, sports drinks, and encouragement to thousands of runners. It\'s an exciting, high-energy atmosphere.\n\nEarly morning start (6 AM) but you\'ll be done by noon. Free event t-shirt and breakfast provided. Perfect for groups, families, or anyone who loves the energy of race day!'
-  },
-  {
-    id: '8',
-    title: 'Habitat for Humanity Build',
-    image: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&h=400&fit=crop',
-    date: 'Mar 15, 2026 - 8:30 AM',
-    location: 'Oakwood Estates Development',
-    membersCount: 41,
-    isJoined: false,
-    isPast: false,
-    status: 'available',
-    tags: ['Construction', 'Community', 'Housing'],
-    description: 'Help build homes and hope! Join us for a weekend construction project with Habitat for Humanity. No construction experience necessary - skilled supervisors will guide all activities. Tasks include painting, landscaping, and light carpentry.\n\nPhysical work, so please bring water and wear sturdy shoes and weather-appropriate clothing. Lunch provided both days. See the direct result of your efforts as families move into affordable housing!'
-  },
-  {
-    id: '9',
-    title: 'Holiday Charity Drive',
-    image: 'https://images.unsplash.com/photo-1607344645866-009c320b63e0?w=800&h=400&fit=crop',
-    date: 'Dec 10, 2025 - 10:00 AM',
-    location: 'City Hall Plaza',
-    membersCount: 89,
-    isJoined: true,
-    isPast: true,
-    status: 'past',
-    tags: ['Community', 'Food', 'Holiday'],
-    description: 'Our annual holiday charity drive was a huge success! We collected toys, clothing, and food for families in need during the holiday season. Volunteers helped sort donations, wrap gifts, and distribute items to local families.\n\nThank you to all who participated in making this a memorable event for our community!'
-  },
-  {
-    id: '10',
-    title: 'Park Tree Planting',
-    image: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&h=400&fit=crop',
-    date: 'Nov 28, 2025 - 8:00 AM',
-    location: 'Riverside Park',
-    membersCount: 56,
-    isJoined: true,
-    isPast: true,
-    status: 'past',
-    tags: ['Environment', 'Outdoor', 'Community'],
-    description: 'We planted over 100 trees in Riverside Park to help combat climate change and beautify our neighborhood. Volunteers learned proper tree planting techniques and contributed to our city\'s green initiatives.\n\nA fantastic day of environmental action that will benefit our community for generations to come!'
-  },
-  {
-    id: '11',
-    title: 'Thanksgiving Community Dinner',
-    image: 'https://images.unsplash.com/photo-1574672280600-4accfa5b6f98?w=800&h=400&fit=crop',
-    date: 'Nov 23, 2025 - 4:00 PM',
-    location: 'Community Kitchen',
-    membersCount: 73,
-    isJoined: true,
-    isPast: true,
-    status: 'past',
-    tags: ['Food', 'Community', 'Holiday'],
-    description: 'We served over 300 meals to community members during our annual Thanksgiving dinner. Volunteers helped with cooking, serving, and creating a warm, welcoming atmosphere for all attendees.\n\nA heartwarming event that brought our community together during the holiday season!'
-  }
-];
+import { getEvents, getMyRegistrations, unregisterEvent, registerEvent } from '@/services/event.service';
 
 export const EventsList = () => {
   const navigate = useNavigate();
@@ -179,20 +33,89 @@ export const EventsList = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      // Fetch all approved events and user's registrations in parallel
+      const [eventsResponse, registrationsResponse] = await Promise.all([
+        getEvents({ status: 'approved' }),
+        getMyRegistrations()
+      ]);
+
+      const backendEvents = eventsResponse.items || [];
+      const registrations = registrationsResponse.data || registrationsResponse.items || [];
+
+      // Map registrations to a Map for O(1) lookup with status
+      const registrationMap = new Map(registrations.map((r: any) => {
+        const eventId = typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id;
+        return [eventId, r.status]; // status should be 'pending', 'approved', etc.
+      }));
+
+      const mappedEvents: Event[] = backendEvents.map((be: any) => {
+        const eventId = be._id || be.id;
+        const registrationStatus = registrationMap.get(eventId);
+
+        // Treat both pending and approved as "joined" so they appear in "My Events"
+        // But distinguish them via the status field
+        const isApproved = registrationStatus === 'approved';
+        const isPending = registrationStatus === 'pending';
+        const isJoined = isApproved || isPending;
+
+        const eventDate = new Date(be.startAt || be.date);
+        const isPast = eventDate < new Date();
+
+        let status: Event['status'] = 'available';
+        if (isPending) status = 'pending';
+        else if (isApproved) status = 'joined';
+        else if (isPast) status = 'past';
+
+        return {
+          id: eventId,
+          title: be.title,
+          image: be.image || 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=400&fit=crop', // Fallback image
+          date: new Date(be.startAt || be.date).toLocaleString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true
+          }),
+          location: be.location || 'TBD',
+          membersCount: be.membersCount || 0,
+          isJoined,
+          isPast,
+          status,
+          tags: be.tags || [],
+          description: be.description || '',
+        };
+      });
+
+      setEvents(mappedEvents);
+    } catch (error) {
+      console.error('Failed to fetch events:', error);
+      toast.error('Failed to load events. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   // Get all unique tags from events
   const allTags = useMemo(() => {
     const tags = new Set<string>();
-    mockEvents.forEach(event => {
+    events.forEach(event => {
       event.tags.forEach(tag => tags.add(tag));
     });
     return Array.from(tags).sort();
-  }, []);
+  }, [events]);
 
   // Filter and sort events
   const processedEvents = useMemo(() => {
-    let filtered = mockEvents.filter(event => {
+    let filtered = events.filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(filters.searchQuery.toLowerCase());
-      const matchesTags = filters.selectedTags.length === 0 || 
+      const matchesTags = filters.selectedTags.length === 0 ||
         filters.selectedTags.some(tag => event.tags.includes(tag));
       return matchesSearch && matchesTags;
     });
@@ -207,13 +130,19 @@ export const EventsList = () => {
     });
 
     return filtered;
-  }, [filters]);
+  }, [events, filters]);
 
   const myEvents = processedEvents.filter(event => event.isJoined && !event.isPast);
   const discoverEvents = processedEvents.filter(event => !event.isJoined && !event.isPast);
   const pastEvents = processedEvents.filter(event => event.isJoined && event.isPast);
 
   const handleMyEventClick = (event: Event) => {
+    if (event.status === 'pending') {
+      toast.error('Discussion Access Denied', {
+        description: 'You cannot access the discussion until your registration is approved.',
+      });
+      return;
+    }
     navigate(`/events/${event.id}`);
   };
 
@@ -222,12 +151,31 @@ export const EventsList = () => {
     setModalOpen(true);
   };
 
-  const handleLeaveEvent = (event: Event) => {
-    // Show confirmation toast
-    toast.success('Left Event', {
-      description: `You have left "${event.title}".`,
-    });
-    // In a real application, this would make an API call to unregister
+  const handleLeaveEvent = async (event: Event) => {
+    try {
+      await unregisterEvent(event.id);
+      toast.success('Left Event', {
+        description: `You have left "${event.title}".`,
+      });
+      fetchData(); // Refresh list to update status
+    } catch (error) {
+      console.error('Failed to leave event:', error);
+      toast.error('Failed to leave event.');
+    }
+  };
+
+  const handleJoinEvent = async (event: Event) => {
+    try {
+      await registerEvent(event.id);
+      toast.success('Request Sent', {
+        description: `Your request to join "${event.title}" has been sent for approval.`,
+      });
+      setModalOpen(false);
+      fetchData(); // Refresh list to update status
+    } catch (error) {
+      console.error('Failed to join event:', error);
+      toast.error('Failed to join event.');
+    }
   };
 
   const toggleTag = (tag: string) => {
@@ -243,12 +191,20 @@ export const EventsList = () => {
     setFilters(prev => ({ ...prev, selectedTags: [] }));
   };
 
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-7xl flex items-center justify-center min-h-[50vh]">
+        <div className="animate-pulse">Loading events...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header Section */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">Volunteer Events</h1>
-        
+
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search Bar */}
@@ -308,7 +264,7 @@ export const EventsList = () => {
             {/* Sort Dropdown */}
             <Select
               value={filters.sortBy}
-              onValueChange={(value: 'date' | 'members') => 
+              onValueChange={(value: 'date' | 'members') =>
                 setFilters(prev => ({ ...prev, sortBy: value }))
               }
             >
@@ -416,6 +372,7 @@ export const EventsList = () => {
         event={selectedEvent}
         open={modalOpen}
         onOpenChange={setModalOpen}
+        onApply={handleJoinEvent}
       />
     </div>
   );

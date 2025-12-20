@@ -4,6 +4,9 @@ import { RegistrationService } from "../services/registration.service";
 import createHttpError from "http-errors";
 import { Types } from "mongoose";
 
+import fs from "fs";
+import { uploadToImgBB } from "../services/imgbb.service.ts";
+
 export const EventController = {
     async getAll(req: Request, res: Response, next: NextFunction) {
         try {
@@ -16,6 +19,17 @@ export const EventController = {
     async create(req: Request, res: Response, next: NextFunction) {
         try {
             console.log("Creating event with body:", req.body);
+            if (req.file) {
+                console.log(`[EventController] Processing file from memory`);
+                // Upload to ImgBB directly from memory buffer
+                const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
+                console.log(`[EventController] ImgBB URL: ${imageUrl}`);
+
+                req.body.image = imageUrl;
+            } else {
+                console.log("[EventController] No file in request");
+            }
+
             // managerId from auth middleware
             const managerId = (req.user as any)._id;
             const event = await EventService.createEvent(req.body, managerId);
@@ -28,6 +42,12 @@ export const EventController = {
     async update(req: Request, res: Response, next: NextFunction) {
         try {
             const eventId = req.params.id;
+            if (req.file) {
+                // Upload to ImgBB directly from memory buffer
+                const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
+                req.body.image = imageUrl;
+            }
+
             // permission check: manager or admin
             const updated = await EventService.updateEvent(eventId, req.body, (req.user as any)?._id);
             return res.json({ success: true, data: updated });
@@ -59,7 +79,7 @@ export const EventController = {
         try {
             const user = req.user; // undefined nếu không login
             const status = req.query.status as string | undefined;
-            console.log("List Events - User:", user ? { id: (user as any)._id, role: (user as any).role } : null, "Status:", status);
+            console.log("List Events - User:", user ? { id: (user as any)._id, role: (user as any).role } : null);
             // Phân quyền status
             if (status === "pending") {
                 if (!user) {
@@ -132,4 +152,21 @@ export const EventController = {
             next(err);
         }
     },
+    async delete(req: Request, res: Response, next: NextFunction) {
+        try {
+            await EventService.deleteEvent(req.params.id);
+            return res.json({ success: true, message: "Event deleted" });
+        } catch (err) {
+            next(err);
+        }
+    },
+
+    async getPosts(req: Request, res: Response, next: NextFunction) {
+        try {
+            const posts = await import("../services/post.service").then(m => m.PostService.getPostsByEvent(req.params.id));
+            return res.json({ success: true, data: posts });
+        } catch (err) {
+            next(err);
+        }
+    }
 };

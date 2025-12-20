@@ -27,20 +27,7 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
     }
   };
 
-  // Check if event date is in the future
-  const isEventInFuture = () => {
-    try {
-      const eventDateStr = event.date.split(' - ')[0]; // "Jan 15, 2026"
-      const eventDate = new Date(eventDateStr);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return eventDate > today;
-    } catch {
-      return false;
-    }
-  };
-
-  const canLeave = showLeaveButton && onLeave && isEventInFuture();
+  const canLeave = showLeaveButton && onLeave && !event.isPast;
 
   const handleLeaveClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card onClick from firing
@@ -50,13 +37,13 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
   };
 
   return (
-    <Card 
+    <Card
       className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-300 group"
       onClick={onClick}
     >
       <div className="relative h-48 overflow-hidden">
-        <img 
-          src={event.image} 
+        <img
+          src={event.image}
           alt={event.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
@@ -64,12 +51,12 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
           {getStatusBadge()}
         </div>
       </div>
-      
+
       <CardContent className="p-4 space-y-3">
         <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem]">
           {event.title}
         </h3>
-        
+
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
@@ -80,7 +67,7 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
             <span>{event.membersCount}</span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <MapPin className="h-4 w-4" />
           <span className="line-clamp-1">{event.location}</span>

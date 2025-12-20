@@ -4,7 +4,7 @@
  * Format a date relative to current time (e.g., "5 mins ago", "2 hours ago")
  * If more than 24 hours, show date/time string
  */
-export function formatRelativeTime(date: Date): string {
+export function formatRelativeTime(date: Date | string): string {
   const now = new Date();
   const diffMs = now.getTime() - new Date(date).getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -40,7 +40,7 @@ export function formatRelativeTime(date: Date): string {
 /**
  * Format a date for display (e.g., "Dec 20, 2024")
  */
-export function formatDate(date: Date): string {
+export function formatDate(date: Date | string): string {
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -51,7 +51,7 @@ export function formatDate(date: Date): string {
 /**
  * Format a date with time (e.g., "Dec 20, 2024 at 10:30 AM")
  */
-export function formatDateTime(date: Date): string {
+export function formatDateTime(date: Date | string): string {
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -64,7 +64,7 @@ export function formatDateTime(date: Date): string {
 /**
  * Format time only (e.g., "10:30 AM")
  */
-export function formatTime(date: Date): string {
+export function formatTime(date: Date | string): string {
   return new Date(date).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',

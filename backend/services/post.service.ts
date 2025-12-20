@@ -1,41 +1,28 @@
 import { PostModel } from "../models/Post.model.ts";
-import { getGFS } from "../utils/gridfs.ts";
+import { uploadToImgBB } from "./imgbb.service.ts";
 
 export const PostService = {
-    async createPost({ userId, discussionId, content, file }: { userId: string, discussionId?: string, content?: string, file?: Express.Multer.File }) {
+    async createPost({ userId, discussionId, eventId, content, file }: { userId: string, discussionId?: string, eventId?: string, content?: string, file?: Express.Multer.File }) {
         try {
-            const gfs = getGFS();
             let image = undefined;
 
             if (file) {
-                const uploadStream = gfs.openUploadStream(file.originalname, {
-                    contentType: file.mimetype
-                });
-
-                uploadStream.end(file.buffer);
-
-                await new Promise((resolve, reject) => {
-                    uploadStream.on("finish", resolve);
-                    uploadStream.on("error", reject);
-                });
-
-                image = {
-                    fileId: uploadStream.id,
-                    type: file.mimetype
-                };
+                // file is in memory buffer
+                console.log(`Uploading file ${file.originalname} to ImgBB...`);
+                image = await uploadToImgBB(file.buffer, file.originalname);
             }
 
             if (!content && !image) {
                 throw new Error("Post must contain either text or image.");
             }
-            console.log("last")
+
             const post = PostModel.create({
                 discussionId,
+                eventId,
                 authorId: userId,
                 content,
                 image
-            });
-            console.log("create")
+            } as any);
             return post
         } catch (error) {
             console.error("Create post error", error)
@@ -45,16 +32,26 @@ export const PostService = {
 
     async getPostsByDiscussion(discussionId: string) {
         const posts = await PostModel.find({ discussionId })
+            .populate('authorId', 'name username image') // Populate author details
+            .populate({
+                path: 'likes',
+                select: 'name username'
+            })
             .sort({ pinned: -1, createdAt: -1 })
             .lean();
+        return posts;
+    },
 
-        return posts.map(post => ({
-            ...post,
-            image: post.image ? {
-                ...post.image,
-                url: `${process.env.SERVER_URL}/file/${post.image.fileId}`
-            } : undefined
-        }));
+    async getPostsByEvent(eventId: string) {
+        const posts = await PostModel.find({ eventId })
+            .populate('authorId', 'name username image email role') // Populate author details
+            .populate({
+                path: 'likes',
+                select: 'name username'
+            })
+            .sort({ pinned: -1, createdAt: -1 })
+            .lean();
+        return posts;
     },
 
     async likePost(userId: string, postId: string) {

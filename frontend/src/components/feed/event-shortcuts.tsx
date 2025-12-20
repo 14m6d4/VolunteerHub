@@ -4,10 +4,10 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bookmark } from 'lucide-react';
-import type { FeedEvent } from '@/data/feed-mock';
+import type { EventShortcut } from '@/types/feed';
 
 interface EventShortcutsProps {
-  events: FeedEvent[];
+  events: EventShortcut[];
 }
 
 export function EventShortcuts({ events }: EventShortcutsProps) {

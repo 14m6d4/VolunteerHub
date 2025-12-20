@@ -6,15 +6,27 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, MapPin, Users, TrendingUp, Sparkles } from 'lucide-react';
 import { EventDetailModal } from '@/components/event/event-detail';
-import type { FeedEvent } from '@/data/feed-mock';
+import type { TrendingEvent } from '@/types/feed';
 import { toEventType } from '@/data/feed-mock';
+import { registerEvent } from '@/services/event.service';
+import { toast } from 'sonner';
 
 interface TrendingEventCardProps {
-  event: FeedEvent;
+  event: TrendingEvent;
 }
 
 export function TrendingEventCard({ event }: TrendingEventCardProps) {
   const [showDetail, setShowDetail] = useState(false);
+
+  const handleApply = async () => {
+    try {
+      await registerEvent(event.id);
+      toast.success('Successfully registered for event!');
+      setShowDetail(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to register for event');
+    }
+  };
 
   return (
     <>
@@ -96,9 +108,10 @@ export function TrendingEventCard({ event }: TrendingEventCardProps) {
 
       {/* Event Detail Modal */}
       <EventDetailModal
-        event={toEventType(event)}
+        event={toEventType(event as any)}
         open={showDetail}
         onOpenChange={setShowDetail}
+        onApply={handleApply}
       />
     </>
   );

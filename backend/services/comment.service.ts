@@ -19,7 +19,7 @@ export const CommentService = {
     async getCommentsByPost(postId: string) {
         return CommentModel.find({ postId })
             .sort({ createdAt: -1 })
-            .populate("authorId", "name avatar");
+            .populate("authorId", "name profilePicture");
     },
 
     async likeComment(userId: string, commentId: string) {

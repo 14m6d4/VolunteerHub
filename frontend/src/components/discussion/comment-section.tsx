@@ -6,14 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send } from 'lucide-react';
 import type { CommentWithUser } from '@/types/discussion';
-import { currentUser } from '@/data/discussion-mock';
 import { formatRelativeTime } from '@/utils/formatDate';
+
+interface CurrentUser {
+  id: string;
+  name: string;
+  avatarUrl: string;
+}
 
 interface CommentSectionProps {
   comments: CommentWithUser[];
   hasMoreComments: boolean;
   totalComments: number;
-  currentUserId: string;
+  currentUser: CurrentUser;
   onViewAllComments: () => void;
   onAddComment: (content: string) => void;
 }
@@ -22,6 +27,7 @@ export function CommentSection({
   comments,
   hasMoreComments,
   totalComments,
+  currentUser,
   onViewAllComments,
   onAddComment,
 }: CommentSectionProps) {
@@ -60,7 +66,7 @@ export function CommentSection({
       {comments.map((comment) => (
         <div key={comment.id} className="flex items-start gap-2">
           <Avatar className="h-7 w-7">
-            <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} />
+            <AvatarImage src={comment.author.avatar} alt={comment.author.name} />
             <AvatarFallback className="text-xs">
               {getInitials(comment.author.name)}
             </AvatarFallback>

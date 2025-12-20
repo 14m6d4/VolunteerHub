@@ -24,6 +24,7 @@ export interface Event {
   managerStatus?: ManagerEventStatus;
   requests?: User[];
   members?: User[];
+  managerId?: string | { _id: string; name: string; email: string };
 }
 
 export interface EventFilters {

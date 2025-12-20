@@ -8,6 +8,24 @@ export enum EventStatus {
     FINISHED = "finished"
 }
 
+export const EventTags = [
+    "Education",
+    "Environment",
+    "Health",
+    "Community",
+    "Technology",
+    "Arts & Culture",
+    "Sports",
+    "Crisis Relief",
+    "Animal Welfare",
+    "Senior Care",
+    "Child Care",
+    "Food Security",
+    "Housing",
+    "Human Rights",
+    "Mentorship"
+];
+
 export interface IEvent extends Document {
     title: string;
     description?: string;
@@ -22,6 +40,8 @@ export interface IEvent extends Document {
     createdAt: Date;
     updatedAt: Date;
     pinnedPostId?: mongoose.Types.ObjectId | null;
+    tags?: string[];
+    image?: string;
 }
 
 const EventSchema = new Schema<IEvent>(
@@ -40,9 +60,15 @@ const EventSchema = new Schema<IEvent>(
         },
         isPublic: { type: Boolean, default: true },
         managerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-        pinnedPostId: { type: Schema.Types.ObjectId, ref: "Post", default: null }
+        pinnedPostId: { type: Schema.Types.ObjectId, ref: "Post", default: null },
+        tags: { type: [String], default: [] },
+        image: { type: String, default: "" }
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
+    }
 );
 
 EventSchema.virtual("isFull").get(function (this: IEvent) {

@@ -31,15 +31,43 @@ export const registerSchema = z.object({
 });
 
 // --- Event Schemas ---
+// Helper for boolean coercion from FormData
+const booleanString = z.union([z.boolean(), z.string()]).transform((val) => {
+  if (typeof val === "boolean") return val;
+  return val === "true";
+});
+
+// Helper for number coercion
+const numberString = z.union([z.number(), z.string()]).transform((val) => {
+  if (typeof val === "number") return val;
+  if (val === "") return undefined;
+  const parsed = Number(val);
+  return isNaN(parsed) ? undefined : parsed;
+});
+
+// --- Event Schemas ---
 export const createEventSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(200, 'Title must be at most 200 characters'),
   description: z.string().optional().default(''),
   location: z.string().optional().default(''),
   startAt: z.string().datetime().or(z.date()),
   endAt: z.string().datetime().or(z.date()).optional(),
-  tags: z.array(z.string()).optional().default([]),
-  maxMembers: z.number().int().min(1).nullable().optional(),
-  isPublic: z.boolean().optional().default(true),
+  tags: z.union([z.array(z.string()), z.string()]).transform(val => {
+    if (Array.isArray(val)) return val;
+    return [val]; // Handle single tag case if multipart sends distinct keys, typically it handles array.
+    // Multer handles array if keys are same. 
+    // Zod with express-validator logic might differ. 
+    // If middleware parses body using express.json for non-files, it's typed.
+    // If using multer, req.body has strings/arrays.
+    return val;
+  }).pipe(z.array(z.string())).optional().default([]),
+  // Handle array input from multer which might be just one string if single item, or array
+  maxMembers: z.preprocess(val => {
+    if (val === 'null' || val === 'undefined' || val === '') return null;
+    const n = Number(val);
+    return isNaN(n) ? null : n;
+  }, z.number().int().min(1).nullable().optional()),
+  isPublic: z.preprocess(val => val === 'true', z.boolean().optional().default(true)),
   status: z.enum(Object.values(EventStatus) as [string, ...string[]]).optional(),
 }).refine(
   (data) => !data.endAt || new Date(data.endAt) > new Date(data.startAt),
@@ -52,9 +80,17 @@ export const updateEventSchema = z.object({
   location: z.string().optional().default(''),
   startAt: z.string().datetime().or(z.date()).optional(),
   endAt: z.string().datetime().or(z.date()).optional(),
-  tags: z.array(z.string()).optional().default([]),
-  maxMembers: z.number().int().min(1).nullable().optional(),
-  isPublic: z.boolean().optional(),
+  tags: z.array(z.string()).optional().default([]), // Multer handles arrays
+  maxMembers: z.preprocess(val => {
+    if (val === 'null' || val === 'undefined' || val === '') return null;
+    const n = Number(val);
+    return isNaN(n) ? null : n;
+  }, z.number().int().min(1).nullable().optional()),
+  isPublic: z.preprocess(val => {
+    if (val === 'true') return true;
+    if (val === 'false') return false;
+    return val;
+  }, z.boolean().optional()),
   status: z.enum(Object.values(EventStatus) as [string, ...string[]]).optional(),
 }).refine(
   (data) => !data.endAt || !data.startAt || new Date(data.endAt) > new Date(data.startAt),
