@@ -5,7 +5,7 @@ import { FeedPostCard, TrendingEventCard, EventShortcuts, FriendSuggestions } fr
 import { useAuth } from '@/context/AuthContext';
 import { getFeed, likePost, createPost } from '@/services/feed.service';
 import { getEvents, getMyRegistrations } from '@/services/event.service';
-import { searchUsers } from '@/services/user.service';
+import { searchUsers, getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
 import { createComment } from '@/services/post.service';
 import type { FeedPostWithUser, TrendingEvent, FriendSuggestion, EventShortcut } from '@/types/feed';
 import { toast } from 'sonner';
@@ -29,11 +29,11 @@ export default function FeedPage() {
       if (!user) return;
       setLoading(true);
       try {
-        const [feedRes, eventsRes, myRegRes, usersRes] = await Promise.all([
+        const [feedRes, eventsRes, myRegRes, suggestionsRes] = await Promise.all([
           getFeed({ limit: 20 }),
           getEvents({ status: 'approved' }), // Fetch all events for shortcut lookup details
           getMyRegistrations(),
-          searchUsers('a')
+          getFriendSuggestions()
         ]);
 
         // Process Events for Shortcuts (Joined Events)
@@ -123,17 +123,15 @@ export default function FeedPage() {
 
         setFeedItems(mappedFeed);
 
-        // Process Suggestions
-        const suggestions: FriendSuggestion[] = (usersRes.data || usersRes || [])
-          .filter((u: any) => u._id !== user.id)
-          .slice(0, 5)
-          .map((u: any) => ({
-            id: u._id,
-            name: u.name || u.username,
-            username: u.username,
-            avatarUrl: u.profilePicture,
-            mutualFriends: 0
-          }));
+        // Process Suggestions - using new API result
+        const rawSuggestions = suggestionsRes.data || suggestionsRes || [];
+        const suggestions: FriendSuggestion[] = rawSuggestions.map((u: any) => ({
+          id: u._id,
+          name: u.name || u.username,
+          username: u.username,
+          avatarUrl: u.profilePicture,
+          mutualFriends: u.mutualFriends || 0
+        }));
         setFriendSuggestions(suggestions);
 
       } catch (err) {
@@ -211,6 +209,17 @@ export default function FeedPage() {
     }
   };
 
+  const handleSendFriendRequest = async (userId: string) => {
+    try {
+      await sendFriendRequest(userId);
+      // Toast is handled in FriendSuggestions component or simple success here
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to send friend request");
+      throw e; // Propagate to component to handle loading state
+    }
+  };
+
   if (!user) return <div>Please login</div>;
   if (loading) return <div className="flex justify-center p-10">Loading feed...</div>;
 
@@ -274,7 +283,7 @@ export default function FeedPage() {
           {/* Right Sidebar - Friend Suggestions */}
           <aside className="hidden lg:block lg:col-span-3">
             <div className="sticky top-20">
-              <FriendSuggestions suggestions={friendSuggestions} />
+              <FriendSuggestions suggestions={friendSuggestions} onAddFriend={handleSendFriendRequest} />
             </div>
           </aside>
         </div>

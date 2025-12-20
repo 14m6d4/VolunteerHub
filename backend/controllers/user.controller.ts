@@ -301,3 +301,13 @@ export async function getBannedUsersController(req: AuthenticatedRequest, res: R
     next(error);
   }
 }
+
+export async function getFriendSuggestions(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const suggestions = await userService.getFriendSuggestionsService(userId);
+    return res.status(200).json({ status: 'success', data: suggestions });
+  } catch (error) {
+    next(error);
+  }
+}
