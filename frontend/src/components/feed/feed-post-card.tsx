@@ -21,6 +21,8 @@ interface FeedPostCardProps {
   currentUser: { id: string; name: string; avatarUrl: string };
   onLike: (postId: string) => void;
   onAddComment: (postId: string, content: string) => void;
+  isDetailOpen?: boolean;
+  onDetailOpenChange?: (open: boolean) => void;
 }
 
 export function FeedPostCard({
@@ -30,9 +32,17 @@ export function FeedPostCard({
   currentUser,
   onLike,
   onAddComment,
+  isDetailOpen = false,
+  onDetailOpenChange,
 }: FeedPostCardProps) {
   const [showReportDialog, setShowReportDialog] = useState(false);
-  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [localShowDetailDialog, setLocalShowDetailDialog] = useState(false);
+
+  // Use controlled state if provided, otherwise use local state
+  const showDetailDialog = onDetailOpenChange !== undefined ? isDetailOpen : localShowDetailDialog;
+  const setShowDetailDialog = onDetailOpenChange !== undefined
+    ? onDetailOpenChange
+    : setLocalShowDetailDialog;
 
   const handleLike = () => {
     onLike(post.id);
@@ -134,13 +144,13 @@ export function FeedPostCard({
               <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
               <span>{likeCount}</span>
             </button>
-            <button
-              onClick={() => setShowDetailDialog(true)}
+            <Link
+              to={`/feed/events/${post.eventId}/posts/${post.id}`}
               className="flex items-center gap-1 hover:text-primary transition-colors"
             >
               <MessageCircle className="h-4 w-4" />
               <span>{comments.length}</span>
-            </button>
+            </Link>
           </div>
 
           <Separator />
@@ -151,7 +161,7 @@ export function FeedPostCard({
             hasMoreComments={hasMoreComments}
             totalComments={comments.length}
             currentUser={currentUser}
-            onViewAllComments={() => setShowDetailDialog(true)}
+            viewAllCommentsUrl={`/feed/events/${post.eventId}/posts/${post.id}`}
             onAddComment={(content: string) => onAddComment(post.id, content)}
           />
         </CardFooter>

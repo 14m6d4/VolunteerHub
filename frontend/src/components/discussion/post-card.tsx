@@ -20,6 +20,7 @@ interface PostCardProps {
   currentUser: { id: string; name: string; avatarUrl: string };
   onLike: (postId: string) => void;
   onAddComment: (postId: string, content: string) => void;
+  onViewDetail?: () => void;
 }
 
 export function PostCard({
@@ -29,6 +30,7 @@ export function PostCard({
   currentUser,
   onLike,
   onAddComment,
+  onViewDetail,
 }: PostCardProps) {
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -120,7 +122,7 @@ export function PostCard({
               <span>{likeCount}</span>
             </button>
             <button
-              onClick={() => setShowDetailDialog(true)}
+              onClick={() => onViewDetail ? onViewDetail() : setShowDetailDialog(true)}
               className="flex items-center gap-1 hover:text-primary transition-colors"
             >
               <MessageCircle className="h-4 w-4" />
@@ -136,7 +138,7 @@ export function PostCard({
             hasMoreComments={hasMoreComments}
             totalComments={comments.length}
             currentUser={currentUser}
-            onViewAllComments={() => setShowDetailDialog(true)}
+            onViewAllComments={() => onViewDetail ? onViewDetail() : setShowDetailDialog(true)}
             onAddComment={(content: string) => onAddComment(post.id, content)}
           />
         </CardFooter>

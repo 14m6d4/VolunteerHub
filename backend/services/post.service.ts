@@ -77,5 +77,18 @@ export const PostService = {
         post.pinned = !post.pinned;
         await post.save();
         return post;
+    },
+
+    async getPostById(postId: string) {
+        console.log("Fetching post by ID:", postId);
+        const post = await PostModel.findById(postId)
+            .populate('authorId', 'name username image')
+            .populate({
+                path: 'likes',
+                select: 'name username'
+            })
+            .lean();
+        if (!post) throw new Error("Post not found");
+        return post;
     }
 };
