@@ -1,7 +1,15 @@
-import { Calendar, MapPin, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Calendar, MapPin, Users, Flag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { ReportEventDialog } from '@/components/event/report-event-dialog';
 import type { Event } from '@/types/event';
 
 interface EventCardProps {
@@ -12,6 +20,8 @@ interface EventCardProps {
 }
 
 export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: EventCardProps) => {
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+
   const getStatusBadge = () => {
     switch (event.status) {
       case 'joined':
@@ -36,21 +46,44 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
     }
   };
 
+  const handleReportClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReportDialogOpen(true);
+  };
+
   return (
-    <Card
-      className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-300 group"
-      onClick={onClick}
-    >
-      <div className="relative h-48 overflow-hidden">
-        <img
-          src={event.image}
-          alt={event.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-        <div className="absolute top-3 right-3">
-          {getStatusBadge()}
+    <>
+      <Card
+        className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-300 group"
+        onClick={onClick}
+      >
+        <div className="relative h-48 overflow-hidden">
+          <img
+            src={event.image}
+            alt={event.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+          <div className="absolute top-3 left-3" onClick={(e) => e.stopPropagation()}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-8 w-8 opacity-80 hover:opacity-100"
+                    onClick={handleReportClick}
+                  >
+                    <Flag className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Report Event</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="absolute top-3 right-3">
+            {getStatusBadge()}
+          </div>
         </div>
-      </div>
 
       <CardContent className="p-4 space-y-3">
         <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem]">
@@ -95,5 +128,13 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
         )}
       </CardContent>
     </Card>
+
+    <ReportEventDialog
+      open={reportDialogOpen}
+      onOpenChange={setReportDialogOpen}
+      eventId={event.id}
+      eventTitle={event.title}
+    />
+  </>
   );
 };
