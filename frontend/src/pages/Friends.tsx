@@ -155,7 +155,7 @@ export default function FriendsPage() {
   };
 
   return (
-    <div className="container py-10 max-w-4xl">
+    <div className="container mx-auto py-10 px-4 max-w-4xl">
       <h1 className="text-2xl mb-4">Users</h1>
       <Tabs value={currentTab} onValueChange={(v) => setTab(v)}>
         <TabsList>

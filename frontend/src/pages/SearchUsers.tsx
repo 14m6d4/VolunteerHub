@@ -23,9 +23,9 @@ export default function SearchUsersPage() {
         try {
           const res = await apiSearchUsers(q);
           const users = res.data || res || [];
-          const ids = users.map((u:any) => u._id);
+          const ids = users.map((u: any) => u._id);
           const rel = (ids.length > 0) ? ((await getRelations(ids)).data || {}) : {};
-          const enriched = users.map((u:any) => ({ ...u, relation: rel[u._id] || 'none' }));
+          const enriched = users.map((u: any) => ({ ...u, relation: rel[u._id] || 'none' }));
           setResults(enriched);
         } catch (err) {
           console.error('Search users error', err);
@@ -51,7 +51,7 @@ export default function SearchUsersPage() {
   };
 
   return (
-    <div className="container py-10 max-w-3xl">
+    <div className="container mx-auto py-10 px-4 max-w-3xl">
       <h1 className="text-2xl mb-4">Search users</h1>
       <div className="mb-4">
         <Input placeholder="Search by username or name" value={q} onChange={(e) => setQ(e.target.value)} />

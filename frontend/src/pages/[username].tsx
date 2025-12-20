@@ -30,8 +30,8 @@ export default function UserProfilePage() {
   const profileUser = data?.user;
   console.log("ProfileUser:", data, "\nerror: ", error);
 
-  if (isLoading) return <div className="container py-10">Đang tải...</div>;
-  if (error || !profileUser) return <div className="container py-10">Không tìm thấy người dùng</div>;
+  if (isLoading) return <div className="container mx-auto py-10 px-4 text-center">Đang tải...</div>;
+  if (error || !profileUser) return <div className="container mx-auto py-10 px-4 text-center">Không tìm thấy người dùng</div>;
 
   const isOwnProfile = currentUser && profileUser.username === currentUser.username;
 
@@ -41,7 +41,7 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto py-10">
+    <div className="container max-w-4xl mx-auto py-10 px-4 md:px-6">
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between">

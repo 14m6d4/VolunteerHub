@@ -57,7 +57,7 @@ export default function AdminReportsPage() {
     };
 
     return (
-        <div className="container py-10">
+        <div className="container mx-auto py-10 px-4 md:px-6">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold">Report Management</h1>
                 <div className="w-[200px]">
@@ -138,8 +138,10 @@ export default function AdminReportsPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={
-                                                report.status === 'pending' ? 'default' :
-                                                    report.status === 'resolved' ? 'success' : 'destructive'
+                                                report.status === 'pending' ? 'secondary' :
+                                                    report.status === 'resolved' ? 'default' : 'destructive'
+                                            } className={
+                                                report.status === 'resolved' ? 'bg-green-600 hover:bg-green-700' : ''
                                             }>
                                                 {report.status}
                                             </Badge>
