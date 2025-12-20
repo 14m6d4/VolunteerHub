@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
-import { 
-  Download, 
-  Search, 
+import { useState, useEffect } from 'react';
+import {
+  Download,
+  Search,
   ArrowUpDown,
   X,
   Check,
@@ -49,24 +49,34 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { mockEvents } from '@/data/admin-mock';
-import type { MockEvent } from '@/data/admin-mock';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { apiFetch } from '@/services/api';
 
 type SortField = 'name' | 'date' | 'members' | null;
 type SortOrder = 'asc' | 'desc';
 
+interface BackendEvent {
+  _id: string;
+  title: string;
+  description: string;
+  startAt: string;
+  location: string;
+  currentMembers: number;
+  tags: string[];
+  status: 'draft' | 'pending' | 'approved' | 'cancelled' | 'finished';
+}
+
 export default function EventsManagement() {
   // State
-  const [events, setEvents] = useState<MockEvent[]>(mockEvents);
+  const [events, setEvents] = useState<BackendEvent[]>([]);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortField, setSortField] = useState<SortField>(null);
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Dialog states
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -74,74 +84,42 @@ export default function EventsManagement() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
-  const [eventToDelete, setEventToDelete] = useState<MockEvent | null>(null);
-  const [eventToReject, setEventToReject] = useState<MockEvent | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<BackendEvent | null>(null);
+  const [eventToReject, setEventToReject] = useState<BackendEvent | null>(null);
 
-  // Filtering and sorting logic
-  const filteredAndSortedEvents = useMemo(() => {
-    let result = [...events];
+  const fetchEvents = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery) params.append('q', searchQuery);
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      // Backend handles 'all' for admin to show everything
+      if (statusFilter === 'all') params.append('status', 'all');
 
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(event => 
-        event.name.toLowerCase().includes(query)
-      );
-    }
+      params.append('page', currentPage.toString());
+      params.append('limit', rowsPerPage.toString());
 
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      result = result.filter(event => event.status === statusFilter);
-    }
-
-    // Apply sorting
-    if (sortField) {
-      result.sort((a, b) => {
-        let aValue: string | number;
-        let bValue: string | number;
-
-        if (sortField === 'name') {
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-        } else if (sortField === 'date') {
-          aValue = new Date(a.date).getTime();
-          bValue = new Date(b.date).getTime();
-        } else {
-          aValue = a.members;
-          bValue = b.members;
-        }
-
-        if (sortOrder === 'asc') {
-          return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-        } else {
-          return bValue < aValue ? -1 : bValue > aValue ? 1 : 0;
-        }
-      });
-    }
-
-    return result;
-  }, [events, searchQuery, statusFilter, sortField, sortOrder]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedEvents.length / rowsPerPage);
-  const paginatedEvents = filteredAndSortedEvents.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage
-  );
-
-  // Handlers
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
+      const res = await apiFetch(`/events?${params.toString()}`);
+      if (res.success) {
+        setEvents(res.items);
+        setTotalPages(Math.ceil(res.total / rowsPerPage));
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to fetch events");
+    } finally {
+      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchEvents();
+  }, [searchQuery, statusFilter, currentPage, rowsPerPage]);
+
+  // Handlers
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRows(new Set(paginatedEvents.map(e => e.id)));
+      setSelectedRows(new Set(events.map(e => e._id)));
     } else {
       setSelectedRows(new Set());
     }
@@ -157,44 +135,64 @@ export default function EventsManagement() {
     setSelectedRows(newSelected);
   };
 
-  const handleApprove = (event: MockEvent) => {
-    setEvents(events.map(e => 
-      e.id === event.id ? { ...e, status: 'active' as const } : e
-    ));
-    toast.success(`Event "${event.name}" approved successfully`);
+  const handleApprove = async (event: BackendEvent) => {
+    try {
+      await apiFetch(`/events/${event._id}/approve`, { method: 'PATCH' });
+      toast.success(`Event "${event.title}" approved successfully`);
+      fetchEvents();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve event");
+    }
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (eventToReject) {
-      setEvents(events.filter(e => e.id !== eventToReject.id));
-      toast.success(`Event "${eventToReject.name}" rejected and removed`);
-      setEventToReject(null);
-      setRejectDialogOpen(false);
+      try {
+        // Rejecting a pending event usually means deleting it or cancelling it.
+        // If it's pending, we can delete it.
+        await apiFetch(`/events/${eventToReject._id}`, { method: 'DELETE' });
+        toast.success(`Event "${eventToReject.title}" rejected and removed`);
+        setEventToReject(null);
+        setRejectDialogOpen(false);
+        fetchEvents();
+      } catch (error: any) {
+        toast.error(error.message || "Failed to reject event");
+      }
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (eventToDelete) {
-      setEvents(events.filter(e => e.id !== eventToDelete.id));
-      toast.success(`Event "${eventToDelete.name}" deleted successfully`);
-      setEventToDelete(null);
-      setDeleteDialogOpen(false);
+      try {
+        await apiFetch(`/events/${eventToDelete._id}`, { method: 'DELETE' });
+        toast.success(`Event "${eventToDelete.title}" deleted successfully`);
+        setEventToDelete(null);
+        setDeleteDialogOpen(false);
+        fetchEvents();
+      } catch (error: any) {
+        toast.error(error.message || "Failed to delete event");
+      }
     }
   };
 
-  const handleBulkDelete = () => {
-    setEvents(events.filter(e => !selectedRows.has(e.id)));
-    toast.success(`${selectedRows.size} events deleted successfully`);
+  const handleBulkDelete = async () => {
+    // Loop for now as bulk delete API missing
+    for (const id of selectedRows) {
+      await apiFetch(`/events/${id}`, { method: 'DELETE' });
+    }
+    toast.success(`${selectedRows.size} events deleted`);
     setSelectedRows(new Set());
     setBulkDeleteDialogOpen(false);
+    fetchEvents();
   };
 
   const handleExport = (format: 'csv' | 'json') => {
-    const dataToExport = filteredAndSortedEvents.map(({ id, ...rest }) => rest);
-    
+    // Export current view for simplicity
+    const dataToExport = events.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
+
     if (format === 'csv') {
       const headers = Object.keys(dataToExport[0]).join(',');
-      const rows = dataToExport.map(row => 
+      const rows = dataToExport.map(row =>
         Object.values(row).map(v => Array.isArray(v) ? `"${v.join(', ')}"` : v).join(',')
       );
       const csv = [headers, ...rows].join('\n');
@@ -203,7 +201,7 @@ export default function EventsManagement() {
       const json = JSON.stringify(dataToExport, null, 2);
       downloadFile(json, 'events.json', 'application/json');
     }
-    
+
     setExportDialogOpen(false);
     toast.success(`Exported as ${format.toUpperCase()}`);
   };
@@ -222,12 +220,16 @@ export default function EventsManagement() {
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
+      case 'approved':
       case 'active':
         return 'default';
+      case 'finished':
       case 'completed':
         return 'secondary';
       case 'pending':
         return 'outline';
+      case 'cancelled':
+        return 'destructive';
       default:
         return 'default';
     }
@@ -264,9 +266,10 @@ export default function EventsManagement() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="finished">Finished</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -276,8 +279,8 @@ export default function EventsManagement() {
         <div className="flex items-center gap-2 rounded-lg border bg-muted/50 p-3">
           <span className="text-sm font-medium">{selectedRows.size} selected</span>
           <div className="ml-auto">
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               size="sm"
               onClick={() => setBulkDeleteDialogOpen(true)}
             >
@@ -295,77 +298,51 @@ export default function EventsManagement() {
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
-                  checked={paginatedEvents.length > 0 && selectedRows.size === paginatedEvents.length}
+                  checked={events.length > 0 && selectedRows.size === events.length}
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
-              <TableHead>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="-ml-3 h-8"
-                  onClick={() => handleSort('name')}
-                >
-                  Event Name
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="max-w-[200px]">Detail</TableHead>
-              <TableHead>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="-ml-3 h-8"
-                  onClick={() => handleSort('date')}
-                >
-                  Date
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
+              <TableHead>Event Name</TableHead>
+              <TableHead className="max-w-[200px]">Description</TableHead>
+              <TableHead>Date</TableHead>
               <TableHead>Location</TableHead>
-              <TableHead>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="-ml-3 h-8"
-                  onClick={() => handleSort('members')}
-                >
-                  Members
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
+              <TableHead>Members</TableHead>
               <TableHead>Tags</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-center">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedEvents.length === 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={9} className="h-24 text-center">Loading...</TableCell>
+              </TableRow>
+            ) : events.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="h-24 text-center">
                   No events found.
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedEvents.map((event) => (
-                <TableRow key={event.id} data-state={selectedRows.has(event.id) ? 'selected' : undefined}>
+              events.map((event) => (
+                <TableRow key={event._id} data-state={selectedRows.has(event._id) ? 'selected' : undefined}>
                   <TableCell>
                     <Checkbox
-                      checked={selectedRows.has(event.id)}
-                      onCheckedChange={(checked) => handleSelectRow(event.id, !!checked)}
+                      checked={selectedRows.has(event._id)}
+                      onCheckedChange={(checked) => handleSelectRow(event._id, !!checked)}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{event.name}</TableCell>
+                  <TableCell className="font-medium">{event.title}</TableCell>
                   <TableCell className="max-w-[200px]">
-                    <p className="truncate text-sm text-muted-foreground" title={event.detail}>
-                      {event.detail}
+                    <p className="truncate text-sm text-muted-foreground" title={event.description}>
+                      {event.description}
                     </p>
                   </TableCell>
-                  <TableCell>{format(new Date(event.date), 'MMM dd, yyyy')}</TableCell>
+                  <TableCell>{format(new Date(event.startAt), 'MMM dd, yyyy')}</TableCell>
                   <TableCell className="max-w-[150px]">
                     <span className="truncate block" title={event.location}>{event.location}</span>
                   </TableCell>
-                  <TableCell>{event.members}</TableCell>
+                  <TableCell>{event.currentMembers}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {event.tags.slice(0, 2).map((tag) => (
@@ -515,9 +492,9 @@ export default function EventsManagement() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <DialogTitle>Delete Event</DialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>"{eventToDelete?.name}"</strong>? This action cannot be undone.
+              Are you sure you want to delete <strong>"{eventToDelete?.title}"</strong>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -533,9 +510,9 @@ export default function EventsManagement() {
       <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reject Event</AlertDialogTitle>
+            <DialogTitle>Reject Event</DialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to reject <strong>"{eventToReject?.name}"</strong>? The event will be removed from the system.
+              Are you sure you want to reject <strong>"{eventToReject?.title}"</strong>? The event will be removed from the system.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -551,7 +528,7 @@ export default function EventsManagement() {
       <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Selected Events</AlertDialogTitle>
+            <DialogTitle>Delete Selected Events</DialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete {selectedRows.size} selected events? This action cannot be undone.
             </AlertDialogDescription>

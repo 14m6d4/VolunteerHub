@@ -77,10 +77,36 @@ export const EventController = {
 
     async list(req: Request, res: Response, next: NextFunction) {
         try {
-            const user = req.user; // undefined nếu không login
-            const status = req.query.status as string | undefined;
-            console.log("List Events - User:", user ? { id: (user as any)._id, role: (user as any).role } : null);
-            // Phân quyền status
+            const user = req.user as any; // Cast to access role
+            let status = req.query.status as string | undefined;
+
+            console.log("List Events - User:", user ? { id: user._id, role: user.role } : "Guest");
+
+            // Default status logic
+            if (!status || status === 'all') {
+                if (user?.role === 'admin') {
+                    // Admin requesting 'all' or default -> show all (no status filter)
+                    if (status === 'all') status = undefined;
+                    // If no status param provided, maybe default to all? 
+                    // Let's stick to: if 'status' param is missing, we might default to 'approved' for guests, but allow 'all' (undefined) for admin.
+                    // Actually, let's keep it simple: 
+                    // If status is 'all':
+                    //   - Admin: status = undefined (all)
+                    //   - Access control check: Guest/User/Manager -> 403 if they try 'all' (or maybe just force 'approved'? forcing approved is friendlier)
+                    if (status === 'all' && user?.role !== 'admin') {
+                        status = 'approved'; // Force non-admins to only see approved when asking for all
+                    } else if (status === 'all') {
+                        status = undefined; // Remove filter for admin
+                    }
+                } else {
+                    // Non-admin default
+                    if (!status) status = 'approved';
+                    // If asking for 'all', force 'approved'
+                    if (status === 'all') status = 'approved';
+                }
+            }
+
+            // Pending visibility check
             if (status === "pending") {
                 if (!user) {
                     return res.status(403).json({ success: false, message: "Forbidden" });
