@@ -1,7 +1,7 @@
 import AdminGuard from "@/components/auth/AdminGuard";
 import "./App.css"
 // Theme CSS files are now loaded dynamically by theme-provider
-import { BrowserRouter, Routes, Route, Outlet, useSearchParams } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Outlet, useSearchParams, Navigate } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import LoginPage from "@/pages/auth/Login"
 import BannedPage from "@/pages/auth/Banned"
@@ -13,6 +13,12 @@ import FriendsPage from '@/pages/Friends';
 import SearchUsersPage from '@/pages/SearchUsers';
 import AdminReportsPage from "@/pages/admin/Reports";
 import AdminUsersPage from "@/pages/admin/Users";
+// New Admin Dashboard imports
+import AdminLayout from "@/pages/admin/AdminLayout";
+import UsersManagement from "@/pages/admin/UsersManagement";
+import EventsManagement from "@/pages/admin/EventsManagement";
+import ReportsManagement from "@/pages/admin/ReportsManagement";
+import AnalyticsDashboard from "@/pages/admin/AnalyticsDashboard";
 import { EventsList } from "@/pages/EventsList";
 import { ManagerEventDashboard } from "@/pages/manager/ManagerEventDashboard";
 import DiscussionPage from "@/pages/discussion/Discussion";
@@ -80,15 +86,31 @@ function AppContent() {
           <Route path="/u" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
 
-
-          // ... inside AppContent ...
-
+          {/* Legacy admin routes */}
           <Route element={<AdminGuard />}>
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>
 
           <Route path="/u/:username" element={<UserProfilePage />} />
+        </Route>
+
+        {/* New Admin Dashboard with Sidebar Layout */}
+        <Route
+          element={
+            <>
+              <NavBar />
+              <AdminGuard />
+            </>
+          }
+        >
+          <Route path="/manage" element={<AdminLayout />}>
+            <Route index element={<Navigate to="/manage/users" replace />} />
+            <Route path="users" element={<UsersManagement />} />
+            <Route path="events" element={<EventsManagement />} />
+            <Route path="reports" element={<ReportsManagement />} />
+            <Route path="analytics" element={<AnalyticsDashboard />} />
+          </Route>
         </Route>
 
         {/* Nhóm các trang KHÔNG CÓ NavBar và Footer */}
