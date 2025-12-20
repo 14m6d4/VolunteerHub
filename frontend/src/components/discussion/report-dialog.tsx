@@ -12,7 +12,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Flag, AlertTriangle } from 'lucide-react';
+import { reportPost } from '@/services/report.service';
+import { toast } from 'sonner';
 
 interface ReportDialogProps {
   open: boolean;
@@ -22,28 +25,37 @@ interface ReportDialogProps {
 
 export function ReportDialog({ open, onOpenChange, postId }: ReportDialogProps) {
   const [reason, setReason] = useState('');
+  const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async () => {
-    if (!reason.trim()) return;
+    if (!reason) {
+      toast.error('Please select a reason');
+      return;
+    }
 
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      await reportPost(postId, { reason, description });
 
-    // eslint-disable-next-line no-console
-    console.log('Report submitted for post:', postId, 'Reason:', reason);
+      setSubmitted(true);
+      toast.success('Report submitted successfully', {
+        description: 'Thank you for helping keep our community safe.'
+      });
 
-    setIsSubmitting(false);
-    setSubmitted(true);
-
-    // Reset and close after showing success
-    setTimeout(() => {
-      setReason('');
-      setSubmitted(false);
-      onOpenChange(false);
-    }, 1500);
+      // Reset and close after showing success
+      setTimeout(() => {
+        setReason('');
+        setDescription('');
+        setSubmitted(false);
+        onOpenChange(false);
+      }, 1500);
+    } catch (error) {
+      console.error('Failed to submit report:', error);
+      toast.error('Failed to submit report');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -55,8 +67,7 @@ export function ReportDialog({ open, onOpenChange, postId }: ReportDialogProps) 
             Report Post
           </DialogTitle>
           <DialogDescription>
-            Help us understand what's wrong with this post. Your report will be reviewed by our
-            moderation team.
+            Help us understand what's wrong with this post. Your report will be reviewed by the event manager.
           </DialogDescription>
         </DialogHeader>
 
@@ -72,13 +83,29 @@ export function ReportDialog({ open, onOpenChange, postId }: ReportDialogProps) 
           <>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="reason">Reason for reporting</Label>
+                <Label htmlFor="reason">Reason *</Label>
+                <Select value={reason} onValueChange={setReason}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Spam">Spam</SelectItem>
+                    <SelectItem value="Inappropriate Content">Inappropriate Content</SelectItem>
+                    <SelectItem value="Harassment">Harassment</SelectItem>
+                    <SelectItem value="Misinformation">Misinformation</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Additional Details (Optional)</Label>
                 <Textarea
-                  id="reason"
-                  placeholder="Please describe why you're reporting this post..."
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="min-h-[120px] resize-none"
+                  id="description"
+                  placeholder="Please provide more details about why you're reporting this post..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="min-h-[100px] resize-none"
                 />
               </div>
             </div>
@@ -89,7 +116,7 @@ export function ReportDialog({ open, onOpenChange, postId }: ReportDialogProps) 
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={!reason.trim() || isSubmitting}
+                disabled={!reason || isSubmitting}
                 className="bg-destructive hover:bg-destructive/90"
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Report'}

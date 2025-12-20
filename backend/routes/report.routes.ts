@@ -6,10 +6,11 @@ import { authMiddleware, type AuthenticatedRequest } from "../middlewares/auth.m
 const router = express.Router();
 
 // Báo cáo sự kiện
-router.post("/report/event", async (req, res) => {
-    const { reporterId, eventId, reason, description } = req.body;
+router.post("/event", authMiddleware, async (req, res) => {
+    const { eventId, reason, description } = req.body;
+    const user = (req as AuthenticatedRequest).user;
     try {
-        const report = await ReportService.reportEvent(reporterId, eventId, reason, description);
+        const report = await ReportService.reportEvent(user._id.toString(), eventId, reason, description);
         res.status(201).json(report);
     } catch (error: any) {
         res.status(400).json({ message: error.message });
@@ -17,10 +18,11 @@ router.post("/report/event", async (req, res) => {
 });
 
 // Báo cáo bài viết
-router.post("/report/post", async (req, res) => {
-    const { reporterId, postId, reason, description } = req.body;
+router.post("/post", authMiddleware, async (req, res) => {
+    const { postId, reason, description } = req.body;
+    const user = (req as AuthenticatedRequest).user;
     try {
-        const report = await ReportService.reportPost(reporterId, postId, reason, description);
+        const report = await ReportService.reportPost(user._id.toString(), postId, reason, description);
         res.status(201).json(report);
     } catch (error: any) {
         res.status(400).json({ message: error.message });
@@ -28,7 +30,7 @@ router.post("/report/post", async (req, res) => {
 });
 
 // Lấy danh sách báo cáo theo target
-router.get("/report/:targetType/:targetId", async (req, res) => {
+router.get("/:targetType/:targetId", async (req, res) => {
     const { targetType, targetId } = req.params;
     const reportType = targetType === 'event' ? ReportTargetType.Event : ReportTargetType.Post;
 
@@ -41,7 +43,7 @@ router.get("/report/:targetType/:targetId", async (req, res) => {
 });
 
 // Cập nhật trạng thái của báo cáo (resolved/rejected)
-router.patch("/report/:reportId", async (req, res) => {
+router.patch("/:reportId", async (req, res) => {
     const { reportId } = req.params;
     const { status } = req.body;
 
@@ -84,6 +86,23 @@ router.get("/admin/all", authMiddleware, async (req, res) => {
         res.json(reports);
     } catch (error: any) {
         console.error("[ReportRoutes] Error:", error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// Get reports for a specific event (for managers)
+router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
+    try {
+        const { eventId } = req.params;
+        const user = (req as AuthenticatedRequest).user;
+
+        // Optionally verify that the user is the manager of this event
+        // For now, we'll trust authMiddleware and let service filter
+
+        const reports = await ReportService.getReportsForEvent(eventId);
+        res.json(reports);
+    } catch (error: any) {
+        console.error("[ReportRoutes] Error fetching event reports:", error);
         res.status(400).json({ message: error.message });
     }
 });

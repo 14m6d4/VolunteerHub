@@ -32,7 +32,7 @@ export interface MockReport {
     email: string;
     profilePicture?: string;
   };
-  targetType: 'post' | 'user';
+  targetType: 'post' | 'user' | 'event';
   targetId: string;
   targetUsername?: string;
   reason: string;

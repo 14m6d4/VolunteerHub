@@ -1,5 +1,8 @@
 import { PostModel } from "../models/Post.model.ts";
 import { uploadToImgBB } from "./imgbb.service.ts";
+import { NotificationService } from "./notification.service.ts";
+import { NotificationType } from "../models/Notification.model.ts";
+import User from "../models/User.model.ts";
 
 export const PostService = {
     async createPost({ userId, discussionId, eventId, content, file }: { userId: string, discussionId?: string, eventId?: string, content?: string, file?: Express.Multer.File }) {
@@ -55,7 +58,7 @@ export const PostService = {
     },
 
     async likePost(userId: string, postId: string) {
-        const post = await PostModel.findById(postId);
+        const post = await PostModel.findById(postId).populate('authorId', 'name');
         if (!post) throw new Error("Post not found");
 
         const isLiked = post.likes.includes(userId as any);
@@ -63,7 +66,26 @@ export const PostService = {
             ? { $pull: { likes: userId } }
             : { $addToSet: { likes: userId } };
 
-        return PostModel.findByIdAndUpdate(postId, update, { new: true });
+        const updatedPost = await PostModel.findByIdAndUpdate(postId, update, { new: true });
+
+        // Send notification if it's a new like and not liking own post
+        if (!isLiked && post.authorId._id.toString() !== userId) {
+            try {
+                const liker = await User.findById(userId).select('name username');
+                if (liker) {
+                    await NotificationService.notify(post.authorId._id.toString(), {
+                        type: NotificationType.POST_LIKED,
+                        title: "Post Liked",
+                        body: `${liker.name} liked your post`,
+                        data: { postId, userId, likerName: liker.name }
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to send like notification:", err);
+            }
+        }
+
+        return updatedPost;
     },
 
     async deletePost(postId: string) {

@@ -94,36 +94,33 @@ export function EventReportsDialog({
   const fetchReports = async () => {
     setLoading(true);
     try {
-      // Get all reports for manager (will be filtered by backend to only show their events' posts)
-      let qs = '';
-      if (statusFilter && statusFilter !== 'all') {
-        qs = `?status=${statusFilter}`;
-      }
-      const data = await apiFetch(`/report/admin/all${qs}`);
+      // Get reports for posts in this specific event
+      const data = await apiFetch(`/report/event/${eventId}/reports`);
 
-      // Transform and filter to only show reports for posts from this event
-      // Since the API returns all manager's reports, we need to filter client-side by event
-      // Note: This assumes the API returns posts with eventId context, or we filter all reports
-      const transformedData: EventReport[] = (data || [])
-        .filter((report: any) => report.targetType === 'post')
-        .map((report: any) => ({
-          id: report._id,
-          reporter: {
-            id: report.reporter?._id || report.reporter?.id || 'unknown',
-            username: report.reporter?.username || 'unknown',
-            name: report.reporter?.name || report.reporter?.username || 'Unknown',
-            email: report.reporter?.email || '',
-            profilePicture: report.reporter?.profilePicture,
-          },
-          targetType: report.targetType,
-          targetId: report.targetId,
-          reason: report.reason,
-          description: report.description,
-          status: report.status,
-          createdAt: report.createdAt,
-        }));
+      // Transform the data
+      const transformedData: EventReport[] = (data || []).map((report: any) => ({
+        id: report._id,
+        reporter: {
+          id: report.reporter?._id || report.reporter?.id || 'unknown',
+          username: report.reporter?.username || 'unknown',
+          name: report.reporter?.name || report.reporter?.username || 'Unknown',
+          email: report.reporter?.email || '',
+          profilePicture: report.reporter?.profilePicture,
+        },
+        targetType: report.targetType,
+        targetId: report.targetId,
+        reason: report.reason,
+        description: report.description,
+        status: report.status,
+        createdAt: report.createdAt,
+      }));
 
-      setReports(transformedData);
+      // Apply status filter if needed
+      const filtered = statusFilter && statusFilter !== 'all'
+        ? transformedData.filter(r => r.status === statusFilter)
+        : transformedData;
+
+      setReports(filtered);
     } catch (error) {
       console.error('Failed to fetch reports:', error);
       toast.error('Failed to load reports');
@@ -162,7 +159,7 @@ export function EventReportsDialog({
     if (!reportToResolve) return;
 
     try {
-      await apiFetch(`/report/report/${reportToResolve.id}`, {
+      await apiFetch(`/report/${reportToResolve.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ status: 'resolved' }),
       });
@@ -180,7 +177,7 @@ export function EventReportsDialog({
     if (!reportToReject) return;
 
     try {
-      await apiFetch(`/report/report/${reportToReject.id}`, {
+      await apiFetch(`/report/${reportToReject.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ status: 'rejected' }),
       });
