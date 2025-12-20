@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Heart, MessageCircle, Flag } from 'lucide-react';
@@ -69,7 +70,14 @@ export function PostCard({
                 <AvatarFallback>{getInitials(post.author.name)}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-semibold text-sm">{post.author.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm">{post.author.name}</p>
+                  {post.author.role === 'manager' && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                      Manager
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {formatRelativeTime(post.timestamp)}
                 </p>
