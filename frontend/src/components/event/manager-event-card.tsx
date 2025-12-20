@@ -1,4 +1,5 @@
-import { Calendar, MapPin, Users, MoreVertical, Pencil, Trash2, CheckCircle, UserCog } from 'lucide-react';
+import { useState } from 'react';
+import { Calendar, MapPin, Users, MoreVertical, Pencil, Trash2, CheckCircle, UserCog, FileWarning } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -9,6 +10,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { EventReportsDialog } from '@/components/event/event-reports-dialog';
 import type { Event } from '@/types/event';
 
 interface ManagerEventCardProps {
@@ -28,6 +30,8 @@ export const ManagerEventCard = ({
   onEdit,
   onDelete,
 }: ManagerEventCardProps) => {
+  const [reportsDialogOpen, setReportsDialogOpen] = useState(false);
+
   const getStatusBadge = () => {
     switch (event.managerStatus) {
       case 'active':
@@ -56,6 +60,7 @@ export const ManagerEventCard = ({
   };
 
   return (
+  <>
     <Card className="flex flex-col h-full hover:shadow-lg transition-shadow bg-card" onClick={onClick}>
       <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-muted">
         {event.image ? (
@@ -83,6 +88,10 @@ export const ManagerEventCard = ({
               <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => onManageMembers(event))}>
                 <UserCog className="h-4 w-4 mr-2" />
                 Manage Members
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => setReportsDialogOpen(true))}>
+                <FileWarning className="h-4 w-4 mr-2" />
+                View Reports
               </DropdownMenuItem>
               {event.managerStatus === 'active' && (
                 <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => onMarkCompleted(event))}>
@@ -147,5 +156,13 @@ export const ManagerEventCard = ({
         )}
       </CardContent>
     </Card>
+
+    <EventReportsDialog
+      open={reportsDialogOpen}
+      onOpenChange={setReportsDialogOpen}
+      eventId={event.id}
+      eventTitle={event.title}
+    />
+  </>
   );
 };
