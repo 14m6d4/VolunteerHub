@@ -20,6 +20,9 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
 
   if (opts.body instanceof FormData) {
     delete headers['Content-Type'];
+  } else if (headers['Content-Type'] === 'application/json' && opts.body && typeof opts.body === 'object') {
+    // Auto-stringify JSON body if not already string
+    opts.body = JSON.stringify(opts.body);
   }
 
   if (token) {

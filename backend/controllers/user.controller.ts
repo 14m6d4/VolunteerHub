@@ -247,11 +247,47 @@ export async function reportUser(req: AuthenticatedRequest, res: Response, next:
 
 export async function adminSearchUsersController(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const { q } = req.query;
-    if (!q) return res.status(200).json({ status: 'success', data: [] });
+    const { q, role, status, sortBy, sortOrder, page, limit } = req.query as any;
 
-    const users = await userService.adminSearchUsers(q as string);
-    return res.status(200).json({ status: 'success', data: users });
+    const result = await userService.adminSearchUsers({
+      q: q as string,
+      role: role as string,
+      status: status as string,
+      sortBy: sortBy as string,
+      sortOrder: sortOrder as 'asc' | 'desc',
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 10
+    });
+    return res.status(200).json({ status: 'success', data: result.users, meta: { total: result.total, page: result.page, totalPages: result.totalPages } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createUserController(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = await userService.createUserService(req.body);
+    return res.status(201).json({ status: 'success', data: user });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteUserController(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.params.id;
+    await userService.deleteUserService(userId);
+    return res.status(200).json({ status: 'success', message: 'User deleted' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateUserController(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.params.id;
+    const user = await userService.updateUserAdminService(userId, req.body);
+    return res.status(200).json({ status: 'success', data: user });
   } catch (error) {
     next(error);
   }

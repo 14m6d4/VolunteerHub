@@ -86,9 +86,3 @@ export async function getEventById(eventId: string) {
 export async function getEventPosts(eventId: string) {
     return apiFetch(`/events/${eventId}/posts`);
 }
-
-export async function completeEvent(eventId: string) {
-    return apiFetch(`/events/${eventId}/complete`, {
-        method: "PATCH",
-    });
-}

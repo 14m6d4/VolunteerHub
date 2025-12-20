@@ -523,37 +523,11 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                                 onClick={() => {
                                   onMarkRead?.(n._id);
                                   // Handle navigation based on type
-                                  const { eventId, postId } = n.data || {};
-
-                                  // Event-related notifications
-                                  if (['event_joined', 'event_updated', 'event_cancelled', 'event_kicked',
-                                    'event_approved', 'event_reminder', 'event_completed',
-                                    'event_pending'].includes(n.type)) {
-                                    if (eventId) {
-                                      navigate(`/events/${eventId}`);
-                                    }
-                                  }
-                                  // Registration pending - navigate to user's manage events
-                                  else if (n.type === 'registration_pending') {
-                                    navigate('/manage-events');
-                                  }
-                                  // Post-related notifications  
-                                  else if (n.type === 'post_report') {
-                                    // Navigate to post detail if both IDs available, otherwise to event
-                                    if (eventId && postId) {
-                                      navigate(`/feed/events/${eventId}/posts/${postId}`);
-                                    } else if (eventId) {
-                                      navigate(`/events/${eventId}`);
-                                    } else {
-                                      navigate('/admin/reports');
-                                    }
-                                  }
-                                  // Friend request notifications
-                                  else if (n.type === 'friend_request_received') {
+                                  if (n.data?.url) {
+                                    navigate(n.data.url);
+                                  } else if (n.type === 'friend_request_received') {
                                     navigate('/u?tab=requests');
-                                  }
-                                  // Report notifications
-                                  else if (['event_report', 'user_report'].includes(n.type)) {
+                                  } else if (['event_report', 'user_report', 'post_report'].includes(n.type)) {
                                     navigate('/admin/reports');
                                   }
                                 }}

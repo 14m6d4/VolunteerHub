@@ -39,9 +39,9 @@ export const EventsList = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // Fetch all approved and finished events and user's registrations in parallel
+      // Fetch all approved events and user's registrations in parallel
       const [eventsResponse, registrationsResponse] = await Promise.all([
-        getEvents({ status: 'approved,finished' }),
+        getEvents({ status: 'approved' }),
         getMyRegistrations()
       ]);
 
@@ -51,23 +51,21 @@ export const EventsList = () => {
       // Map registrations to a Map for O(1) lookup with status
       const registrationMap = new Map(registrations.map((r: any) => {
         const eventId = typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id;
-        return [eventId, r.status]; // status should be 'pending', 'approved', 'completed', etc.
+        return [eventId, r.status]; // status should be 'pending', 'approved', etc.
       }));
 
       const mappedEvents: Event[] = backendEvents.map((be: any) => {
         const eventId = be._id || be.id;
         const registrationStatus = registrationMap.get(eventId);
 
-        // Treat both pending, approved and completed as "joined"
+        // Treat both pending and approved as "joined" so they appear in "My Events"
         // But distinguish them via the status field
         const isApproved = registrationStatus === 'approved';
         const isPending = registrationStatus === 'pending';
-        const isCompleted = registrationStatus === 'completed';
-        const isJoined = isApproved || isPending || isCompleted;
+        const isJoined = isApproved || isPending;
 
         const eventDate = new Date(be.startAt || be.date);
-        // Event is past if date is past OR status is finished OR user completed it
-        const isPast = eventDate < new Date() || be.status === 'finished' || isCompleted;
+        const isPast = eventDate < new Date();
 
         let status: Event['status'] = 'available';
         if (isPending) status = 'pending';
@@ -82,7 +80,7 @@ export const EventsList = () => {
             month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true
           }),
           location: be.location || 'TBD',
-          membersCount: be.currentMembers || be.membersCount || 0,
+          membersCount: be.membersCount || 0,
           isJoined,
           isPast,
           status,
@@ -301,9 +299,9 @@ export const EventsList = () => {
       {/* Tabs Section */}
       <Tabs defaultValue="my-events" className="w-full">
         <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
-          <TabsTrigger value="my-events">My Events ({myEvents.length})</TabsTrigger>
-          <TabsTrigger value="discover">Discover ({discoverEvents.length})</TabsTrigger>
-          <TabsTrigger value="past-events">Past Events ({pastEvents.length})</TabsTrigger>
+          <TabsTrigger value="my-events">My Events</TabsTrigger>
+          <TabsTrigger value="discover">Discover</TabsTrigger>
+          <TabsTrigger value="past-events">Past Events</TabsTrigger>
         </TabsList>
 
         {/* My Events Tab */}

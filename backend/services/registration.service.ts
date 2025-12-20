@@ -1,4 +1,5 @@
 import { RegistrationModel, RegistrationStatus } from "../models/Registration.model.ts";
+import User from "../models/User.model.ts";
 import { EventModel } from "../models/Event.model.ts";
 import createHttpError from "http-errors";
 import { Types } from "mongoose";
@@ -20,11 +21,14 @@ export const RegistrationService = {
                 volunteerId,
                 status: RegistrationStatus.PENDING
             });
-            NotificationService.notify(reg.volunteerId, {
+            const volunteer = await User.findById(volunteerId);
+            const volunteerName = volunteer ? (volunteer.name || volunteer.username) : "A volunteer";
+
+            NotificationService.notify(event.managerId.toString(), {
                 type: NotificationType.REGISTRATION_PENDING,
-                title: "Registration Pending",
-                body: `${volunteerId} has registered for event ${event.title}`,
-                data: { eventId: event._id }
+                title: "New Registration Request",
+                body: `${volunteerName} has registered for event "${event.title}"`,
+                data: { eventId: event._id, registrationId: reg._id, url: `/manage-events?manageMembers=${event._id}` }
             });
             return reg;
         } catch (err: any) {
@@ -62,11 +66,11 @@ export const RegistrationService = {
         await reg.save();
         event.currentMembers += 1;
         await event.save();
-        await NotificationService.notify(reg.volunteerId, {
+        await NotificationService.notify(reg.volunteerId.toString(), {
             type: NotificationType.EVENT_JOINED,
             title: "Registration Approved",
             body: `You have join event ${event.title}`,
-            data: { eventId: event._id }
+            data: { eventId: event._id, url: `/events/${event._id}` }
         });
         return reg;
     },
@@ -78,7 +82,7 @@ export const RegistrationService = {
         if (!event) throw createHttpError(404, "Event not found");
         reg.status = RegistrationStatus.REJECTED;
         await reg.save();
-        NotificationService.notify(reg.volunteerId, {
+        NotificationService.notify(reg.volunteerId.toString(), {
             type: NotificationType.EVENT_KICKED,
             title: "Your registration was rejected",
             body: `Your registration for event ${event.title} was rejected`,
@@ -106,20 +110,30 @@ export const RegistrationService = {
     },
 
     async getUserRegistrations(userId: Types.ObjectId) {
-        return RegistrationModel.find({ volunteerId: userId }).populate("eventId");
+        return RegistrationModel.find({
+            volunteerId: userId,
+            status: { $ne: RegistrationStatus.REJECTED }
+        }).populate("eventId");
     },
 
-    async kickMember(eventId: string, volunteerId: Types.ObjectId) {
-        const reg = await RegistrationModel.findOne({ eventId, volunteerId, status: RegistrationStatus.APPROVED });
-        if (!reg) throw createHttpError(404, "Member not found in event");
+    async kickMember(regId: string) {
+        const reg = await RegistrationModel.findById(regId);
+        if (!reg) throw createHttpError(404, "Registration not found");
+
+        // Ensure we only kick approved members (or check logic if you want to kick others too)
+        if (reg.status !== RegistrationStatus.APPROVED) {
+            throw createHttpError(400, "Member is not approved in this event");
+        }
+
         reg.status = RegistrationStatus.REJECTED;
         await reg.save();
-        const event = await EventModel.findById(eventId);
+
+        const event = await EventModel.findById(reg.eventId);
         if (event) {
             event.currentMembers = Math.max(0, event.currentMembers - 1);
             await event.save();
         }
-        await NotificationService.notify(reg.volunteerId, {
+        await NotificationService.notify(reg.volunteerId.toString(), {
             type: NotificationType.EVENT_KICKED,
             title: "You have been removed from the event",
             body: `You have been removed from event ${event?.title}`,

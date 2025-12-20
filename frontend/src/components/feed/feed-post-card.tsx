@@ -21,8 +21,6 @@ interface FeedPostCardProps {
   currentUser: { id: string; name: string; avatarUrl: string };
   onLike: (postId: string) => void;
   onAddComment: (postId: string, content: string) => void;
-  isDetailOpen?: boolean;
-  onDetailOpenChange?: (open: boolean) => void;
 }
 
 export function FeedPostCard({
@@ -32,17 +30,9 @@ export function FeedPostCard({
   currentUser,
   onLike,
   onAddComment,
-  isDetailOpen = false,
-  onDetailOpenChange,
 }: FeedPostCardProps) {
   const [showReportDialog, setShowReportDialog] = useState(false);
-  const [localShowDetailDialog, setLocalShowDetailDialog] = useState(false);
-
-  // Use controlled state if provided, otherwise use local state
-  const showDetailDialog = onDetailOpenChange !== undefined ? isDetailOpen : localShowDetailDialog;
-  const setShowDetailDialog = onDetailOpenChange !== undefined
-    ? onDetailOpenChange
-    : setLocalShowDetailDialog;
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
 
   const handleLike = () => {
     onLike(post.id);
@@ -144,13 +134,13 @@ export function FeedPostCard({
               <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
               <span>{likeCount}</span>
             </button>
-            <Link
-              to={`/feed/events/${post.eventId}/posts/${post.id}`}
+            <button
+              onClick={() => setShowDetailDialog(true)}
               className="flex items-center gap-1 hover:text-primary transition-colors"
             >
               <MessageCircle className="h-4 w-4" />
               <span>{comments.length}</span>
-            </Link>
+            </button>
           </div>
 
           <Separator />
@@ -161,7 +151,7 @@ export function FeedPostCard({
             hasMoreComments={hasMoreComments}
             totalComments={comments.length}
             currentUser={currentUser}
-            viewAllCommentsUrl={`/feed/events/${post.eventId}/posts/${post.id}`}
+            onViewAllComments={() => setShowDetailDialog(true)}
             onAddComment={(content: string) => onAddComment(post.id, content)}
           />
         </CardFooter>
@@ -172,8 +162,6 @@ export function FeedPostCard({
         open={showReportDialog}
         onOpenChange={setShowReportDialog}
         postId={post.id}
-        reporterId={currentUserId}
-        eventId={post.eventId}
       />
 
       {/* Post Detail Dialog */}
@@ -183,7 +171,6 @@ export function FeedPostCard({
         post={postForDialog}
         comments={comments}
         currentUserId={currentUserId}
-        currentUser={currentUser}
         onAddComment={(content: string) => onAddComment(post.id, content)}
         onLike={() => handleLike()}
         isLiked={isLiked}

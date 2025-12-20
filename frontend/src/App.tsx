@@ -79,12 +79,8 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           {/* Thêm các route chính khác cần footer vào đây */}
           <Route path="/feed" element={<FeedPage />} />
-          <Route path="/feed/events/:eventId/posts/:postId" element={<FeedPage />} />
-          <Route path="/events" element={<EventsList />} />
           <Route path="/events" element={<EventsList />} />
           <Route path="/events/:eventId" element={<DiscussionPage />} />
-          <Route path="/events/:eventId/posts/:postId" element={<DiscussionPage />} />
-          <Route path="/manage-events" element={<ManagerEventDashboard />} />
           <Route path="/manage-events" element={<ManagerEventDashboard />} />
           {/* <Route path="/test/events" element={<EventsTest />} /> */}
           <Route path="/u" element={<FriendsPage />} />
@@ -141,6 +137,8 @@ function AppContent() {
   )
 }
 
+import { Toaster } from "@/components/ui/sonner"
+
 function App() {
   return (
 
@@ -149,6 +147,7 @@ function App() {
         <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
           <BrowserRouter>
             <AppContent />
+            <Toaster />
           </BrowserRouter>
         </ThemeProvider>
       </AuthProvider>

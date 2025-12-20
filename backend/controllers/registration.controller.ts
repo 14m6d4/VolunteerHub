@@ -88,10 +88,8 @@ export const RegistrationController = {
 
     async kickFromEvent(req: Request, res: Response, next: NextFunction) {
         try {
-            const eventId = req.params.eventId as string;
-            const volunteerId = req.params.volunteerId as any;
-
-            const result = await RegistrationService.kickMember(eventId, volunteerId);
+            const regId = req.params.regId as string;
+            const result = await RegistrationService.kickMember(regId);
             return res.json({ success: true, data: result });
         } catch (err) {
             next(err);

@@ -25,7 +25,6 @@ export interface Post {
   likes: number;
   likedByMe?: boolean;
   comments: Comment[];
-  eventId?: string;
 }
 
 export interface DiscussionEvent {
