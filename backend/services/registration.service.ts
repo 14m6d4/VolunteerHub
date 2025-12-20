@@ -113,12 +113,19 @@ export const RegistrationService = {
         return RegistrationModel.find({ volunteerId: userId }).populate("eventId");
     },
 
-    async kickMember(eventId: string, volunteerId: Types.ObjectId) {
-        const reg = await RegistrationModel.findOne({ eventId, volunteerId, status: RegistrationStatus.APPROVED });
-        if (!reg) throw createHttpError(404, "Member not found in event");
+    async kickMember(regId: string) {
+        const reg = await RegistrationModel.findById(regId);
+        if (!reg) throw createHttpError(404, "Registration not found");
+
+        // Ensure we only kick approved members (or check logic if you want to kick others too)
+        if (reg.status !== RegistrationStatus.APPROVED) {
+            throw createHttpError(400, "Member is not approved in this event");
+        }
+
         reg.status = RegistrationStatus.REJECTED;
         await reg.save();
-        const event = await EventModel.findById(eventId);
+
+        const event = await EventModel.findById(reg.eventId);
         if (event) {
             event.currentMembers = Math.max(0, event.currentMembers - 1);
             await event.save();
