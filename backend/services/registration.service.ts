@@ -110,7 +110,10 @@ export const RegistrationService = {
     },
 
     async getUserRegistrations(userId: Types.ObjectId) {
-        return RegistrationModel.find({ volunteerId: userId }).populate("eventId");
+        return RegistrationModel.find({
+            volunteerId: userId,
+            status: { $ne: RegistrationStatus.REJECTED }
+        }).populate("eventId");
     },
 
     async kickMember(regId: string) {
