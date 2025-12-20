@@ -104,9 +104,35 @@ export const ReportService = {
 
     // Lấy tất cả báo cáo (dành cho admin page)
     async getAllReports(filter: any = {}) {
-        return ReportModel.find(filter)
+        const reports = await ReportModel.find(filter)
             .populate('reporter', 'username name profilePicture')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Populate target details based on type
+        const populatedReports = await Promise.all(
+            reports.map(async (report: any) => {
+                let targetDetails = null;
+
+                if (report.targetType === ReportTargetType.User) {
+                    const user = await User.findById(report.targetId).select('username name').lean();
+                    targetDetails = user ? { username: user.username, name: user.name } : null;
+                } else if (report.targetType === ReportTargetType.Event) {
+                    const event = await EventModel.findById(report.targetId).select('title').lean();
+                    targetDetails = event ? { title: event.title } : null;
+                } else if (report.targetType === ReportTargetType.Post) {
+                    const post = await PostModel.findById(report.targetId).select('content').lean();
+                    targetDetails = post ? { contentPreview: post.content?.substring(0, 50) } : null;
+                }
+
+                return {
+                    ...report,
+                    targetDetails
+                };
+            })
+        );
+
+        return populatedReports;
     },
 
     // Lấy các báo cáo theo target (Event, Post)

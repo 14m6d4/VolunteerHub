@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { 
-  Search, 
+import {
+  Search,
   X,
   Check,
   Download
@@ -55,7 +55,7 @@ import type { MockReport } from '@/data/admin-mock';
 
 export default function ReportsManagement() {
   // State
-  const [reports, setReports] = useState<MockReport[]>([]);
+  const [reports, setReports] = useState<(MockReport & { targetDetails?: any })[]>([]);
   const [loading, setLoading] = useState(true);
   const [useMockData, setUseMockData] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,7 +80,7 @@ export default function ReportsManagement() {
         qs = `?status=${statusFilter}`;
       }
       const data = await apiFetch(`/report/admin/all${qs}`);
-      
+
       // Transform API data to match our interface
       const transformedData: MockReport[] = (data || []).map((report: any) => ({
         id: report._id,
@@ -94,12 +94,13 @@ export default function ReportsManagement() {
         targetType: report.targetType,
         targetId: report.targetId,
         targetUsername: report.targetType === 'user' ? report.targetId : undefined,
+        targetDetails: report.targetDetails, // Include target details from backend
         reason: report.reason,
         description: report.description,
         status: report.status,
         createdAt: report.createdAt,
       }));
-      
+
       setReports(transformedData);
       setUseMockData(false);
     } catch (error) {
@@ -122,7 +123,7 @@ export default function ReportsManagement() {
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(report => 
+      result = result.filter(report =>
         report.reporter.name.toLowerCase().includes(query) ||
         report.reporter.username.toLowerCase().includes(query) ||
         report.reason.toLowerCase().includes(query)
@@ -152,9 +153,9 @@ export default function ReportsManagement() {
   // Handlers
   const handleResolve = async () => {
     if (!reportToResolve) return;
-    
+
     if (useMockData) {
-      setReports(reports.map(r => 
+      setReports(reports.map(r =>
         r.id === reportToResolve.id ? { ...r, status: 'resolved' as const } : r
       ));
       toast.success('Report resolved successfully');
@@ -170,16 +171,16 @@ export default function ReportsManagement() {
         toast.error('Failed to resolve report');
       }
     }
-    
+
     setReportToResolve(null);
     setResolveDialogOpen(false);
   };
 
   const handleReject = async () => {
     if (!reportToReject) return;
-    
+
     if (useMockData) {
-      setReports(reports.map(r => 
+      setReports(reports.map(r =>
         r.id === reportToReject.id ? { ...r, status: 'rejected' as const } : r
       ));
       toast.success('Report rejected successfully');
@@ -195,7 +196,7 @@ export default function ReportsManagement() {
         toast.error('Failed to reject report');
       }
     }
-    
+
     setReportToReject(null);
     setRejectDialogOpen(false);
   };
@@ -205,10 +206,10 @@ export default function ReportsManagement() {
       ...rest,
       reporter: rest.reporter.username,
     }));
-    
+
     if (format === 'csv') {
       const headers = ['reporter', 'targetType', 'targetId', 'reason', 'description', 'status', 'createdAt'];
-      const rows = dataToExport.map(row => 
+      const rows = dataToExport.map(row =>
         headers.map(h => {
           const val = (row as any)[h];
           return typeof val === 'string' && val.includes(',') ? `"${val}"` : val || '';
@@ -220,7 +221,7 @@ export default function ReportsManagement() {
       const json = JSON.stringify(dataToExport, null, 2);
       downloadFile(json, 'reports.json', 'application/json');
     }
-    
+
     setExportDialogOpen(false);
     toast.success(`Exported as ${format.toUpperCase()}`);
   };
@@ -252,11 +253,37 @@ export default function ReportsManagement() {
 
   const getTargetId = (report: MockReport) => {
     if (report.targetType === 'post') {
-      return report.targetId.length > 12 
-        ? `${report.targetId.substring(0, 12)}...` 
+      return report.targetId.length > 12
+        ? `${report.targetId.substring(0, 12)}...`
         : report.targetId;
     }
     return report.targetUsername || report.targetId;
+  };
+
+  const getTargetDisplay = (report: MockReport & { targetDetails?: any }) => {
+    if (report.targetType === 'user' && report.targetDetails?.username) {
+      return `@${report.targetDetails.username}`;
+    } else if (report.targetType === 'event' && report.targetDetails?.title) {
+      return report.targetDetails.title.length > 30
+        ? `${report.targetDetails.title.substring(0, 30)}...`
+        : report.targetDetails.title;
+    } else if (report.targetType === 'post') {
+      return report.targetId.length > 12
+        ? `${report.targetId.substring(0, 12)}...`
+        : report.targetId;
+    }
+    return report.targetId;
+  };
+
+  const getTargetLink = (report: MockReport & { targetDetails?: any }) => {
+    if (report.targetType === 'user' && report.targetDetails?.username) {
+      return `/u/${report.targetDetails.username}`;
+    } else if (report.targetType === 'event') {
+      return `/events/${report.targetId}`;
+    } else if (report.targetType === 'post') {
+      return `/feed`;
+    }
+    return null;
   };
 
   return (
@@ -357,9 +384,22 @@ export default function ReportsManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                      {getTargetId(report)}
-                    </code>
+                    {getTargetLink(report) ? (
+                      <a
+                        href={getTargetLink(report)!}
+                        className="text-xs bg-muted px-1.5 py-0.5 rounded hover:bg-muted/80 transition-colors inline-block"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.location.href = getTargetLink(report)!;
+                        }}
+                      >
+                        {getTargetDisplay(report)}
+                      </a>
+                    ) : (
+                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                        {getTargetDisplay(report)}
+                      </code>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="max-w-[200px]">
@@ -495,7 +535,7 @@ export default function ReportsManagement() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reject Report</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to reject this report from <strong>{reportToReject?.reporter.name}</strong>? 
+              Are you sure you want to reject this report from <strong>{reportToReject?.reporter.name}</strong>?
               This indicates the report is not valid.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -514,7 +554,7 @@ export default function ReportsManagement() {
           <AlertDialogHeader>
             <AlertDialogTitle>Resolve Report</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to resolve this report from <strong>{reportToResolve?.reporter.name}</strong>? 
+              Are you sure you want to resolve this report from <strong>{reportToResolve?.reporter.name}</strong>?
               This indicates appropriate action has been taken.
             </AlertDialogDescription>
           </AlertDialogHeader>
