@@ -85,7 +85,8 @@ export const ManagerEventDashboard = () => {
         }),
         managerStatus: event.status === 'pending' ? 'pending'
           : event.status === 'approved' ? 'active'
-            : 'completed'
+            : 'completed',
+        membersCount: event.currentMembers || 0
       }));
 
       // In a real app we might only show events created by this manager
