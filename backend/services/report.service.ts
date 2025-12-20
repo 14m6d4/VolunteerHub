@@ -163,7 +163,24 @@ export const ReportService = {
             .sort({ createdAt: -1 });
     },
 
-    // Cập nhật trạng thái của báo cáo (resolved, rejected)
+    // Lấy báo cáo cho một Event cụ thể (dành cho manager)
+    async getReportsForEvent(eventId: string) {
+        // 1. Tìm tất cả Post thuộc Event này
+        const posts = await PostModel.find({ eventId }).select('_id');
+        const postIds = posts.map(p => p._id);
+
+        if (postIds.length === 0) return [];
+
+        // 2. Tìm các Report liên quan đến các Post đó
+        return ReportModel.find({
+            targetType: ReportTargetType.Post,
+            targetId: { $in: postIds }
+        })
+            .populate('reporter', 'username name profilePicture')
+            .sort({ createdAt: -1 });
+    },
+
+    //Cập nhật trạng thái của báo cáo (resolved, rejected)
     async updateReportStatus(reportId: string, status: 'resolved' | 'rejected') {
         const report = await ReportModel.findById(reportId).populate('reporter', 'username');
         if (!report) throw createHttpError(404, "Report not found");
@@ -188,6 +205,17 @@ export const ReportService = {
             });
         } catch (err) {
             console.error("Failed to notify reporter about report status:", err);
+        }
+
+        // If resolving a post report, delete the post
+        if (status === 'resolved' && report.targetType === ReportTargetType.Post) {
+            try {
+                await PostModel.findByIdAndDelete(report.targetId);
+                console.log(`[ReportService] Deleted post ${report.targetId} due to resolved report #${report._id}`);
+            } catch (err) {
+                console.error("Failed to delete post after report resolve:", err);
+                // Continue even if deletion fails - report is still resolved
+            }
         }
 
         // If resolving a user report, ban the user automatically

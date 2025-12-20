@@ -161,7 +161,7 @@ export default function ReportsManagement() {
       toast.success('Report resolved successfully');
     } else {
       try {
-        await apiFetch(`/report/report/${reportToResolve.id}`, {
+        await apiFetch(`/report/${reportToResolve.id}`, {
           method: 'PATCH',
           body: JSON.stringify({ status: 'resolved' })
         });
@@ -186,7 +186,7 @@ export default function ReportsManagement() {
       toast.success('Report rejected successfully');
     } else {
       try {
-        await apiFetch(`/report/report/${reportToReject.id}`, {
+        await apiFetch(`/report/${reportToReject.id}`, {
           method: 'PATCH',
           body: JSON.stringify({ status: 'rejected' })
         });
