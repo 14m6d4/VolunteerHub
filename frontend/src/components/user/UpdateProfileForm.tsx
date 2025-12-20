@@ -19,7 +19,7 @@ interface UpdateProfileFormProps {
 
 export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
   // Note: AuthContext does not expose setUser publicly; we'll reload after save to refresh profile
-  const [preview, setPreview] = useState<string | null>(user.profilePicture || null);
+  const [preview, setPreview] = useState<string | null>(null);
 
   const {
     register,
@@ -34,7 +34,7 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
       name: user.name || '',
       // Ensure date input receives YYYY-MM-DD string
       birthdate: user.birthdate ? (typeof user.birthdate === 'string' ? user.birthdate.split('T')[0] : new Date(user.birthdate).toISOString().split('T')[0]) : '',
-      profilePicture: user.profilePicture || undefined,
+      profilePicture: '',
       notificationsEnabled: user.notificationsEnabled ?? false,
       notifyOnMention: user.notifyOnMention ?? false,
       notifyOnEventUpdate: user.notifyOnEventUpdate ?? false,
@@ -44,13 +44,19 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
 
   const onSubmit = async (data: FormData) => {
     try {
+      // Filter out empty profilePicture so we don't accidentally clear it
+      const payload: any = { ...data };
+      if (!payload.profilePicture) {
+        delete payload.profilePicture;
+      }
+
       // If user signed in via Google, don't send currentPassword
-      if ((user as any).authProvider === 'google' && ('currentPassword' in data)) {
+      if ((user as any).authProvider === 'google' && ('currentPassword' in payload)) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { currentPassword, ...rest } = data as any;
+        const { currentPassword, ...rest } = payload;
         await updateProfile(rest);
       } else {
-        await updateProfile(data);
+        await updateProfile(payload);
       }
 
       alert('Profile updated successfully! Refreshing...');
@@ -114,7 +120,7 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
               reader.onload = () => {
                 const result = reader.result as string;
                 // set into the form
-                try { (setValue ?? ((register as any).setValue))?.('profilePicture', result); } catch {};
+                try { (setValue ?? ((register as any).setValue))?.('profilePicture', result); } catch { };
                 setPreview(result);
               };
               reader.readAsDataURL(file);
