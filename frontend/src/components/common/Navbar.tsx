@@ -527,11 +527,15 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
 
                                   // Event-related notifications
                                   if (['event_joined', 'event_updated', 'event_cancelled', 'event_kicked',
-                                    'event_approved', 'registration_pending', 'event_reminder', 'event_completed',
+                                    'event_approved', 'event_reminder', 'event_completed',
                                     'event_pending'].includes(n.type)) {
                                     if (eventId) {
                                       navigate(`/events/${eventId}`);
                                     }
+                                  }
+                                  // Registration pending - navigate to user's manage events
+                                  else if (n.type === 'registration_pending') {
+                                    navigate('/manage-events');
                                   }
                                   // Post-related notifications  
                                   else if (n.type === 'post_report') {
