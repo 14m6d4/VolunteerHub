@@ -6,6 +6,7 @@ type User = any; // Có thể thay bằng interface IUser nếu bạn có trong 
 
 interface AuthContextType {
   user: User | null;
+  loading: boolean;
   login: (payload: { email?: string; username?: string; password: string }) => Promise<any>;
   logout: () => void;
 }
@@ -14,6 +15,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Fetch profile khi app mount nếu có token
   useEffect(() => {
@@ -21,7 +23,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const init = async () => {
       try {
         const token = localStorage.getItem('accessToken');
-        if (!token) return;
+        if (!token) {
+          setLoading(false);
+          return;
+        }
         console.log('[AuthProvider] Found accessToken on mount, fetching profile...');
         const res = await authService.getProfile();
         if (mounted) {
@@ -39,6 +44,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         console.error('[AuthProvider] Failed to fetch profile on mount:', err);
         // Preserve previous user on transient network errors
         if (!err?.isNetworkError && mounted) setUser(null);
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
     init();
@@ -49,9 +56,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const handleTokenChange = async () => {
       try {
+        setLoading(true);
         const token = localStorage.getItem('accessToken');
         if (!token) {
           setUser(null);
+          setLoading(false);
           return;
         }
         const res = await authService.getProfile();
@@ -66,6 +75,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } catch (err: any) {
         console.error('[AuthProvider] Failed to fetch profile after token change:', err);
         if (!err?.isNetworkError) setUser(null);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -104,7 +115,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,4 @@
-import AdminGuard from "@/components/auth/AdminGuard";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import "./App.css"
 // Theme CSS files are now loaded dynamically by theme-provider
 import { BrowserRouter, Routes, Route, Outlet, useSearchParams, Navigate } from "react-router-dom"
@@ -87,7 +87,7 @@ function AppContent() {
           <Route path="/search" element={<SearchUsersPage />} />
 
           {/* Legacy admin routes */}
-          <Route element={<AdminGuard />}>
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>
@@ -100,7 +100,7 @@ function AppContent() {
           element={
             <>
               <NavBar />
-              <AdminGuard />
+              <ProtectedRoute allowedRoles={['admin']} />
             </>
           }
         >
