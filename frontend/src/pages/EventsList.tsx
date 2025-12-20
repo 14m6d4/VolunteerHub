@@ -82,7 +82,7 @@ export const EventsList = () => {
             month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true
           }),
           location: be.location || 'TBD',
-          membersCount: be.membersCount || 0,
+          membersCount: be.currentMembers || be.membersCount || 0,
           isJoined,
           isPast,
           status,
