@@ -28,7 +28,7 @@ export const RegistrationService = {
                 type: NotificationType.REGISTRATION_PENDING,
                 title: "New Registration Request",
                 body: `${volunteerName} has registered for event "${event.title}"`,
-                data: { eventId: event._id, registrationId: reg._id }
+                data: { eventId: event._id, registrationId: reg._id, url: `/manage-events?manageMembers=${event._id}` }
             });
             return reg;
         } catch (err: any) {
@@ -70,7 +70,7 @@ export const RegistrationService = {
             type: NotificationType.EVENT_JOINED,
             title: "Registration Approved",
             body: `You have join event ${event.title}`,
-            data: { eventId: event._id }
+            data: { eventId: event._id, url: `/events/${event._id}` }
         });
         return reg;
     },

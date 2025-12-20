@@ -523,7 +523,9 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                                 onClick={() => {
                                   onMarkRead?.(n._id);
                                   // Handle navigation based on type
-                                  if (n.type === 'friend_request_received') {
+                                  if (n.data?.url) {
+                                    navigate(n.data.url);
+                                  } else if (n.type === 'friend_request_received') {
                                     navigate('/u?tab=requests');
                                   } else if (['event_report', 'user_report', 'post_report'].includes(n.type)) {
                                     navigate('/admin/reports');

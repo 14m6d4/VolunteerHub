@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -99,9 +99,26 @@ export const ManagerEventDashboard = () => {
     }
   };
 
+  // Deep linking for managing members
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  // Handle deep link to manage members
+  useEffect(() => {
+    const manageEventId = searchParams.get('manageMembers');
+    if (manageEventId && !loading && events.length > 0) {
+      const event = events.find(e => e.id === manageEventId || (e as any)._id === manageEventId);
+      if (event) {
+        // Only open if not already open to avoid potential loops/flickers
+        if (!manageMembersModalOpen) {
+          handleManageMembers(event);
+        }
+      }
+    }
+  }, [events, loading, searchParams]);
 
   // Get all unique tags from events
   const allTags = useMemo(() => {
