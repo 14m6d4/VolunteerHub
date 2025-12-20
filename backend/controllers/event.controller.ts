@@ -20,14 +20,14 @@ export const EventController = {
         try {
             console.log("Creating event with body:", req.body);
             if (req.file) {
-                // Read file from disk
-                const fileBuffer = await fs.promises.readFile(req.file.path);
-                // Upload to ImgBB
-                const imageUrl = await uploadToImgBB(fileBuffer, req.file.filename);
-                // Delete local file
-                await fs.promises.unlink(req.file.path);
+                console.log(`[EventController] Processing file from memory`);
+                // Upload to ImgBB directly from memory buffer
+                const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
+                console.log(`[EventController] ImgBB URL: ${imageUrl}`);
 
                 req.body.image = imageUrl;
+            } else {
+                console.log("[EventController] No file in request");
             }
 
             // managerId from auth middleware
@@ -35,10 +35,6 @@ export const EventController = {
             const event = await EventService.createEvent(req.body, managerId);
             return res.status(201).json({ success: true, data: event });
         } catch (err) {
-            // Cleanup on error if file exists
-            if (req.file && fs.existsSync(req.file.path)) {
-                await fs.promises.unlink(req.file.path).catch(() => { });
-            }
             next(err);
         }
     },
@@ -47,13 +43,8 @@ export const EventController = {
         try {
             const eventId = req.params.id;
             if (req.file) {
-                // Read file from disk
-                const fileBuffer = await fs.promises.readFile(req.file.path);
-                // Upload to ImgBB
-                const imageUrl = await uploadToImgBB(fileBuffer, req.file.filename);
-                // Delete local file
-                await fs.promises.unlink(req.file.path);
-
+                // Upload to ImgBB directly from memory buffer
+                const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
                 req.body.image = imageUrl;
             }
 
@@ -61,10 +52,6 @@ export const EventController = {
             const updated = await EventService.updateEvent(eventId, req.body, (req.user as any)?._id);
             return res.json({ success: true, data: updated });
         } catch (err) {
-            // Cleanup on error if file exists
-            if (req.file && fs.existsSync(req.file.path)) {
-                await fs.promises.unlink(req.file.path).catch(() => { });
-            }
             next(err);
         }
     },
