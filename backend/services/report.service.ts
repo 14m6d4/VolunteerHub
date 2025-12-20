@@ -57,7 +57,7 @@ export const ReportService = {
         if (post.eventId) {
             const event = await EventModel.findById(post.eventId);
             if (event) {
-                NotificationService.notify(event.managerId, {
+                NotificationService.notify(event.managerId.toString(), {
                     type: NotificationType.POST_REPORTED,
                     title: "Post Reported",
                     body: `Post has been reported for the following reason: ${reason}`,
@@ -112,6 +112,29 @@ export const ReportService = {
     // Lấy các báo cáo theo target (Event, Post)
     async getReportsByTarget(targetId: string, targetType: ReportTargetType) {
         return ReportModel.find({ targetId, targetType }).sort({ createdAt: -1 });
+    },
+
+    // Lấy báo cáo cho Manager (chỉ báo cáo về Post thuộc Event mà họ quản lý)
+    async getReportsForManager(managerId: string) {
+        // 1. Tìm tất cả Event mà user là manager
+        const events = await EventModel.find({ managerId }).select('_id');
+        const eventIds = events.map(e => e._id);
+
+        if (eventIds.length === 0) return [];
+
+        // 2. Tìm tất cả Post thuộc các Event đó
+        const posts = await PostModel.find({ eventId: { $in: eventIds } }).select('_id');
+        const postIds = posts.map(p => p._id);
+
+        if (postIds.length === 0) return [];
+
+        // 3. Tìm các Report liên quan đến các Post đó
+        return ReportModel.find({
+            targetType: ReportTargetType.Post,
+            targetId: { $in: postIds }
+        })
+            .populate('reporter', 'username name profilePicture')
+            .sort({ createdAt: -1 });
     },
 
     // Cập nhật trạng thái của báo cáo (resolved, rejected)
