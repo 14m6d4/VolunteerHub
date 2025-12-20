@@ -21,6 +21,7 @@ router.post("/:eventId/pin", authMiddleware, roleMiddleware(["manager", "admin"]
 router.get("/:id/stats", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.stats);
 router.get("/:id/posts", EventController.getPosts);
 router.get("/:id", EventController.getById);
+router.patch("/:id/complete", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.complete);
 
 
 export default router;

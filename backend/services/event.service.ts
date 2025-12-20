@@ -264,5 +264,39 @@ export const EventService = {
             console.log(err);
             throw createHttpError(500, "Failed to delete event");
         }
+    },
+
+    async completeEvent(eventId: string) {
+        const event = await EventModel.findById(eventId);
+        if (!event) throw createHttpError(404, "Event not found");
+
+        // Update event status
+        event.status = EventStatus.FINISHED;
+        await event.save();
+
+        // Update all approved registrations to completed
+        const RegistrationModel = (await import("../models/Registration.model.ts")).RegistrationModel;
+        const RegistrationStatus = (await import("../models/Registration.model.ts")).RegistrationStatus;
+
+        await RegistrationModel.updateMany(
+            { eventId: event._id, status: RegistrationStatus.APPROVED },
+            {
+                status: RegistrationStatus.COMPLETED,
+                completedAt: new Date()
+            }
+        );
+
+        // Notify participants
+        const participants = await RegistrationModel.find({ eventId: event._id, status: RegistrationStatus.COMPLETED });
+        for (const p of participants) {
+            NotificationService.notify(p.volunteerId, {
+                type: NotificationType.EVENT_COMPLETED,
+                title: "Event Completed",
+                body: `Event ${event.title} has been marked as completed. Thank you for your participation!`,
+                data: { eventId }
+            });
+        }
+
+        return event;
     }
 };
