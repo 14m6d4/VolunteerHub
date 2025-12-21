@@ -26,7 +26,6 @@ export async function getAnalytics(req: Request, res: Response) {
         // Ongoing events: status = "approved" AND current time is between startAt and endAt
         const ongoingEvents = await EventModel.find({
             status: EventStatus.APPROVED,
-            startAt: { $lte: now },
             $or: [
                 { endAt: { $gte: now } },
                 { endAt: null }
