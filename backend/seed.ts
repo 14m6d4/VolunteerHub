@@ -1,0 +1,359 @@
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import bcryptjs from "bcryptjs";
+
+// Import Models
+import User from "./models/User.model.ts";
+import { EventModel, EventStatus, EventTags } from "./models/Event.model.ts";
+import { RegistrationModel, RegistrationStatus } from "./models/Registration.model.ts";
+import { PostModel } from "./models/Post.model.ts";
+import { ReportModel, ReportTargetType } from "./models/Report.model.ts";
+import { DiscussionModel } from "./models/Discussion.model.ts";
+import FriendRequestModel from "./models/FriendRequest.model.ts";
+
+dotenv.config();
+
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+    console.error("Please define the MONGO_URI environment variable inside .env");
+    process.exit(1);
+}
+
+// Helpers
+const getRandomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+const getRandomElement = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)];
+const getRandomElements = (arr: any[], count: number) => {
+    const shuffled = [...arr].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
+};
+const getRandomDate = (start: Date, end: Date) => {
+    return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+};
+
+const seed = async () => {
+    try {
+        console.log("Connecting to Database...");
+        await mongoose.connect(MONGO_URI);
+        console.log("Connected to MongoDB!");
+
+        // Clear Database
+        console.log("Clearing existing data...");
+        await Promise.all([
+            User.deleteMany({}),
+            EventModel.deleteMany({}),
+            RegistrationModel.deleteMany({}),
+            PostModel.deleteMany({}),
+            ReportModel.deleteMany({}),
+            DiscussionModel.deleteMany({}),
+            FriendRequestModel.deleteMany({})
+        ]);
+        console.log("Data cleared!");
+
+        // 1. Create Users
+        console.log("Creating Users...");
+        const hashedPassword = await bcryptjs.hash("password123", 12);
+        const now = new Date();
+        const twoYearsAgo = new Date(now.getTime() - 730 * 24 * 60 * 60 * 1000); // 2 years ago for user creation start
+        const oneYearFuture = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+        const adminId = new mongoose.Types.ObjectId();
+        const users: any[] = [
+            {
+                _id: adminId,
+                name: "System Admin",
+                email: "admin@example.com",
+                username: "admin",
+                role: "admin",
+                passwordHash: hashedPassword,
+                birthdate: new Date("1985-01-01"),
+                isVerified: true,
+                isActive: true,
+                authProvider: "local",
+                notificationsEnabled: true,
+                profilePicture: "https://ui-avatars.com/api/?name=Admin&background=random",
+                createdAt: twoYearsAgo, // Admin created long ago
+                updatedAt: twoYearsAgo
+            }
+        ];
+
+        // Create 5 Managers
+        const managerIds: mongoose.Types.ObjectId[] = [];
+        for (let i = 1; i <= 5; i++) {
+            const id = new mongoose.Types.ObjectId();
+            managerIds.push(id);
+            const createdAt = getRandomDate(twoYearsAgo, now);
+            users.push({
+                _id: id,
+                name: `Manager ${i}`,
+                email: `manager${i}@example.com`,
+                username: `manager${i}`,
+                role: "manager",
+                passwordHash: hashedPassword,
+                birthdate: getRandomDate(new Date("1970-01-01"), new Date("1995-12-31")),
+                isVerified: true,
+                isActive: true,
+                authProvider: "local",
+                notificationsEnabled: true,
+                profilePicture: `https://ui-avatars.com/api/?name=Manager+${i}&background=random`,
+                createdAt: createdAt,
+                updatedAt: createdAt // Simplified
+            });
+        }
+
+        // Create 40 Volunteers
+        const volunteerIds: mongoose.Types.ObjectId[] = [];
+        for (let i = 1; i <= 40; i++) {
+            const id = new mongoose.Types.ObjectId();
+            volunteerIds.push(id);
+            const createdAt = getRandomDate(twoYearsAgo, now);
+
+            users.push({
+                _id: id,
+                name: `Volunteer ${i}`,
+                email: `volunteer${i}@example.com`,
+                username: `volunteer${i}`,
+                role: "volunteer",
+                passwordHash: hashedPassword,
+                birthdate: getRandomDate(new Date("1990-01-01"), new Date("2005-12-31")),
+                isVerified: true,
+                isActive: true,
+                authProvider: "local",
+                notificationsEnabled: true,
+                profilePicture: `https://ui-avatars.com/api/?name=Volunteer+${i}&background=random`,
+                createdAt: createdAt,
+                updatedAt: createdAt
+            });
+        }
+
+        await User.insertMany(users);
+        console.log(`${users.length} Users created!`);
+
+        // 2. Create Events (Spread over last 2 years + 1 year future)
+        console.log("Creating Events...");
+        // Re-calculate these date ranges or reuse logic? Reusing twoYearsAgo/oneYearFuture from earlier def is fine if consistent.
+
+        const eventImages = [
+            "https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?auto=format&fit=crop&q=80&w=1000",
+            "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=1000",
+            "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=1000",
+            "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&q=80&w=1000",
+            "https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&q=80&w=1000",
+            "https://images.unsplash.com/photo-1529390003875-5a5048802ee5?auto=format&fit=crop&q=80&w=1000",
+            "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&q=80&w=1000"
+        ];
+
+        const eventTitles = [
+            "Beach Cleanup", "Charity Run", "Food Drive", "Tech Workshop", "Animal Shelter Help",
+            "Tree Planting", "Senior Home Visit", "Art Class for Kids", "Coding Bootcamp", "Recycling Drive",
+            "Disaster Relief Training", "Fundraising Gala", "Community Garden", "Book Drive", "Mentorship Session"
+        ];
+
+        const events: any[] = [];
+        const eventIds: mongoose.Types.ObjectId[] = [];
+
+        for (let i = 0; i < 100; i++) { // Create 100 events
+            const id = new mongoose.Types.ObjectId();
+            eventIds.push(id);
+            const managerId = getRandomElement(managerIds);
+            const startAt = getRandomDate(twoYearsAgo, oneYearFuture);
+            const duration = getRandomInt(2, 48) * 60 * 60 * 1000; // 2 to 48 hours
+            const endAt = new Date(startAt.getTime() + duration);
+
+            // Determine status based on time
+            let status = EventStatus.PENDING;
+            if (endAt < now) {
+                // Past event
+                const rand = Math.random();
+                if (rand > 0.1) status = EventStatus.FINISHED;
+                else if (rand > 0.05) status = EventStatus.CANCELLED;
+                else status = EventStatus.APPROVED; // Rare case: approved but finished without being marked finished?
+            } else {
+                // Future event
+                const rand = Math.random();
+                if (rand > 0.3) status = EventStatus.APPROVED;
+                else if (rand > 0.1) status = EventStatus.PENDING;
+                else if (rand > 0.05) status = EventStatus.DRAFT;
+                else status = EventStatus.CANCELLED;
+            }
+
+            events.push({
+                _id: id,
+                title: `${getRandomElement(eventTitles)} ${getRandomInt(2023, 2026)}`,
+                description: "A wonderful opportunity to give back to the community and meet like-minded individuals.",
+                location: `Location ${getRandomInt(1, 20)}`,
+                startAt,
+                endAt,
+                managerId,
+                status,
+                currentMembers: 0, // Will update calculate later or just mock
+                maxMembers: getRandomInt(10, 50),
+                tags: getRandomElements(EventTags, getRandomInt(1, 3)),
+                image: getRandomElement(eventImages),
+                isPublic: true,
+                createdAt: getRandomDate(twoYearsAgo, startAt),
+                updatedAt: new Date()
+            });
+
+            // Discussion for each event
+            await DiscussionModel.create({ eventId: id });
+        }
+
+        await EventModel.insertMany(events);
+        console.log(`${events.length} Events created!`);
+
+        // 3. Create Registrations
+        console.log("Creating Registrations...");
+        const registrations: any[] = [];
+
+        for (const event of events) {
+            if (event.status === EventStatus.DRAFT) continue;
+
+            // Random number of volunteers to register
+            const attendeesCount = getRandomInt(0, Math.min(event.maxMembers + 5, volunteerIds.length));
+            const attendees = getRandomElements(volunteerIds, attendeesCount);
+
+            let approvedCount = 0;
+            for (const volunteerId of attendees) {
+                let status = RegistrationStatus.PENDING;
+
+                if (event.status === EventStatus.FINISHED) {
+                    const r = Math.random();
+                    if (r > 0.2) status = RegistrationStatus.COMPLETED;
+                    else status = RegistrationStatus.APPROVED; // Joined but not marked completed
+                } else if (event.status === EventStatus.APPROVED) {
+                    const r = Math.random();
+                    if (r > 0.4) status = RegistrationStatus.APPROVED;
+                    else if (r > 0.2) status = RegistrationStatus.PENDING;
+                    else if (r > 0.1) status = RegistrationStatus.REJECTED;
+                    else status = RegistrationStatus.CANCELLED;
+                } else if (event.status === EventStatus.CANCELLED) {
+                    status = RegistrationStatus.CANCELLED;
+                }
+
+                if (status === RegistrationStatus.APPROVED || status === RegistrationStatus.COMPLETED) {
+                    approvedCount++;
+                }
+
+                registrations.push({
+                    eventId: event._id,
+                    volunteerId: volunteerId,
+                    status,
+                    note: Math.random() > 0.7 ? "Excited to join!" : "",
+                    createdAt: getRandomDate(event.createdAt, event.startAt),
+                    completedAt: status === RegistrationStatus.COMPLETED ? event.endAt : null
+                });
+            }
+
+            // Update event member count
+            if (approvedCount > 0) {
+                await EventModel.updateOne({ _id: event._id }, { currentMembers: approvedCount });
+            }
+        }
+
+        await RegistrationModel.insertMany(registrations);
+        console.log(`${registrations.length} Registrations created!`);
+
+        // 4. Create Posts & Reports
+        console.log("Creating Posts & Reports...");
+        const posts: any[] = [];
+        const reports: any[] = [];
+
+        for (const event of events) {
+            // Only add posts to approved/finished events
+            if (event.status !== EventStatus.APPROVED && event.status !== EventStatus.FINISHED) continue;
+
+            const postCount = getRandomInt(0, 5);
+            for (let i = 0; i < postCount; i++) {
+                const authorId = getRandomElement(volunteerIds); // Simplification: any volunteer could post, ideally only members
+                const postId = new mongoose.Types.ObjectId();
+
+                posts.push({
+                    _id: postId,
+                    eventId: event._id,
+                    authorId: authorId,
+                    content: `This is a comment about the event. Random ID: ${getRandomInt(1000, 9999)}`,
+                    pinned: Math.random() > 0.95,
+                    createdAt: getRandomDate(event.createdAt, new Date())
+                });
+
+                // Randomly report some posts
+                if (Math.random() > 0.85) {
+                    const reporterId = getRandomElement(volunteerIds);
+                    reports.push({
+                        reporter: reporterId,
+                        targetId: postId,
+                        targetType: ReportTargetType.Post,
+                        reason: getRandomElement(["Spam", "Harassment", "Hate Speech", "False Information"]),
+                        description: "Automated seed report description.",
+                        status: getRandomElement(["pending", "resolved", "rejected"]),
+                        createdAt: new Date()
+                    });
+                }
+            }
+        }
+
+        await PostModel.insertMany(posts);
+        await ReportModel.insertMany(reports);
+        console.log(`${posts.length} Posts & ${reports.length} Reports created!`);
+
+        // 5. Create Friend Requests
+        console.log("Creating Social Connections...");
+        const friendRequests: any[] = [];
+
+        // Random connections
+        for (let i = 0; i < 200; i++) {
+            const sender = getRandomElement(volunteerIds);
+            const receiver = getRandomElement(volunteerIds);
+            if (sender.equals(receiver)) continue;
+
+            const status = getRandomElement(['pending', 'accepted', 'declined']);
+            const reqCreatedAt = getRandomDate(twoYearsAgo, new Date()); // Random time
+
+            friendRequests.push({
+                sender,
+                receiver,
+                status,
+                createdAt: reqCreatedAt
+            });
+
+            if (status === 'accepted') {
+                await User.findByIdAndUpdate(sender, { $addToSet: { friends: receiver } });
+                await User.findByIdAndUpdate(receiver, { $addToSet: { friends: sender } });
+            }
+        }
+
+        // De-duplicate requests for DB unique index
+        const uniqueRequests = new Map();
+        for (const req of friendRequests) {
+            const key = `${req.sender}-${req.receiver}`;
+            if (!uniqueRequests.has(key)) {
+                uniqueRequests.set(key, req);
+            }
+        }
+
+        await FriendRequestModel.insertMany(Array.from(uniqueRequests.values()));
+        console.log(`${uniqueRequests.size} Friend Requests created!`);
+
+        console.log("-----------------------------------------");
+        console.log("EXTENDED SEEDING COMPLETED 🚀");
+        console.log("-----------------------------------------");
+        console.log(`- Created ${users.length} Users (spread over 2 years)`);
+        console.log(`- Created ${events.length} Events (2 years span)`);
+        console.log(`- Created ${registrations.length} Registrations`);
+        console.log(`- Created ${posts.length} Posts`);
+        console.log(`- Created ${reports.length} Reports`);
+        console.log("-----------------------------------------");
+        console.log("Credentials (Password: password123):");
+        console.log("Admin: admin@example.com");
+        console.log("Managers: manager1@example.com ... manager5@example.com");
+        console.log("Volunteers: volunteer1@example.com ... volunteer40@example.com");
+
+        process.exit(0);
+    } catch (error) {
+        console.error("Seeding failed:", error);
+        process.exit(1);
+    }
+};
+
+seed();
