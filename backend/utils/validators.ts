@@ -101,6 +101,7 @@ export const updateEventSchema = z.object({
 export const secureUpdateProfileSchema = z.object({
   // Current password is optional; server will require it for local accounts
   currentPassword: z.string().min(6, 'Password must be at least 6 characters long').optional(),
+  name: z.string().min(1, 'Name cannot be empty').max(100, 'Name too long').optional(),
   username: z.string()
     .min(3, 'Username must be at least 3 characters')
     .max(50, 'Username must be at most 50 characters')
@@ -117,11 +118,9 @@ export const secureUpdateProfileSchema = z.object({
     z.string().regex(/^data:image\/[a-zA-Z]+;base64,/, 'Invalid image data URL'),
     z.literal('')
   ]).optional(),
+  password: z.string().min(6, 'Password must be at least 6 characters long').optional(),
   notificationsEnabled: z.boolean().optional(),
   notifyOnMention: z.boolean().optional(),
   notifyOnEventUpdate: z.boolean().optional(),
-}).refine(
-  (data) => data.username || data.birthdate || data.profilePicture || data.notificationsEnabled !== undefined || data.notifyOnMention !== undefined || data.notifyOnEventUpdate !== undefined,
-  { message: 'At least one field must be provided for update' }
-);
+});
 

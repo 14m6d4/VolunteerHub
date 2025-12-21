@@ -1,35 +1,22 @@
-import React, { useState } from "react"
+import React from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Camera, Calendar } from "lucide-react"
 import { formatDate } from "@/utils/formatDate"
-
-interface UserProfile {
-  fullname?: string
-  name?: string
-  username?: string
-  avatarUrl?: string
-  profilePicture?: string
-  role?: string
-  createdAt?: string
-}
+import { useAuth } from "@/hooks/useAuth"
 
 export function ProfileHeader(): React.ReactElement {
-  const [profile] = useState<UserProfile | null>(() => {
-    const user = localStorage.getItem('user')
-    if (!user) return null
-    const userData: UserProfile = JSON.parse(user)
-    return userData
-  })
+  const { user } = useAuth()
 
-  const fullname = profile?.fullname || profile?.name || 'Anonymous'
-  const username = profile?.username || ''
-  const avatarUrl = profile?.avatarUrl || profile?.profilePicture
-  const role = profile?.role || 'volunteer'
-  // Use createdAt from profile or fallback to a default date for display
-  const createdAt = profile?.createdAt || new Date().toISOString()
+  if (!user) return <div>Loading...</div>
+
+  const fullname = user.name || user.username || 'Anonymous'
+  const username = user.username || ''
+  const avatarUrl = user.profilePicture
+  const role = user.role || 'volunteer'
+  const createdAt = user.createdAt || new Date().toISOString()
   const initials = (fullname.split(' ').map(s => s[0] || '').join('') || username.slice(0, 2)).toUpperCase()
 
   // Get role badge
@@ -38,7 +25,7 @@ export function ProfileHeader(): React.ReactElement {
       case 'admin':
         return <Badge className="bg-red-500 hover:bg-red-600">Admin</Badge>
       case 'manager':
-        return <Badge className="bg-blue-500 hover:bg-blue-600">Event Manager</Badge>
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Manager</Badge>
       default:
         return <Badge variant="secondary">Volunteer</Badge>
     }
@@ -68,7 +55,7 @@ export function ProfileHeader(): React.ReactElement {
           <div className="space-y-2">
             {/* Line 1: Full Name (Bold) */}
             <h2 className="text-2xl font-bold">{fullname}</h2>
-            
+
             {/* Line 2: @username • Role Badge • Member since Date */}
             <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
               <span>@{username}</span>

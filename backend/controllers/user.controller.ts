@@ -311,3 +311,112 @@ export async function getFriendSuggestions(req: AuthenticatedRequest, res: Respo
     next(error);
   }
 }
+
+/**
+ * Get user profile statistics based on role
+ * GET /api/users/:username/stats
+ */
+export async function getUserStats(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const { username } = req.params;
+    if (!username) throw new AppError('Username parameter required', 400);
+
+    // Find the user
+    const user = await UserModel.findOne({ username: username as string, isActive: true })
+      .select('_id role')
+      .lean();
+
+    if (!user) {
+      throw new AppError('User not found or deactivated', 404);
+    }
+
+    // Block admin profile access
+    if (user.role === UserRole.Admin) {
+      throw new AppError('Access to admin profiles is forbidden', 403);
+    }
+
+    const userId = user._id.toString();
+    const now = new Date();
+
+    let stats: any = {};
+
+    if (user.role === UserRole.Volunteer) {
+      // For volunteers: Count active and completed events they participated in
+      const { EventModel } = await import('../models/Event.model.ts');
+      const { RegistrationModel, RegistrationStatus } = await import('../models/Registration.model.ts');
+      const { EventStatus } = await import('../models/Event.model.ts');
+
+      // Get all approved registrations for this volunteer
+      const registrations = await RegistrationModel.find({
+        volunteerId: userId,
+        status: RegistrationStatus.APPROVED
+      }).select('eventId').lean();
+
+      const eventIds = registrations.map(r => r.eventId);
+
+      if (eventIds.length > 0) {
+        // Count active events (approved and ongoing)
+        const activeEvents = await EventModel.countDocuments({
+          _id: { $in: eventIds },
+          status: EventStatus.APPROVED,
+          startAt: { $lte: now },
+          $or: [
+            { endAt: { $gte: now } },
+            { endAt: null }
+          ]
+        });
+
+        // Count completed events (finished)
+        const completedEvents = await EventModel.countDocuments({
+          _id: { $in: eventIds },
+          status: EventStatus.FINISHED
+        });
+
+        stats = {
+          activeEvents,
+          completedEvents
+        };
+      } else {
+        stats = {
+          activeEvents: 0,
+          completedEvents: 0
+        };
+      }
+    } else if (user.role === UserRole.Manager) {
+      // For managers: Count active events and organized events (completed only)
+      const { EventModel, EventStatus } = await import('../models/Event.model.ts');
+
+      // Count active events managed by this user
+      const activeEvents = await EventModel.countDocuments({
+        managerId: userId,
+        status: EventStatus.APPROVED,
+        startAt: { $lte: now },
+        $or: [
+          { endAt: { $gte: now } },
+          { endAt: null }
+        ]
+      });
+
+      // Count events organized (completed events only)
+      const eventsOrganized = await EventModel.countDocuments({
+        managerId: userId,
+        status: EventStatus.FINISHED
+      });
+
+      stats = {
+        activeEvents,
+        eventsOrganized
+      };
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        role: user.role,
+        stats
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
