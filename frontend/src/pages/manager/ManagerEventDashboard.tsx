@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Search, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,8 @@ import {
   getEventRegistrations,
   approveRegistration,
   rejectRegistration,
-  kickMember
+  kickMember,
+  completeEvent,
 } from '@/services/event.service';
 
 
@@ -85,7 +86,8 @@ export const ManagerEventDashboard = () => {
         }),
         managerStatus: event.status === 'pending' ? 'pending'
           : event.status === 'approved' ? 'active'
-            : 'completed'
+            : 'completed',
+        membersCount: event.currentMembers || 0
       }));
 
       // In a real app we might only show events created by this manager
@@ -99,26 +101,9 @@ export const ManagerEventDashboard = () => {
     }
   };
 
-  // Deep linking for managing members
-  const [searchParams] = useSearchParams();
-
   useEffect(() => {
     fetchEvents();
   }, []);
-
-  // Handle deep link to manage members
-  useEffect(() => {
-    const manageEventId = searchParams.get('manageMembers');
-    if (manageEventId && !loading && events.length > 0) {
-      const event = events.find(e => e.id === manageEventId || (e as any)._id === manageEventId);
-      if (event) {
-        // Only open if not already open to avoid potential loops/flickers
-        if (!manageMembersModalOpen) {
-          handleManageMembers(event);
-        }
-      }
-    }
-  }, [events, loading, searchParams]);
 
   // Get all unique tags from events
   const allTags = useMemo(() => {
@@ -350,14 +335,14 @@ export const ManagerEventDashboard = () => {
 
   const handleMarkCompleted = async (event: Event) => {
     try {
-      // Assuming we update the event status to 'past' or use a managerStatus logic
-      // Currently creating updateEvent
-      await updateEvent(event.id, { managerStatus: 'completed' });
-      toast.success('Event Marked as Completed');
+      await completeEvent(event.id);
+      toast.success('Event Marked as Completed', {
+        description: 'All participants have been notified and marked as completed.',
+      });
       fetchEvents();
     } catch (error) {
       console.error("Failed to mark completed:", error);
-      toast.error("Failed to update event");
+      toast.error("Failed to complete event");
     }
   };
 

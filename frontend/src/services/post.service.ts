@@ -26,6 +26,12 @@ export async function deletePost(postId: string) {
     });
 }
 
+export async function getPostById(postId: string) {
+    return apiFetch(`/posts/${postId}`, {
+        method: "GET",
+    });
+}
+
 // comment
 // comment
 export async function createComment(postId: string, data: any) {
