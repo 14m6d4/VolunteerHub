@@ -458,6 +458,19 @@ export const ManagerEventDashboard = () => {
     setFilters(prev => ({ ...prev, selectedTags: [] }));
   };
 
+  const handleReportAction = (event: Event) => {
+    // Decrement pending reports count when a report is resolved/rejected
+    setEvents(prev => prev.map(ev => {
+      if (ev.id === event.id) {
+        return {
+          ...ev,
+          pendingReportsCount: Math.max(0, (ev.pendingReportsCount || 0) - 1)
+        };
+      }
+      return ev;
+    }));
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header Section */}
@@ -592,6 +605,7 @@ export const ManagerEventDashboard = () => {
                     onMarkCompleted={handleMarkCompleted}
                     onEdit={handleEditEvent}
                     onDelete={handleDeleteEvent}
+                    onReportAction={handleReportAction}
                   />
                 ))}
               </div>
@@ -616,6 +630,7 @@ export const ManagerEventDashboard = () => {
                     onMarkCompleted={handleMarkCompleted}
                     onEdit={handleEditEvent}
                     onDelete={handleDeleteEvent}
+                    onReportAction={handleReportAction}
                   />
                 ))}
               </div>
@@ -640,6 +655,7 @@ export const ManagerEventDashboard = () => {
                     onMarkCompleted={handleMarkCompleted}
                     onEdit={handleEditEvent}
                     onDelete={handleDeleteEvent}
+                    onReportAction={handleReportAction}
                   />
                 ))}
               </div>
