@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { GalleryVerticalEnd, Check } from "lucide-react"
+import { Check } from "lucide-react"
 import illustration from "@/assets/login-illustration.jpg"
+import logoImage from "@/assets/logo.png"
 import { SignupForm } from "@/components/signup-form"
 import { OTPForm } from "@/components/otp-form"
 import * as authService from '@/services/auth.service'
@@ -60,10 +61,8 @@ export default function SignupPage() {
       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex justify-center gap-2 md:justify-start">
           <Link to="/feed" className="flex items-center gap-2 font-medium">
-            <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-              <GalleryVerticalEnd className="size-4" />
-            </div>
-            VolunteerHub
+            <img src={logoImage} alt="VolunteerHub Logo" className="h-10 w-10" />
+            <span className="text-xl font-bold">VolunteerHub</span>
           </Link>
         </div>
         <div className="flex flex-1 items-center justify-center">

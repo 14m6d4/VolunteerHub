@@ -1,5 +1,5 @@
 import { Instagram, Facebook, Twitter, Linkedin,} from "lucide-react"
-// import logoImage from "@/assets/logo.png"
+import logoImage from "@/assets/logo.png"
 
 export default function Footer() {
   const socialLinks = [
@@ -37,11 +37,11 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-12">
                   <div className="md:col-span-2">
                     <div className="flex items-center gap-2 mb-4">
-                      <img src="" alt="VolunteerHub Logo" className="w-8 h-8" />
-                      <span className="font-bold text-foreground">VolunteerHub</span>
+                      <img src={logoImage} alt="VolunteerHub Logo" className="w-10 h-10" />
+                      <span className="font-bold text-xl text-foreground">VolunteerHub</span>
                     </div>
                     <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-                      Placeholder placeholder placeholder placeholder.
+                      Your gateway to making a difference. Join, organize, and manage volunteer activities seamlessly.
                     </p>
                     {/* Social icons */}
             <div className="flex gap-4">
