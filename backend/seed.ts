@@ -10,6 +10,8 @@ import { PostModel } from "./models/Post.model.ts";
 import { ReportModel, ReportTargetType } from "./models/Report.model.ts";
 import { DiscussionModel } from "./models/Discussion.model.ts";
 import FriendRequestModel from "./models/FriendRequest.model.ts";
+import NotificationModel, { NotificationType } from "./models/Notification.model.ts";
+import { CommentModel } from "./models/Comment.model.ts";
 
 dotenv.config();
 
@@ -46,7 +48,9 @@ const seed = async () => {
             PostModel.deleteMany({}),
             ReportModel.deleteMany({}),
             DiscussionModel.deleteMany({}),
-            FriendRequestModel.deleteMany({})
+            FriendRequestModel.deleteMany({}),
+            NotificationModel.deleteMany({}),
+            CommentModel.deleteMany({})
         ]);
         console.log("Data cleared!");
 
@@ -121,6 +125,9 @@ const seed = async () => {
                 authProvider: "local",
                 notificationsEnabled: true,
                 profilePicture: `https://ui-avatars.com/api/?name=Volunteer+${i}&background=random`,
+                bio: `I am Volunteer ${i}, passionate about making a difference in the community.`,
+                skills: getRandomElements(["First Aid", "Teaching", "Coding", "Cooking", "Driving", "Event Planning"], getRandomInt(1, 3)),
+                interests: getRandomElements(["Environment", "Education", "Health", "Animal Welfare", "Arts"], getRandomInt(1, 4)),
                 createdAt: createdAt,
                 updatedAt: createdAt
             });
@@ -139,7 +146,7 @@ const seed = async () => {
             "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=1000",
             "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&q=80&w=1000",
             "https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&q=80&w=1000",
-            "https://images.unsplash.com/photo-1529390003875-5a5048802ee5?auto=format&fit=crop&q=80&w=1000",
+            "https://www.ymca.org/sites/default/files/inline-images/GettyImages-2151854352.jpg",
             "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&q=80&w=1000"
         ];
 
@@ -152,7 +159,62 @@ const seed = async () => {
         const events: any[] = [];
         const eventIds: mongoose.Types.ObjectId[] = [];
 
-        for (let i = 0; i < 100; i++) { // Create 100 events
+        // --- FORCE CREATE ONGOING EVENTS (Active Right Now) ---
+        // Create 5 events that started yesterday and end tomorrow
+        console.log("Creating 5 ONGOING events to ensure Active Volunteer Stats...");
+        for (let k = 0; k < 5; k++) {
+            const id = new mongoose.Types.ObjectId();
+            eventIds.push(id);
+            const managerId = getRandomElement(managerIds);
+
+            events.push({
+                _id: id,
+                title: `ONGOING EVENT ${k + 1}: ${getRandomElement(eventTitles)}`,
+                description: "This event is currently happening! Join us.",
+                location: `Active Location ${k + 1}`,
+                startAt: new Date(now.getTime() - 24 * 60 * 60 * 1000), // Started yesterday
+                endAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),   // Ends tomorrow
+                managerId,
+                status: EventStatus.APPROVED, // Must be approved
+                currentMembers: 0,
+                maxMembers: 50,
+                tags: getRandomElements(EventTags, 2),
+                image: getRandomElement(eventImages),
+                isPublic: true,
+                createdAt: twoYearsAgo,
+                updatedAt: new Date()
+            });
+            await DiscussionModel.create({ eventId: id });
+        }
+
+        // --- FORCE CREATE FUTURE EVENTS (Visible in Discover) ---
+        console.log("Creating 5 FUTURE events to ensure Discovery List is populated...");
+        for (let k = 0; k < 5; k++) {
+            const id = new mongoose.Types.ObjectId();
+            eventIds.push(id);
+            const managerId = getRandomElement(managerIds);
+
+            events.push({
+                _id: id,
+                title: `FUTURE EVENT ${k + 1}: ${getRandomElement(eventTitles)}`,
+                description: "This event is coming soon! Sign up now.",
+                location: `Future Location ${k + 1}`,
+                startAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), // Starts in 7 days
+                endAt: new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000),   // Ends in 8 days
+                managerId,
+                status: EventStatus.APPROVED, // Must be approved
+                currentMembers: 0,
+                maxMembers: 50,
+                tags: getRandomElements(EventTags, 2),
+                image: getRandomElement(eventImages),
+                isPublic: true,
+                createdAt: twoYearsAgo,
+                updatedAt: new Date()
+            });
+            await DiscussionModel.create({ eventId: id });
+        }
+
+        for (let i = 0; i < 90; i++) { // Create 90 random events (Total 100)
             const id = new mongoose.Types.ObjectId();
             eventIds.push(id);
             const managerId = getRandomElement(managerIds);
@@ -200,7 +262,7 @@ const seed = async () => {
         }
 
         await EventModel.insertMany(events);
-        console.log(`${events.length} Events created!`);
+        console.log(`${events.length} Events created (including 5 ongoing)!`);
 
         // 3. Create Registrations
         console.log("Creating Registrations...");
@@ -335,6 +397,113 @@ const seed = async () => {
         await FriendRequestModel.insertMany(Array.from(uniqueRequests.values()));
         console.log(`${uniqueRequests.size} Friend Requests created!`);
 
+        // 6. Create Comments
+        console.log("Creating Comments...");
+        const comments: any[] = [];
+        const allPosts = await PostModel.find({});
+
+        for (const post of allPosts) {
+            const commentCount = getRandomInt(0, 5);
+            for (let i = 0; i < commentCount; i++) {
+                const authorId = getRandomElement(volunteerIds);
+                comments.push({
+                    postId: post._id,
+                    authorId: authorId,
+                    content: getRandomElement([
+                        "Great initiative!", "Can't wait to join.", "This looks amazing.",
+                        "Is there parking available?", "Count me in!", "Thanks for organizing this."
+                    ]),
+                    likes: [],
+                    createdAt: getRandomDate(post.createdAt, new Date()),
+                    updatedAt: new Date()
+                });
+            }
+        }
+        await CommentModel.insertMany(comments);
+        console.log(`${comments.length} Comments created!`);
+
+        // 7. Create Notifications
+        console.log("Creating Notifications...");
+        const notifications: any[] = [];
+
+        // Friend Request Notifications
+        for (const req of Array.from(uniqueRequests.values())) {
+            // "Sender sent request to Receiver" -> Notify Receiver
+            if (req.status === 'pending') {
+                notifications.push({
+                    user: req.receiver,
+                    actor: req.sender,
+                    type: NotificationType.FRIEND_REQUEST_RECEIVED,
+                    title: "New Friend Request",
+                    body: "sent you a friend request.", // Actor name will be prepended by UI usually, or we can fetch name
+                    isRead: Math.random() > 0.7,
+                    createdAt: req.createdAt,
+                    updatedAt: req.createdAt
+                });
+            } else if (req.status === 'accepted') {
+                notifications.push({
+                    user: req.sender,
+                    actor: req.receiver, // Receiver accepted
+                    type: NotificationType.FRIEND_REQUEST_ACCEPTED,
+                    title: "Friend Request Accepted",
+                    body: "accepted your friend request.",
+                    isRead: Math.random() > 0.5,
+                    createdAt: new Date(req.createdAt.getTime() + 1000 * 60 * 60), // Accepted 1h later
+                    updatedAt: new Date(req.createdAt.getTime() + 1000 * 60 * 60)
+                });
+            }
+        }
+
+        // Event Notifications (simulated)
+        for (let i = 0; i < 50; i++) {
+            const user = getRandomElement(volunteerIds);
+            const event = getRandomElement(events);
+            notifications.push({
+                user: user,
+                type: NotificationType.EVENT_REMINDER,
+                title: "Event Reminder",
+                body: `Don't forget about upcoming event: ${event.title}`,
+                data: { eventId: event._id },
+                isRead: Math.random() > 0.8,
+                createdAt: getRandomDate(twoYearsAgo, new Date()),
+                updatedAt: new Date()
+            });
+        }
+        await NotificationModel.insertMany(notifications);
+        console.log(`${notifications.length} Notifications created!`);
+
+        // 8. Additional Reports (User & Event)
+        console.log("Creating User & Event Reports...");
+        const extraReports: any[] = [];
+
+        // Report Users (Impersonation, etc.)
+        for (let i = 0; i < 10; i++) {
+            extraReports.push({
+                reporter: getRandomElement(volunteerIds),
+                targetId: getRandomElement(volunteerIds),
+                targetType: ReportTargetType.User,
+                reason: getRandomElement(["Impersonation", "Harassment", "Fake Profile"]),
+                description: "This user seems suspicious.",
+                status: getRandomElement(["pending", "resolved", "rejected"]),
+                createdAt: getRandomDate(twoYearsAgo, new Date())
+            });
+        }
+
+        // Report Events (Spam, Fraud)
+        for (let i = 0; i < 5; i++) {
+            extraReports.push({
+                reporter: getRandomElement(volunteerIds),
+                targetId: getRandomElement(eventIds),
+                targetType: ReportTargetType.Event,
+                reason: getRandomElement(["Spam", "Fraud", "Inappropriate Content"]),
+                description: "This event violates guidelines.",
+                status: "pending",
+                createdAt: getRandomDate(twoYearsAgo, new Date())
+            });
+        }
+        await ReportModel.insertMany(extraReports);
+        console.log(`${extraReports.length} Extra Reports created!`);
+
         console.log("-----------------------------------------");
         console.log("EXTENDED SEEDING COMPLETED 🚀");
         console.log("-----------------------------------------");
@@ -342,7 +511,9 @@ const seed = async () => {
         console.log(`- Created ${events.length} Events (2 years span)`);
         console.log(`- Created ${registrations.length} Registrations`);
         console.log(`- Created ${posts.length} Posts`);
-        console.log(`- Created ${reports.length} Reports`);
+        console.log(`- Created ${comments.length} Comments`);
+        console.log(`- Created ${reports.length + extraReports.length} Reports`);
+        console.log(`- Created ${notifications.length} Notifications`);
         console.log("-----------------------------------------");
         console.log("Credentials (Password: password123):");
         console.log("Admin: admin@example.com");

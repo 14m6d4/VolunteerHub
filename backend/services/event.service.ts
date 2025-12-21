@@ -150,7 +150,7 @@ export const EventService = {
         }
 
         const [items, total] = await Promise.all([
-            EventModel.find(query).sort({ startAt: 1 }).skip(skip).limit(limit),
+            EventModel.find(query).sort({ startAt: -1 }).skip(skip).limit(limit),
             EventModel.countDocuments(query)
         ]);
 
