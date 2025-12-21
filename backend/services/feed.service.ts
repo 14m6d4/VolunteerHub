@@ -93,7 +93,7 @@ export const FeedService = {
                     .lean();
             }
 
-            const WINDOWS = [1, 2];
+            const WINDOWS = [1, 2, 3];
             const nowTime = Date.now();
 
             const allEventIds = [
@@ -194,7 +194,7 @@ export const FeedService = {
 
                     const recentPosts = postsForEvent.filter(p => p.createdAt >= windowCutoff).length;
                     if (recentPosts > 0) {
-                        features.push({ type: 'active_community', count: recentPosts, days, score: (recentPosts / days) * 18 });
+                        features.push({ type: 'active_community', count: recentPosts, days, score: (recentPosts / days) * 40 });
                     }
 
                     const ePostIds = new Set(postsForEvent.map(p => p._id.toString()));
@@ -202,7 +202,7 @@ export const FeedService = {
                         ePostIds.has(c.postId.toString()) && c.createdAt >= windowCutoff
                     ).length;
                     if (comments > 0) {
-                        features.push({ type: 'hot_discussion', count: comments, days, score: (comments / days) * 6 });
+                        features.push({ type: 'hot_discussion', count: comments, days, score: (comments / days) * 12 });
                     }
                 }
 
