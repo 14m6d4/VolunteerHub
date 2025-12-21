@@ -5,11 +5,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FeedPostCard, TrendingEventCard, EventShortcuts, FriendSuggestions } from '@/components/feed';
 import { useAuth } from '@/context/AuthContext';
 import { getFeed, likePost } from '@/services/feed.service';
-import { getEvents, getMyRegistrations } from '@/services/event.service';
+import { getMyRegistrations } from '@/services/event.service';
 import { getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
 import { createComment, deletePost, deleteComment } from '@/services/post.service';
 import type { FeedPostWithUser, TrendingEvent, FriendSuggestion, EventShortcut } from '@/types/feed';
 import { toast } from 'sonner';
+import { formatEventDate } from '@/utils/formatDate';
 
 // Feed item type for mixed content
 type FeedItem =
@@ -95,7 +96,7 @@ export default function FeedPage() {
                 id: e._id,
                 title: e.title,
                 image: e.image,
-                date: new Date(e.startAt).toLocaleDateString(),
+                date: formatEventDate(e.startAt),
                 location: e.location,
                 membersCount: e.currentMembers || 0,
                 tags: e.tags || [],

@@ -420,16 +420,23 @@ export default function AnalyticsDashboard() {
             <ChartContainer config={reportsConfig} className="h-[300px] w-full">
               <BarChart
                 data={data.reportsDistribution}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                layout="vertical"
+                margin={{ top: 10, right: 30, left: 80, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="type" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={true} vertical={false} />
+                <XAxis type="number" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis
+                  type="category"
+                  dataKey="type"
+                  className="text-xs"
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  width={70}
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar
                   dataKey="count"
                   fill="hsl(var(--chart-5))"
-                  radius={[4, 4, 0, 0]}
+                  radius={[0, 4, 4, 0]}
                 >
                   {data.reportsDistribution.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

@@ -23,6 +23,7 @@ import { EventDetailModal } from '@/components/event/event-detail';
 import type { Event, EventFilters } from '@/types/event';
 import { getEvents, getMyRegistrations, unregisterEvent, registerEvent } from '@/services/event.service';
 import { useAuth } from '@/context/AuthContext';
+import { formatEventDate } from '@/utils/formatDate';
 
 export const EventsList = () => {
   const { user } = useAuth();
@@ -80,9 +81,7 @@ export const EventsList = () => {
           id: eventId,
           title: be.title,
           image: be.image || 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=400&fit=crop', // Fallback image
-          date: new Date(be.startAt || be.date).toLocaleString('en-US', {
-            month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true
-          }),
+          date: formatEventDate(be.startAt || be.date),
           location: be.location || 'TBD',
           membersCount: be.currentMembers || be.membersCount || 0,
           isJoined,
