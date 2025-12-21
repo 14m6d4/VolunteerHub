@@ -22,8 +22,10 @@ import { EventCard } from '@/components/event/event-card';
 import { EventDetailModal } from '@/components/event/event-detail';
 import type { Event, EventFilters } from '@/types/event';
 import { getEvents, getMyRegistrations, unregisterEvent, registerEvent } from '@/services/event.service';
+import { useAuth } from '@/context/AuthContext';
 
 export const EventsList = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [filters, setFilters] = useState<EventFilters>({
     searchQuery: '',
@@ -42,11 +44,11 @@ export const EventsList = () => {
       // Fetch all approved and finished events and user's registrations in parallel
       const [eventsResponse, registrationsResponse] = await Promise.all([
         getEvents({ status: 'approved,finished' }),
-        getMyRegistrations()
+        user ? getMyRegistrations() : Promise.resolve({ data: [] })
       ]);
 
       const backendEvents = eventsResponse.items || [];
-      const registrations = registrationsResponse.data || registrationsResponse.items || [];
+      const registrations = registrationsResponse?.data || registrationsResponse?.items || [];
 
       // Map registrations to a Map for O(1) lookup with status
       const registrationMap = new Map(registrations.map((r: any) => {
@@ -167,6 +169,10 @@ export const EventsList = () => {
   };
 
   const handleJoinEvent = async (event: Event) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     try {
       await registerEvent(event.id);
       toast.success('Request Sent', {
@@ -299,7 +305,7 @@ export const EventsList = () => {
       </div>
 
       {/* Tabs Section */}
-      <Tabs defaultValue="my-events" className="w-full">
+      <Tabs defaultValue={user ? "my-events" : "discover"} className="w-full">
         <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
           <TabsTrigger value="my-events">My Events ({myEvents.length})</TabsTrigger>
           <TabsTrigger value="discover">Discover ({discoverEvents.length})</TabsTrigger>
