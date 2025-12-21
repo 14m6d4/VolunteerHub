@@ -13,6 +13,7 @@ export interface Event {
   title: string;
   image: string;
   date: string;
+  startAt: string;
   location: string;
   membersCount: number;
   isJoined: boolean;

@@ -3,31 +3,46 @@ import { PostModel } from "../models/Post.model.ts";
 import { FeedType } from "../models/Feed.model.ts";
 import { RegistrationModel } from "../models/Registration.model.ts";
 import { EventModel } from "../models/Event.model.ts";
+import UserModel from "../models/User.model.ts";
 
-function calculateScore(feed, data, user) {
-    let score = 0;
+function calculateScore(feed, data, user, friendCount = 0) {
     const now = Date.now();
+    const ageHours = (now - new Date(feed.createdAt).getTime()) / 3600000;
 
-    if (feed.type === FeedType.POST) {
-        // Base score for posts
-        score += 10;
-
-        // Freshness
-        const hours = (now - new Date(feed.createdAt).getTime()) / 3600000;
-        score += Math.max(0, 20 - hours);
-
-        // Engagement
-        score += (data.likes?.length || 0) * 1.5;
-    } else if (feed.type === 'trending') {
-        // Score for trending events
-        // Base score lower than fresh posts to let them intersperse
-        score += 5;
-        // Boost by member count (popularity)
-        score += (data.currentMembers || 0) * 0.5;
-        // Boost slightly if starting soon?
+    let recencyScore = 0;
+    if (ageHours < 6) {
+        recencyScore = 30;
+    } else if (ageHours < 24) {
+        recencyScore = 20 + (10 * (1 - (ageHours - 6) / 18));
+    } else if (ageHours < 72) {
+        recencyScore = 10 + (10 * (1 - (ageHours - 24) / 48));
+    } else {
+        recencyScore = Math.max(0, 10 - Math.log(ageHours - 72 + 1));
     }
 
-    return score;
+    let engagementScore = 0;
+    let typeBonus = 0;
+
+    if (feed.type === FeedType.POST) {
+        const likesScore = Math.min(25, (data.likes?.length || 0) * 2.5);
+        const commentsScore = Math.min(25, (data.commentCount || 0) * 3);
+        engagementScore = likesScore + commentsScore;
+
+        typeBonus = 20;
+    } else if (feed.type === 'trending') {
+        const membersScore = Math.min(25, (data.currentMembers || 0) * 0.5);
+        const activityScore = Math.min(25, (data.postCount || 0) * 2);
+        engagementScore = membersScore + activityScore;
+        typeBonus = 10;
+    }
+
+    // Social score based on friend count in the event
+    // Each friend in the event adds significant  value (up to 30 points for 6+ friends)
+    const socialScore = Math.min(30, friendCount * 5);
+
+    const totalScore = recencyScore + engagementScore + typeBonus + socialScore;
+    console.log(totalScore);
+    return totalScore;
 }
 
 export const FeedService = {
@@ -36,95 +51,91 @@ export const FeedService = {
             const skip = (page - 1) * limit;
             let postQuery: any = {};
             let eventQuery: any = { status: "approved" };
-
-            // Logic to identify joined events (for filtering posts AND excluding detailed events)
             let joinedEventIds: any[] = [];
+            let userFriendsIds: any[] = [];
 
             if (user) {
+                // Fetch user's friends
+                const userData = await UserModel.findById(user._id).select('friends').lean();
+                userFriendsIds = userData?.friends || [];
+
                 const joinedRegs = await RegistrationModel.find({
                     volunteerId: user._id,
                     status: { $in: ["approved", "completed"] },
                 }).select("eventId");
                 joinedEventIds = joinedRegs.map(r => r.eventId);
 
-                // 1. Posts: Only from joined events
                 postQuery = { eventId: { $in: joinedEventIds } };
 
-                // 2. Events: Only UNJOINED events (Recommendations)
                 eventQuery._id = { $nin: joinedEventIds };
             } else {
-                // Formatting for guests
                 postQuery = { isPublic: true };
-                // Events: All public approved events
                 eventQuery.isPublic = true;
             }
 
-            // A. Fetch Posts
             const postsPromise = PostModel.find(postQuery)
                 .sort({ createdAt: -1 })
-                .limit(limit) // Optimization: fetch 'limit' items of each type then mix? Or fetch more? 
-                // Using 'limit' for each might over-fetch, but safe for mixing.
-                // Should offset by skip? Mixing distinct streams with pagination is complex.
-                // Simple approach: Fetch enough of both, mix, sort, then slice.
-                // Ideally we shouldn't fetch ALL posts.
-                // Let's rely on createdAt sort for posts and mix independent of deep pagination for now?
-                // Actually, standard "feed" mixing usually pulls top N from each source.
-                .skip(skip) // This assumes pure post pagination, merging with events later might mess up page continuity, but acceptable for dynamic feed.
+                .limit(limit)
+                .skip(skip)
                 .populate("authorId", "username name profilePicture role")
                 .populate("eventId", "title image")
                 .lean();
-
-            // B. Fetch Trending Events (Recommendations)
-            // We want these to sprinkle in. Let's fetch top 5-10 per page request?
             const eventsPromise = EventModel.find(eventQuery)
                 .sort({ currentMembers: -1, createdAt: -1 })
-                .limit(5) // Limit trending injection
+                .limit(5)
                 .lean();
 
             const [posts, events] = await Promise.all([postsPromise, eventsPromise]);
 
-            // Enrich posts with comments
+            // Helper function to count friends in an event
+            const countFriendsInEvent = async (eventId: any) => {
+                if (userFriendsIds.length === 0) return 0;
+                const count = await RegistrationModel.countDocuments({
+                    eventId,
+                    volunteerId: { $in: userFriendsIds },
+                    status: { $in: ["approved", "completed"] }
+                });
+                return count;
+            };
+
             const postsWithComments = await Promise.all(posts.map(async (p: any) => {
                 const comments = await (await import("../models/Comment.model.ts")).CommentModel.find({ postId: p._id })
                     .sort({ createdAt: -1 })
                     .limit(2)
-                    .populate("authorId", "name profilePicture");
+                    .populate("authorId", "name username profilePicture");
 
                 const commentCount = await (await import("../models/Comment.model.ts")).CommentModel.countDocuments({ postId: p._id });
+                const friendCount = await countFriendsInEvent(p.eventId._id || p.eventId);
 
-                return { ...p, comments, commentCount };
+                return { ...p, comments, commentCount, friendCount };
             }));
 
-            // Create Feed Items
             const postItems = postsWithComments.map(p => ({
                 type: "post",
                 data: p,
-                createdAt: p.createdAt
+                createdAt: p.createdAt,
+                friendCount: p.friendCount
             }));
 
-            const eventItems = events.map(e => ({
+            const eventsWithActivity = await Promise.all(events.map(async (e: any) => {
+                const postCount = await PostModel.countDocuments({ eventId: e._id });
+                const friendCount = await countFriendsInEvent(e._id);
+                return { ...e, postCount, friendCount };
+            }));
+
+            const eventItems = eventsWithActivity.map(e => ({
                 type: "trending",
                 data: e,
-                createdAt: e.createdAt
+                createdAt: e.createdAt,
+                friendCount: e.friendCount
             }));
 
-            // Mix and Sort
             let combinedFeed = [...postItems, ...eventItems]
                 .map(item => ({
                     ...item,
-                    score: calculateScore(item, item.data, user),
+                    score: calculateScore(item, item.data, user, item.friendCount),
                 }))
                 .sort((a, b) => b.score - a.score);
-
-            // Since we applied skip/limit to database queries separately, 
-            // the combined results might exceed limit slightly or vary.
-            // But usually we want to return exactly 'limit' items.
-            // AND we already skipped 'posts'.
-            // If we fetch 20 posts (page 2) and 5 events, we have 25 items.
-            // We just return them? Or slice?
-            // If we slice, we might lose posts that should have been on this page.
-            // The user just wants "recommendations". 
-            // Let's just return the combined list (up to limit + 5 is fine).
 
             return combinedFeed;
         } catch (error) {

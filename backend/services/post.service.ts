@@ -35,7 +35,7 @@ export const PostService = {
 
     async getPostsByDiscussion(discussionId: string) {
         const posts = await PostModel.find({ discussionId })
-            .populate('authorId', 'name username image') // Populate author details
+            .populate('authorId', 'name username profilePicture') // Populate author details
             .populate({
                 path: 'likes',
                 select: 'name username'
@@ -47,7 +47,7 @@ export const PostService = {
 
     async getPostsByEvent(eventId: string) {
         const posts = await PostModel.find({ eventId })
-            .populate('authorId', 'name username image email role') // Populate author details
+            .populate('authorId', 'name username profilePicture email role') // Populate author details
             .populate({
                 path: 'likes',
                 select: 'name username'
@@ -105,7 +105,7 @@ export const PostService = {
     async getPostById(postId: string) {
         console.log("Fetching post by ID:", postId);
         const post = await PostModel.findById(postId)
-            .populate('authorId', 'name username image')
+            .populate('authorId', 'name username profilePicture')
             .populate({
                 path: 'likes',
                 select: 'name username'

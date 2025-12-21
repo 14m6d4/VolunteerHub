@@ -1,6 +1,7 @@
 // frontend/src/components/discussion/post-detail-dialog.tsx
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export function PostDetailDialog({
   isLiked: initialIsLiked,
   likeCount: initialLikeCount,
 }: PostDetailDialogProps) {
+  const navigate = useNavigate();
   const [newComment, setNewComment] = useState('');
   const [fetchedPost, setFetchedPost] = useState<PostWithUser | null>(null);
   const [fetchedComments, setFetchedComments] = useState<CommentWithUser[]>([]);
@@ -73,7 +75,8 @@ export function PostDetailDialog({
           author: {
             id: postData.authorId._id,
             name: postData.authorId.name,
-            avatarUrl: postData.authorId.image,
+            username: postData.authorId.username,
+            avatarUrl: postData.authorId.profilePicture || postData.authorId.image,
             role: postData.authorId.role || 'volunteer'
           }
         };
@@ -89,7 +92,8 @@ export function PostDetailDialog({
           author: {
             id: c.authorId._id,
             name: c.authorId.name,
-            avatarUrl: c.authorId.profilePicture || c.authorId.image, // Check this field from backend
+            username: c.authorId.username,
+            avatarUrl: c.authorId.profilePicture || c.authorId.image,
             role: c.authorId.role || 'volunteer'
           }
         })) : [];
@@ -136,7 +140,15 @@ export function PostDetailDialog({
               <AvatarFallback>{getInitials(displayPost.author.name)}</AvatarFallback>
             </Avatar>
             <div>
-              <DialogTitle className="text-base font-semibold">{displayPost.author.name}</DialogTitle>
+              <DialogTitle
+                className="text-base font-semibold cursor-pointer hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/u/${(displayPost.author as any).username || displayPost.author.id}`);
+                }}
+              >
+                {displayPost.author.name}
+              </DialogTitle>
               <p className="text-xs text-muted-foreground">
                 {formatRelativeTime(displayPost.timestamp)}
               </p>
@@ -203,7 +215,13 @@ export function PostDetailDialog({
                       </Avatar>
                       <div className="flex-1 bg-muted/50 rounded-lg px-3 py-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">
+                          <span
+                            className="text-sm font-semibold cursor-pointer hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/u/${(comment.author as any).username || comment.author.id}`);
+                            }}
+                          >
                             {comment.author.name}
                           </span>
                           <span className="text-xs text-muted-foreground">

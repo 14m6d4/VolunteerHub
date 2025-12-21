@@ -98,7 +98,7 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
           {/* User Info */}
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarImage src={user.profilePicture} alt={user.name} />
               <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
             </Avatar>
             <div>
