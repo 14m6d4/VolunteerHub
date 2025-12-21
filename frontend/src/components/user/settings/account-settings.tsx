@@ -1,113 +1,146 @@
-import {Button} from "@/components/ui/button"
-import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card"
-import {Input} from "@/components/ui/input"
-import {Label} from "@/components/ui/label"
-import {Separator} from "@/components/ui/separator"
-import React, {useState} from 'react'
-
-// import { fetchUserProfile, updateUserProfile, changeUserPassword } from '@/lib/api'
-
-
-interface UserProfileData {
-  fullname?: string
-  name?: string
-  email?: string
-}
-
-interface MessageState {
-  text: string
-  type: 'success' | 'error'
-}
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import React, { useState } from 'react'
+import { useAuth } from '@/hooks/useAuth'
+import { updateProfile } from '@/services/user.service'
+import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 export function AccountSettings(): React.ReactElement {
-  const [fullname, setFullname] = useState(() => {
-    const user = localStorage.getItem('user')
-    if (!user) return ''
-    const userData: UserProfileData = JSON.parse(user)
-    return userData.fullname || userData.name || ''
-  })
+  const { user } = useAuth()
+  const navigate = useNavigate()
 
-  const [username, setUsername] = useState(() => {
-    const user = localStorage.getItem('user')
-    if (!user) return ''
-    const userData: UserProfileData = JSON.parse(user)
-    return userData.email || ''
-  })
+  const [fullname, setFullname] = useState(user?.name || '')
+  const [username] = useState(user?.email || '')
   const [currentPassword, setCurrentPassword] = useState<string>('')
   const [newPassword, setNewPassword] = useState<string>('')
   const [confirmPassword, setConfirmPassword] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
-  const [message, setMessage] = useState<string | null>(null)
 
-  // const onSaveProfile = async (): Promise<void> => {
-  //   const token = localStorage.getItem('token')
-  //   if (!token) return setMessage('Please sign in')
-  //   setLoading(true)
-  //   try {
-  //     await updateUserProfile(token, { fullname, username })
-  //     setMessage('Profile updated')
-  //   } catch (err) {
-  //     setMessage((err as Error).message || 'Update failed')
-  //   } finally { setLoading(false) }
-  // }
+  if (!user) return <div>Loading...</div>
 
-  // const onChangePassword = async (): Promise<void> => {
-  //   if (newPassword !== confirmPassword) return setMessage('New passwords do not match')
-  //   const token = localStorage.getItem('token')
-  //   if (!token) return setMessage('Please sign in')
-  //   setLoading(true)
-  //   try {
-  //     await changeUserPassword(token, currentPassword, newPassword)
-  //     setMessage('Password changed')
-  //     setCurrentPassword('')
-  //     setNewPassword('')
-  //     setConfirmPassword('')
-  //   } catch (err) {
-  //     setMessage((err as Error).message || 'Password change failed')
-  //   } finally { setLoading(false) }
-  // }
+  const onSaveProfile = async (): Promise<void> => {
+    if (!currentPassword) {
+      toast.error('Please enter your current password')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await updateProfile({
+        name: fullname,
+        currentPassword
+      })
+
+      // Update localStorage with new user data
+      if (response.user) {
+        localStorage.setItem('user', JSON.stringify(response.user))
+        // Trigger storage event to update AuthContext
+        window.dispatchEvent(new Event('storage'))
+      }
+
+      toast.success('Profile updated')
+      setCurrentPassword('')
+      // Just stay on the page, no need to navigate
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Update failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const onChangePassword = async (): Promise<void> => {
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+    if (!currentPassword) {
+      toast.error('Please enter your current password')
+      return
+    }
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+
+    setLoading(true)
+    try {
+      await updateProfile({
+        password: newPassword,
+        currentPassword
+      })
+      toast.success('Password changed')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Password change failed')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Account Settings</CardTitle>
-          <CardDescription>Update your account information and email preferences.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input id="name" value={fullname} onChange={e => setFullname(e.target.value)}/>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" value={username} onChange={e => setUsername(e.target.value)}/>
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Account Settings</CardTitle>
+        <CardDescription>Update your account information and email preferences.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input id="name" value={fullname} onChange={e => setFullname(e.target.value)} />
           </div>
-          <Separator/>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="current-password">Current Password</Label>
-              <Input id="current-password" type="password" value={currentPassword}
-                     onChange={e => setCurrentPassword(e.target.value)}/>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
-              <Input id="new-password" type="password" value={newPassword}
-                     onChange={e => setNewPassword(e.target.value)}/>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input id="confirm-password" type="password" value={confirmPassword}
-                     onChange={e => setConfirmPassword(e.target.value)}/>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="username">Email</Label>
+            <Input id="username" value={username} disabled className="bg-muted" />
+            <p className="text-xs text-muted-foreground">Email cannot be changed</p>
           </div>
-          {message && <div style={{color: 'red'}}>{message}</div>}
-        </CardContent>
-        <CardFooter className="flex justify-start gap-2">
-          <Button disabled={loading}>Save Changes</Button>
-        </CardFooter>
+          <div className="space-y-2">
+            <Label htmlFor="current-pass-profile">Current Password (required to save)</Label>
+            <Input
+              id="current-pass-profile"
+              type="password"
+              value={currentPassword}
+              onChange={e => setCurrentPassword(e.target.value)}
+              placeholder="Enter your current password"
+            />
+          </div>
+        </div>
+        <Separator />
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Change Password</h3>
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Current Password</Label>
+            <Input id="current-password" type="password" value={currentPassword}
+              onChange={e => setCurrentPassword(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New Password</Label>
+            <Input id="new-password" type="password" value={newPassword}
+              onChange={e => setNewPassword(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm Password</Label>
+            <Input id="confirm-password" type="password" value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)} />
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-start gap-2">
+        <Button onClick={onSaveProfile} disabled={loading}>
+          {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : 'Save Changes'}
+        </Button>
+        <Button onClick={onChangePassword} disabled={loading} variant="outline">
+          {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Changing...</> : 'Change Password'}
+        </Button>
+      </CardFooter>
 
-      </Card>
+    </Card>
   );
 }

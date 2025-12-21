@@ -3,8 +3,30 @@ import { AccountSettings } from "@/components/user/settings/account-settings"
 import { NotificationSettings } from "@/components/user/settings/notification-settings"
 import { PrivacySettings } from "@/components/user/settings/privacy-settings"
 import { AppearanceSettings } from "@/components/user/settings/appearance-settings"
+import { useAuth } from "@/hooks/useAuth"
+import { useParams, useNavigate, Navigate } from "react-router-dom"
+import { useEffect } from "react"
 
 export default function SettingsPage() {
+  const { user } = useAuth()
+  const { username } = useParams<{ username: string }>()
+  const navigate = useNavigate()
+
+  // Access control: only allow user to view their own settings
+  useEffect(() => {
+    if (user && username && user.username !== username) {
+      navigate(`/u/${username}`)
+    }
+  }, [user, username, navigate])
+
+  if (!user) {
+    return <Navigate to="/login" />
+  }
+
+  if (username && user.username !== username) {
+    return <Navigate to={`/u/${username}`} />
+  }
+
   return (
     <div className="container mx-auto py-10 space-y-8">
       <h1 className="text-3xl font-bold">Profile & Settings</h1>

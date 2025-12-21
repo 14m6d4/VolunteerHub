@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getPublicProfile, getFriends, sendFriendRequest, getRelations, removeFriend } from '@/services/user.service';
+import { getPublicProfile, getFriends, sendFriendRequest, getRelations, removeFriend, getUserStats } from '@/services/user.service';
 import { getMyRegistrations, getEvents } from '@/services/event.service';
 import { reportUser } from '@/services/report.service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -51,7 +51,8 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  CheckCircle
+  CheckCircle,
+  ShieldX
 } from 'lucide-react';
 
 // User Stats Component
@@ -92,6 +93,7 @@ export default function ProfilePage() {
   const [stats, setStats] = useState<UserStats>({ eventsJoined: 0, eventsOrganized: 0, friends: 0 });
   const [relation, setRelation] = useState<FriendRelation>('none');
   const [actionLoading, setActionLoading] = useState(false);
+  const [forbidden, setForbidden] = useState(false);
 
   // Search & Filter state
   const [eventSearch, setEventSearch] = useState('');
@@ -170,15 +172,38 @@ export default function ProfilePage() {
     async function loadProfile() {
       if (!username) return;
       setLoading(true);
+      setForbidden(false);
       try {
         // Fetch public profile
         const profileRes = await getPublicProfile(username);
-        const profileData = profileRes.data || profileRes;
+        const profileData = profileRes.data || profileRes.user || profileRes;
         setProfile(profileData);
+
+        // Fetch user statistics
+        try {
+          const statsRes = await getUserStats(username);
+          const statsData = statsRes.data || statsRes;
+
+          // Update stats based on role
+          if (statsData.stats) {
+            setStats({
+              eventsJoined: statsData.stats.activeEvents || 0,
+              eventsOrganized: statsData.stats.completedEvents || statsData.stats.eventsOrganized || 0,
+              friends: 0 // Will be updated below if viewing own profile
+            });
+          }
+        } catch (statsErr: any) {
+          // Handle 403 - admin profile
+          if (statsErr.response?.status === 403 || statsErr.status === 403) {
+            setForbidden(true);
+            setLoading(false);
+            return;
+          }
+          console.error('Failed to fetch stats:', statsErr);
+        }
 
         // If viewing own profile, fetch additional data
         if (isOwnProfile && currentUser) {
-          // Fetch user's events (registrations)
           const [regsRes, eventsRes, friendsRes] = await Promise.all([
             getMyRegistrations(),
             getEvents({ status: 'approved' }),
@@ -213,35 +238,35 @@ export default function ProfilePage() {
           setEvents(userEvents);
           setFriends(friendsList);
 
-          // Count organized events (where user is manager)
-          const organizedCount = allEvents.filter((e: any) => {
-            const managerId = typeof e.managerId === 'string' ? e.managerId : e.managerId?._id;
-            return managerId === currentUser._id || managerId === currentUser.id;
-          }).length;
-
-          setStats({
-            eventsJoined: userEvents.length,
-            eventsOrganized: organizedCount,
-            friends: friendsList.length
-          });
-
+          // Update friends count
+          setStats(prev => ({ ...prev, friends: friendsList.length }));
           setRelation('self');
         } else if (currentUser && profileData) {
           // Viewing someone else's profile - get relation
           const userId = profileData._id || profileData.id;
+          console.log('[Profile] Fetching relation for userId:', userId);
           if (userId) {
             try {
               const relRes = await getRelations([userId]);
               const relData = relRes.data || relRes || {};
-              setRelation((relData[userId] as FriendRelation) || 'none');
-            } catch {
+              console.log('[Profile] Relation response:', relData);
+              const userRelation = (relData[userId] as FriendRelation) || 'none';
+              console.log('[Profile] Setting relation to:', userRelation);
+              setRelation(userRelation);
+            } catch (error) {
+              console.error('[Profile] Failed to fetch relation:', error);
               setRelation('none');
             }
           }
         }
-      } catch (err) {
-        console.error('Failed to load profile:', err);
-        toast.error('Failed to load profile');
+      } catch (err: any) {
+        // Handle 403 for admin profiles
+        if (err.response?.status === 403 || err.status === 403) {
+          setForbidden(true);
+        } else {
+          console.error('Failed to load profile:', err);
+          toast.error('Failed to load profile');
+        }
       } finally {
         setLoading(false);
       }
@@ -330,7 +355,7 @@ export default function ProfilePage() {
       case 'admin':
         return <Badge className="bg-red-500 hover:bg-red-600">Admin</Badge>;
       case 'manager':
-        return <Badge className="bg-blue-500 hover:bg-blue-600">Event Manager</Badge>;
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Manager</Badge>;
       default:
         return <Badge variant="secondary">Volunteer</Badge>;
     }
@@ -369,6 +394,40 @@ export default function ProfilePage() {
             <Skeleton className="h-24" />
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Show forbidden page for admin profiles
+  if (forbidden) {
+    return (
+      <div className="container mx-auto py-10 px-4 max-w-2xl">
+        <Card className="text-center py-12">
+          <CardContent className="space-y-6">
+            <div className="flex justify-center">
+              <div className="p-4 rounded-full bg-red-100 dark:bg-red-900/30">
+                <ShieldX className="h-16 w-16 text-red-600 dark:text-red-400" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold">403</h1>
+              <h2 className="text-2xl font-semibold">Access Forbidden</h2>
+              <p className="text-muted-foreground">
+                Admin profiles are not accessible.
+              </p>
+            </div>
+
+            <div className="flex justify-center gap-3">
+              <Button onClick={() => navigate(-1)} variant="outline">
+                Go Back
+              </Button>
+              <Button onClick={() => navigate('/')}>
+                Go Home
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -496,8 +555,8 @@ export default function ProfilePage() {
                   <CalendarDays className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{isOwnProfile ? stats.eventsJoined : '-'}</p>
-                  <p className="text-sm text-muted-foreground">Events Joined</p>
+                  <p className="text-2xl font-bold">{stats.eventsJoined}</p>
+                  <p className="text-sm text-muted-foreground">Active Events</p>
                 </div>
               </div>
             </CardContent>
@@ -510,8 +569,10 @@ export default function ProfilePage() {
                   <Award className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{isOwnProfile ? stats.eventsOrganized : '-'}</p>
-                  <p className="text-sm text-muted-foreground">Events Organized</p>
+                  <p className="text-2xl font-bold">{stats.eventsOrganized}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {profile?.role === 'volunteer' ? 'Completed Events' : 'Events Organized'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -524,7 +585,7 @@ export default function ProfilePage() {
                   <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{isOwnProfile ? stats.friends : '-'}</p>
+                  <p className="text-2xl font-bold">{stats.friends || 0}</p>
                   <p className="text-sm text-muted-foreground">Friends</p>
                 </div>
               </div>
@@ -545,181 +606,181 @@ export default function ProfilePage() {
             </TabsTrigger>
           </TabsList>
 
-            {/* Events Tab */}
-            <TabsContent value="events" className="mt-6">
-              {/* Search & Filter Bar */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search events..."
-                    value={eventSearch}
-                    onChange={(e) => setEventSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Select value={eventFilter} onValueChange={(v) => setEventFilter(v as EventFilter)}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Events</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {paginatedEvents.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {paginatedEvents.map((event) => (
-                      <EventCard
-                        key={event.id}
-                        event={event}
-                        onClick={() => navigate(`/events/${event.id}`)}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Pagination */}
-                  {totalEventPages > 1 && (
-                    <div className="flex items-center justify-center gap-2 mt-6">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setEventPage(p => Math.max(1, p - 1))}
-                        disabled={eventPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {eventPage} of {totalEventPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setEventPage(p => Math.min(totalEventPages, p + 1))}
-                        disabled={eventPage === totalEventPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <Card className="text-center py-12">
-                  <CardContent>
-                    <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">
-                      {eventSearch || eventFilter !== 'all' ? 'No matching events' : 'No Events Yet'}
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      {eventSearch || eventFilter !== 'all'
-                        ? 'Try adjusting your search or filter.'
-                        : "You haven't joined any events yet. Explore and join some!"}
-                    </p>
-                    {!eventSearch && eventFilter === 'all' && (
-                      <Button asChild>
-                        <Link to="/events">Browse Events</Link>
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Friends Tab */}
-            <TabsContent value="friends" className="mt-6">
-              {/* Search Bar */}
-              <div className="relative mb-6">
+          {/* Events Tab */}
+          <TabsContent value="events" className="mt-6">
+            {/* Search & Filter Bar */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search friends..."
-                  value={friendSearch}
-                  onChange={(e) => setFriendSearch(e.target.value)}
+                  placeholder="Search events..."
+                  value={eventSearch}
+                  onChange={(e) => setEventSearch(e.target.value)}
                   className="pl-10"
                 />
               </div>
+              <Select value={eventFilter} onValueChange={(v) => setEventFilter(v as EventFilter)}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Events</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-              {paginatedFriends.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {paginatedFriends.map((friend: any) => (
-                      <Card
-                        key={friend._id || friend.id}
-                        className="cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => navigate(`/u/${friend.username}`)}
-                      >
-                        <CardContent className="pt-6">
-                          <div className="flex items-center gap-4">
-                            <Avatar className="h-12 w-12">
-                              <AvatarImage src={friend.profilePicture} />
-                              <AvatarFallback>
-                                {getInitials(friend.name, friend.username)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{friend.name || friend.username}</p>
-                              <p className="text-sm text-muted-foreground truncate">@{friend.username}</p>
-                            </div>
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link to={`/u/${friend.username}`}>View</Link>
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+            {paginatedEvents.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {paginatedEvents.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      onClick={() => navigate(`/events/${event.id}`)}
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalEventPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setEventPage(p => Math.max(1, p - 1))}
+                      disabled={eventPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {eventPage} of {totalEventPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setEventPage(p => Math.min(totalEventPages, p + 1))}
+                      disabled={eventPage === totalEventPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
                   </div>
-
-                  {/* Pagination */}
-                  {totalFriendPages > 1 && (
-                    <div className="flex items-center justify-center gap-2 mt-6">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setFriendPage(p => Math.max(1, p - 1))}
-                        disabled={friendPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {friendPage} of {totalFriendPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setFriendPage(p => Math.min(totalFriendPages, p + 1))}
-                        disabled={friendPage === totalFriendPages}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+                )}
+              </>
+            ) : (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">
+                    {eventSearch || eventFilter !== 'all' ? 'No matching events' : 'No Events Yet'}
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {eventSearch || eventFilter !== 'all'
+                      ? 'Try adjusting your search or filter.'
+                      : "You haven't joined any events yet. Explore and join some!"}
+                  </p>
+                  {!eventSearch && eventFilter === 'all' && (
+                    <Button asChild>
+                      <Link to="/events">Browse Events</Link>
+                    </Button>
                   )}
-                </>
-              ) : (
-                <Card className="text-center py-12">
-                  <CardContent>
-                    <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">
-                      {friendSearch ? 'No matching friends' : 'No Friends Yet'}
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      {friendSearch
-                        ? 'Try a different search term.'
-                        : 'Start connecting with other volunteers!'}
-                    </p>
-                    {!friendSearch && (
-                      <Button asChild>
-                        <Link to="/users?tab=search">Find Friends</Link>
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-          </Tabs>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Friends Tab */}
+          <TabsContent value="friends" className="mt-6">
+            {/* Search Bar */}
+            <div className="relative mb-6">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search friends..."
+                value={friendSearch}
+                onChange={(e) => setFriendSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {paginatedFriends.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {paginatedFriends.map((friend: any) => (
+                    <Card
+                      key={friend._id || friend.id}
+                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => navigate(`/u/${friend.username}`)}
+                    >
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src={friend.profilePicture} />
+                            <AvatarFallback>
+                              {getInitials(friend.name, friend.username)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{friend.name || friend.username}</p>
+                            <p className="text-sm text-muted-foreground truncate">@{friend.username}</p>
+                          </div>
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link to={`/u/${friend.username}`}>View</Link>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalFriendPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setFriendPage(p => Math.max(1, p - 1))}
+                      disabled={friendPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {friendPage} of {totalFriendPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setFriendPage(p => Math.min(totalFriendPages, p + 1))}
+                      disabled={friendPage === totalFriendPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">
+                    {friendSearch ? 'No matching friends' : 'No Friends Yet'}
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {friendSearch
+                      ? 'Try a different search term.'
+                      : 'Start connecting with other volunteers!'}
+                  </p>
+                  {!friendSearch && (
+                    <Button asChild>
+                      <Link to="/users?tab=search">Find Friends</Link>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
 
         {/* Report User Dialog */}
         <Dialog open={reportDialogOpen} onOpenChange={handleReportDialogClose}>

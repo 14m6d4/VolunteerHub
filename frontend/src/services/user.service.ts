@@ -22,6 +22,10 @@ export async function getPublicProfile(username: string) {
   return apiFetch(`/users/${username}`);
 }
 
+export async function getUserStats(username: string) {
+  return apiFetch(`/users/${username}/stats`);
+}
+
 export async function sendFriendRequest(receiverId: string) {
   return apiFetch("/users/friends/request", {
     method: "POST",
