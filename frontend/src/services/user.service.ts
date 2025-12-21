@@ -61,3 +61,11 @@ export async function removeFriend(friendId: string) {
     body: { friendId }
   });
 }
+
+export async function getUserEventsList(username: string) {
+  return apiFetch(`/users/${username}/events`);
+}
+
+export async function getUserFriendsList(username: string) {
+  return apiFetch(`/users/${username}/friends`);
+}
