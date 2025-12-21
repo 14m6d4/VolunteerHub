@@ -78,7 +78,7 @@ export function CommentSection({
       {comments.map((comment) => (
         <div key={comment.id} className="flex items-start gap-2">
           <Avatar className="h-7 w-7">
-            <AvatarImage src={comment.author.avatar} alt={comment.author.name} />
+            <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} />
             <AvatarFallback className="text-xs">
               {getInitials(comment.author.name)}
             </AvatarFallback>

@@ -5,7 +5,7 @@ export type DiscussionUserRole = 'volunteer' | 'manager' | 'admin';
 export interface DiscussionUser {
   id: string;
   name: string;
-  avatar?: string;
+  avatarUrl?: string;
   role: DiscussionUserRole;
 }
 

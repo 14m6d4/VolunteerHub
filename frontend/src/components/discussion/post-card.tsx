@@ -68,7 +68,7 @@ export function PostCard({
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={post.author.avatar} alt={post.author.name} />
+                <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
                 <AvatarFallback>{getInitials(post.author.name)}</AvatarFallback>
               </Avatar>
               <div>
