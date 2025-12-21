@@ -641,7 +641,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                         <HelpCircleIcon className="mr-3 h-4 w-4" />
                         <span>Help and Support</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/settings")}>
+                      <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(`/u/${user.username}/settings`)}>
                         <SettingsIcon className="mr-3 h-4 w-4" />
                         <span>Settings</span>
                       </DropdownMenuItem>
