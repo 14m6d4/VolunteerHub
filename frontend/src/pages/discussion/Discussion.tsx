@@ -1,4 +1,4 @@
-// frontend/src/pages/discussion/Discussion.tsx
+
 
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';

@@ -1,4 +1,4 @@
-// frontend/src/components/discussion/post-card.tsx
+
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';

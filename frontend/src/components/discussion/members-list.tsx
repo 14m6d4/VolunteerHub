@@ -1,4 +1,4 @@
-// frontend/src/components/discussion/members-list.tsx
+
 
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';

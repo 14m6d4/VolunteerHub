@@ -1,4 +1,4 @@
-// frontend/src/components/feed/index.ts
+
 
 export { FeedPostCard } from './feed-post-card';
 export { TrendingEventCard } from './trending-event-card';

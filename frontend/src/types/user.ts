@@ -1,4 +1,4 @@
-// frontend/src/types/user.ts
+
 
 export enum UserRole {
   Volunteer = 'volunteer',

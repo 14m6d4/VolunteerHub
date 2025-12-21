@@ -1,4 +1,4 @@
-// frontend/src/types/discussion.ts
+
 
 export type DiscussionUserRole = 'volunteer' | 'manager' | 'admin';
 
