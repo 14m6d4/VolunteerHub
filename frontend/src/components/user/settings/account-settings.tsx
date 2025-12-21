@@ -10,7 +10,12 @@ import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-export function AccountSettings(): React.ReactElement {
+interface AccountSettingsProps {
+  avatarFile?: File | null
+  onAvatarSaved?: () => void
+}
+
+export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsProps): React.ReactElement {
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -32,11 +37,25 @@ export function AccountSettings(): React.ReactElement {
 
     setLoading(true)
     try {
-      const response = await updateProfile({
+      // Prepare update data
+      const updateData: any = {
         name: fullname,
         username: username,
         currentPassword
-      })
+      }
+
+      // Add avatar if file is provided
+      if (avatarFile) {
+        // Convert file to data URL
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(avatarFile)
+        })
+        updateData.profilePicture = dataUrl
+      }
+
+      const response = await updateProfile(updateData)
 
       // Update localStorage with new user data
       if (response.user) {
@@ -47,6 +66,7 @@ export function AccountSettings(): React.ReactElement {
 
       toast.success('Profile updated')
       setCurrentPassword('')
+      onAvatarSaved?.()
       // Just stay on the page, no need to navigate
     } catch (err: any) {
       // Try multiple paths to get the error message

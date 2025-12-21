@@ -5,12 +5,26 @@ import { PrivacySettings } from "@/components/user/settings/privacy-settings"
 import { AppearanceSettings } from "@/components/user/settings/appearance-settings"
 import { useAuth } from "@/hooks/useAuth"
 import { useParams, useNavigate, Navigate } from "react-router-dom"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const { username } = useParams<{ username: string }>()
   const navigate = useNavigate()
+
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+
+  const handleAvatarChange = (file: File, previewUrl: string) => {
+    setAvatarFile(file)
+    setAvatarPreview(previewUrl)
+  }
+
+  const handleAvatarSaved = () => {
+    setAvatarFile(null)
+    setAvatarPreview(null)
+  }
 
   // Access control: only allow user to view their own settings
   useEffect(() => {
@@ -31,7 +45,7 @@ export default function SettingsPage() {
     <div className="container mx-auto py-10 space-y-8">
       <h1 className="text-3xl font-bold">Profile & Settings</h1>
       <div className="grid gap-8">
-        <ProfileHeader />
+        <ProfileHeader avatarPreview={avatarPreview} onAvatarChange={handleAvatarChange} />
         <div className="grid gap-8 md:grid-cols-[250px_1fr]">
           <div className="hidden md:block space-y-2">
             <div className="font-medium text-lg">Settings</div>
@@ -52,7 +66,7 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-10">
             <section id="account">
-              <AccountSettings />
+              <AccountSettings avatarFile={avatarFile} onAvatarSaved={handleAvatarSaved} />
             </section>
             <section id="notifications">
               <NotificationSettings />
