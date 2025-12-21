@@ -41,6 +41,8 @@ export default function FeedPage() {
           if (item.type === 'post') {
             if (!user) return null;
             const p = item.data;
+            if (!p.authorId) return null; // Skip posts with deleted authors
+
             return {
               type: 'post',
               data: {

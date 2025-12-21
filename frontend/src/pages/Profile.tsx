@@ -128,15 +128,30 @@ export default function ProfilePage() {
       );
     }
 
-    // Apply filter
-    if (eventFilter === 'active') {
-      result = result.filter(e => !e.isPast);
-    } else if (eventFilter === 'completed') {
-      result = result.filter(e => e.isPast);
+    // Manager specific filtering logic
+    if (profile?.role === 'manager') {
+      // 1. Hide pending events completely from public profile
+      result = result.filter(e => e.managerStatus !== 'pending');
+
+      // 2. Apply Strict Filters
+      if (eventFilter === 'active') {
+        // Active: Must be Approved AND Not Past
+        result = result.filter(e => e.managerStatus === 'active' && !e.isPast);
+      } else if (eventFilter === 'completed') {
+        // Completed: Must be Strictly Finished (Action required to move to this state)
+        result = result.filter(e => e.managerStatus === 'completed');
+      }
+    } else {
+      // Volunteer logic (Original)
+      if (eventFilter === 'active') {
+        result = result.filter(e => !e.isPast);
+      } else if (eventFilter === 'completed') {
+        result = result.filter(e => e.isPast);
+      }
     }
 
     return result;
-  }, [events, eventSearch, eventFilter]);
+  }, [events, eventSearch, eventFilter, profile]);
 
   const totalEventPages = Math.ceil(filteredEvents.length / ITEMS_PER_PAGE);
   const paginatedEvents = filteredEvents.slice(
