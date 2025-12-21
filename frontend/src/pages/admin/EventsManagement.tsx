@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Download,
   Search,
-  ArrowUpDown,
   X,
   Check,
   Trash2
@@ -41,7 +41,6 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
   Tooltip,
@@ -53,8 +52,6 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { apiFetch } from '@/services/api';
 
-type SortField = 'name' | 'date' | 'members' | null;
-type SortOrder = 'asc' | 'desc';
 
 interface BackendEvent {
   _id: string;
@@ -332,7 +329,14 @@ export default function EventsManagement() {
                       onCheckedChange={(checked) => handleSelectRow(event._id, !!checked)}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{event.title}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      to={`/events/${event._id}`}
+                      className="hover:underline hover:text-primary transition-colors"
+                    >
+                      {event.title}
+                    </Link>
+                  </TableCell>
                   <TableCell className="max-w-[200px]">
                     <p className="truncate text-sm text-muted-foreground" title={event.description}>
                       {event.description}

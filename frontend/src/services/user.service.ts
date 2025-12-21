@@ -14,7 +14,8 @@ export async function getFriendSuggestions() {
 export async function updateProfile(data: any) {
   return apiFetch("/users/profile/secure", {
     method: "PATCH",
-    body: data
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" }
   });
 }
 
@@ -29,14 +30,16 @@ export async function getUserStats(username: string) {
 export async function sendFriendRequest(receiverId: string) {
   return apiFetch("/users/friends/request", {
     method: "POST",
-    body: { receiverId }
+    body: JSON.stringify({ receiverId }),
+    headers: { "Content-Type": "application/json" }
   });
 }
 
 export async function acceptFriendRequest(requestId: string) {
   return apiFetch("/users/friends/accept", {
     method: "POST",
-    body: { requestId }
+    body: JSON.stringify({ requestId }),
+    headers: { "Content-Type": "application/json" }
   });
 }
 
@@ -51,14 +54,16 @@ export async function getFriends() {
 export async function getRelations(ids: string[]) {
   return apiFetch("/users/friends/status", {
     method: "POST",
-    body: { ids }
+    body: JSON.stringify({ ids }),
+    headers: { "Content-Type": "application/json" }
   });
 }
 
 export async function removeFriend(friendId: string) {
   return apiFetch("/users/friends/remove", {
     method: "POST",
-    body: { friendId }
+    body: JSON.stringify({ friendId }),
+    headers: { "Content-Type": "application/json" }
   });
 }
 

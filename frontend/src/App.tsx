@@ -86,8 +86,11 @@ function AppContent() {
           <Route path="/events" element={<EventsList />} />
           <Route path="/events/:eventId" element={<DiscussionPage />} />
           <Route path="/events/:eventId/posts/:postId" element={<DiscussionPage />} />
-          <Route path="/manage-events" element={<ManagerEventDashboard />} />
-          {/* <Route path="/test/events" element={<EventsTest />} /> */}
+          <Route
+            element={<ProtectedRoute allowedRoles={['manager', 'admin']} />}
+          >
+            <Route path="/manage-events" element={<ManagerEventDashboard />} />
+          </Route>
           <Route path="/users" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
           <Route path="*" element={<Error404 />} />
