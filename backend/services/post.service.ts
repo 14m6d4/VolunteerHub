@@ -77,7 +77,7 @@ export const PostService = {
                         type: NotificationType.POST_LIKED,
                         title: "Post Liked",
                         body: `${liker.name} liked your post`,
-                        data: { postId, userId, likerName: liker.name }
+                        data: { postId, userId, actorName: liker.name, eventId: post.eventId?.toString() }
                     });
                 }
             } catch (err) {

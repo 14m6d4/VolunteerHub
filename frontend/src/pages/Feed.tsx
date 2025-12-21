@@ -107,6 +107,22 @@ export default function FeedPage() {
             };
           } else if (item.type === 'trending') {
             const e = item.data;
+            let reason = 'Recommended for you';
+            if (e.bestFeature && e.bestFeature.count > 0) {
+              const { type, count, days } = e.bestFeature;
+              const timeStr = `${days} days`;
+
+              switch (type) {
+                case 'rapid_growth':
+                  reason = `${count} members joined in ${timeStr}`;
+                  break;
+                case 'active_community':
+                  reason = `${count} new posts in ${timeStr}`;
+                  break;
+                default:
+                  reason = 'Trending now in your community';
+              }
+            }
             return {
               type: 'trending',
               data: {
@@ -119,7 +135,7 @@ export default function FeedPage() {
                 tags: e.tags || [],
                 description: e.description,
                 isTrending: true,
-                trendingReason: 'Recommended for you'
+                trendingReason: reason
               }
             };
           }

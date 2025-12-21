@@ -25,7 +25,7 @@ export const CommentService = {
                         type: NotificationType.POST_COMMENTED,
                         title: "New Comment",
                         body: `${commenter.name} commented on your post: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
-                        data: { postId, commentId: comment._id.toString(), userId, commenterName: commenter.name }
+                        data: { postId, commentId: comment._id.toString(), userId, actorName: commenter.name, eventId: post.eventId?.toString() }
                     });
                 }
             } catch (err) {

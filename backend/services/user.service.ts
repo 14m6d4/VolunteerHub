@@ -31,10 +31,13 @@ export async function updateProfileWithPasswordCheck(
   }
 
   // 2. Password Verification
-  // If the user signed up via Google, allow changing profile without password
-  if (user.authProvider === 'local') {
+  // Only require current password when changing password
+  // For other profile updates (name, username, avatar, etc.), no password needed
+  const isChangingPassword = !!updateData.password;
+  
+  if (isChangingPassword && user.authProvider === 'local') {
     if (!currentPassword) {
-      throw new AppError('Current password is required for local accounts', 400);
+      throw new AppError('Current password is required to change password', 400);
     }
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
