@@ -70,17 +70,12 @@ export function EventHeader({ event }: EventHeaderProps) {
                     </AvatarFallback>
                   </Avatar>
                 ))}
-                {remainingCount > 0 && (
-                  <Avatar className="ring-2 ring-background h-9 w-9 bg-muted">
-                    <AvatarFallback className="text-xs font-medium">
-                      +{remainingCount > 99 ? '99' : remainingCount}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
               </div>
-              <span className="text-sm text-muted-foreground hidden sm:block">
-                and others
-              </span>
+              {remainingCount > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  and others
+                </span>
+              )}
             </div>
           </div>
         </div>

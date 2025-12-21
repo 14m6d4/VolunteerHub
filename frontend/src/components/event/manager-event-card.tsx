@@ -60,109 +60,108 @@ export const ManagerEventCard = ({
   };
 
   return (
-  <>
-    <Card className="flex flex-col h-full hover:shadow-lg transition-shadow bg-card" onClick={onClick}>
-      <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-muted">
-        {event.image ? (
-          <img
-            src={getImageUrl(event.image)}
-            alt={event.title}
-            className="h-full w-full object-cover transition-transform hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <Calendar className="h-12 w-12" />
+    <>
+      <Card className="flex flex-col h-full hover:shadow-lg transition-shadow bg-card" onClick={onClick}>
+        <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-muted">
+          {event.image ? (
+            <img
+              src={getImageUrl(event.image)}
+              alt={event.title}
+              className="h-full w-full object-cover transition-transform hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <Calendar className="h-12 w-12" />
+            </div>
+          )}
+          <div className="absolute top-3 left-3">
+            {getStatusBadge()}
           </div>
-        )}
-        <div className="absolute top-3 left-3">
-          {getStatusBadge()}
-        </div>
-        <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => onManageMembers(event))}>
-                <UserCog className="h-4 w-4 mr-2" />
-                Manage Members
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => setReportsDialogOpen(true))}>
-                <FileWarning className="h-4 w-4 mr-2" />
-                View Reports
-              </DropdownMenuItem>
-              {event.managerStatus === 'active' && (
-                <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => onMarkCompleted(event))}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Mark as Completed
+          <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => onManageMembers(event))}>
+                  <UserCog className="h-4 w-4 mr-2" />
+                  Manage Members
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => onEdit(event))}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Details
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => handleMenuAction(e, () => onDelete(event))}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Event
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      <CardContent className="p-4 space-y-3">
-        <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem]">
-          {event.title}
-        </h3>
-
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-4 w-4" />
-            <span>{event.date}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Users className="h-4 w-4" />
-            <span>{event.membersCount}</span>
+                <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => setReportsDialogOpen(true))}>
+                  <FileWarning className="h-4 w-4 mr-2" />
+                  View Reports
+                </DropdownMenuItem>
+                {event.managerStatus === 'active' && (
+                  <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => onMarkCompleted(event))}>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark as Completed
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => onEdit(event))}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit Details
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => handleMenuAction(e, () => onDelete(event))}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Event
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <MapPin className="h-4 w-4" />
-          <span className="line-clamp-1">{event.location}</span>
-        </div>
+        <CardContent className="p-4 space-y-3">
+          <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem]">
+            {event.title}
+          </h3>
 
-        {event.tags && event.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {event.tags.map((tag) => (
-              <Badge key={tag} variant="outline" className="text-xs">
-                {tag}
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4" />
+              <span>{event.date}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Users className="h-4 w-4" />
+              <span>{event.membersCount}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4" />
+            <span className="line-clamp-1">{event.location}</span>
+          </div>
+
+          {event.tags && event.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {event.tags.map((tag) => (
+                <Badge key={tag} variant="outline" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+          {event.requests && event.requests.length > 0 && (
+            <div className="pt-2 border-t">
+              <Badge variant="outline" className="bg-yellow-50">
+                {event.requests.length} Pending Request{event.requests.length > 1 ? 's' : ''}
               </Badge>
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {event.requests && event.requests.length > 0 && (
-          <div className="pt-2 border-t">
-            <Badge variant="outline" className="bg-yellow-50">
-              {event.requests.length} Pending Request{event.requests.length > 1 ? 's' : ''}
-            </Badge>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-
-    <EventReportsDialog
-      open={reportsDialogOpen}
-      onOpenChange={setReportsDialogOpen}
-      eventId={event.id}
-      eventTitle={event.title}
-    />
-  </>
+      <EventReportsDialog
+        open={reportsDialogOpen}
+        onOpenChange={setReportsDialogOpen}
+        eventId={event.id}
+        eventTitle={event.title}
+      />
+    </>
   );
 };

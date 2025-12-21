@@ -197,11 +197,23 @@ export const ReportService = {
                 ? `Your report has been resolved. Action has been taken.`
                 : `Your report has been reviewed and rejected.`;
 
+            let notificationData: any = { reportId: report._id.toString(), targetType: report.targetType, targetId: report.targetId.toString() };
+
+            if (report.targetType === ReportTargetType.Post) {
+                const post = await PostModel.findById(report.targetId);
+                if (post && post.eventId) {
+                    notificationData.eventId = post.eventId.toString();
+                    notificationData.postId = post._id.toString();
+                }
+            } else if (report.targetType === ReportTargetType.Event) {
+                notificationData.eventId = report.targetId.toString();
+            }
+
             await NotificationService.notify(report.reporter._id.toString(), {
                 type: status === 'resolved' ? NotificationType.REPORT_RESOLVED : NotificationType.REPORT_REJECTED,
                 title: notificationTitle,
                 body: notificationBody,
-                data: { reportId: report._id.toString(), targetType: report.targetType, targetId: report.targetId.toString() }
+                data: notificationData
             });
         } catch (err) {
             console.error("Failed to notify reporter about report status:", err);
