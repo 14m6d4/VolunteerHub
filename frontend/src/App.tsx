@@ -7,7 +7,7 @@ import LoginPage from "@/pages/auth/Login"
 import BannedPage from "@/pages/auth/Banned"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
-import UserProfilePage from "@/pages/[username]"
+// import UserProfilePage from "@/pages/test/[username]"
 import EventsTest from "./pages/test/TestRouter";
 import FriendsPage from '@/pages/Friends';
 import SearchUsersPage from '@/pages/SearchUsers';
@@ -34,6 +34,8 @@ import { useEffect } from "react"
 import * as authService from "@/services/auth.service"
 import QueryProvider from "./providers/QueryProvider"
 import { AuthProvider } from "@/context/AuthContext"
+import SettingsPage from "./pages/Settings";
+import ProfilePage from "./pages/Profile";
 
 function HomePage() {
   const [searchParams] = useSearchParams()
@@ -83,16 +85,11 @@ function AppContent() {
           <Route path="/events/:eventId" element={<DiscussionPage />} />
           <Route path="/manage-events" element={<ManagerEventDashboard />} />
           {/* <Route path="/test/events" element={<EventsTest />} /> */}
-          <Route path="/u" element={<FriendsPage />} />
+          <Route path="/users" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
-
-          {/* Legacy admin routes */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="/admin/reports" element={<AdminReportsPage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-          </Route>
-
-          <Route path="/u/:username" element={<UserProfilePage />} />
+          <Route path="*" element={<Error404 />} />
+          <Route path="/u/:username/settings" element={<SettingsPage />} />
+          <Route path="/u/:username" element={<ProfilePage />} />
         </Route>
 
         {/* New Admin Dashboard with Sidebar Layout */}
@@ -129,8 +126,6 @@ function AppContent() {
           <Route path="503" element={<Error503 />} />
           <Route path="403" element={<Error403 />} />
           <Route path="401" element={<Error401 />} />
-          <Route path="*" element={<Error404 />} />
-          <Route path="/test/EventsTest" element={<EventsTest />} />
         </Route>
       </Routes>
     </div>

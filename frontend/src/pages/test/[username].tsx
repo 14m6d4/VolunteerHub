@@ -4,14 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import UpdateProfileForm from '@/components/user/UpdateProfileForm';
+import UpdateProfileForm from '@/pages/test/UpdateProfileForm';
 import useAuth from '@/hooks/useAuth';
 import { getPublicProfile } from '@/services/user.service';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { ReportUserDialog } from '@/components/user/ReportUserDialog';
+import { ReportUserDialog } from '@/pages/test/ReportUserDialog';
 import { useState } from 'react';
 import type { User } from '@/types/user';
 
