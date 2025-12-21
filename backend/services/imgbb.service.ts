@@ -4,29 +4,17 @@ import FormData from 'form-data';
 
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY;
 
-/**
- * Uploads a file buffer to ImgBB and returns the direct image URL.
- * @param buffer The file content as a Buffer.
- * @param filename The name of the file (optional, but good for metadata).
- * @returns The direct URL of the uploaded image.
- */
 export async function uploadToImgBB(buffer: Buffer, filename: string): Promise<string> {
     try {
         if (!IMGBB_API_KEY) {
             throw new Error('IMGBB_API_KEY is not configured in .env');
         }
 
-        // Convert buffer to base64 because ImgBB API supports base64 directly, 
-        // or we can use FormData with buffer. 
-        // ImgBB docs say `image` parameter: "The binary file, base64 data, or a URL for an image."
-        // Using base64 is often more reliable with axios without needing extensive FormData headers tweak.
-        // Let's use base64 string.
 
         const base64Image = buffer.toString('base64');
 
         const form = new FormData();
         form.append('image', base64Image);
-        // Optional: form.append('name', filename);
 
         console.log(`[ImgBB] Uploading ${filename}...`);
 

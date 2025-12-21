@@ -67,7 +67,6 @@ export async function deleteAllNotifications(req: AuthenticatedRequest, res: Res
   }
 }
 
-// Admin or internal endpoint to create notification for user
 export async function createNotificationController(req: Request, res: Response, next: NextFunction) {
   try {
     const { userId, actorId, type, title, body, data } = req.body;
