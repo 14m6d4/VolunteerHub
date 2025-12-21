@@ -11,3 +11,9 @@ export async function deleteEvent(id: string) {
         method: "DELETE",
     });
 }
+
+export async function getAnalytics() {
+    return apiFetch(`/admin/analytics`, {
+        method: "GET",
+    });
+}

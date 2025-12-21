@@ -1,7 +1,7 @@
-import { 
-  Users, 
-  Calendar, 
-  Clock, 
+import {
+  Users,
+  Calendar,
+  FileText,
   CheckCircle2,
   TrendingUp,
   Activity
@@ -28,7 +28,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { analyticsData } from '@/data/admin-mock';
+import { useEffect, useState } from 'react';
+import { getAnalytics } from '@/services/admin.service';
 
 // Chart configurations
 const userGrowthConfig: ChartConfig = {
@@ -74,16 +75,16 @@ const COLORS = [
   'hsl(var(--chart-5))',
 ];
 
-function StatCard({ 
-  title, 
-  value, 
-  description, 
+function StatCard({
+  title,
+  value,
+  description,
   icon: Icon,
   trend
-}: { 
-  title: string; 
-  value: string | number; 
-  description: string; 
+}: {
+  title: string;
+  value: string | number;
+  description: string;
   icon: React.ElementType;
   trend?: string;
 }) {
@@ -104,8 +105,87 @@ function StatCard({
   );
 }
 
+interface AnalyticsChartData {
+  userGrowth: Array<{ month: string; users: number }>;
+  eventsPerMonth: Array<{ month: string; events: number }>;
+  eventsByStatus: Array<{ name: string; value: number }>;
+  volunteerParticipation: Array<{ month: string; volunteers: number }>;
+  topEventCategories: Array<{ category: string; count: number }>;
+  reportsDistribution: Array<{ type: string; count: number }>;
+}
+
+interface AnalyticsStats {
+  totalUsers: number;
+  totalEvents: number;
+  activeVolunteers: number;
+  completedEvents: number;
+  pendingReports: number;
+  totalPosts: number;
+}
+
+interface AnalyticsData {
+  statistics: AnalyticsStats;
+  userGrowth: AnalyticsChartData['userGrowth'];
+  eventsPerMonth: AnalyticsChartData['eventsPerMonth'];
+  eventsByStatus: AnalyticsChartData['eventsByStatus'];
+  volunteerParticipation: AnalyticsChartData['volunteerParticipation'];
+  topEventCategories: AnalyticsChartData['topEventCategories'];
+  reportsDistribution: AnalyticsChartData['reportsDistribution'];
+}
+
 export default function AnalyticsDashboard() {
-  const { statistics } = analyticsData;
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchAnalytics() {
+      try {
+        setLoading(true);
+        const response = await getAnalytics();
+        setData(response.data);
+        setError(null);
+      } catch (err: any) {
+        console.error('Failed to fetch analytics:', err);
+        setError(err.message || 'Failed to load analytics data');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchAnalytics();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Analytics Dashboard</h1>
+          <p className="text-muted-foreground">Overview of your volunteer platform performance.</p>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Loading analytics data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Analytics Dashboard</h1>
+          <p className="text-muted-foreground">Overview of your volunteer platform performance.</p>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-destructive font-semibold mb-2">Error loading analytics</p>
+            <p className="text-muted-foreground">{error || 'Unknown error occurred'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -119,30 +199,27 @@ export default function AnalyticsDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Users"
-          value={statistics.totalUsers.toLocaleString()}
-          description="+12% from last month"
+          value={data.statistics.totalUsers.toLocaleString()}
+          description="Registered users"
           icon={Users}
-          trend="up"
         />
         <StatCard
           title="Total Events"
-          value={statistics.totalEvents}
-          description="+8% from last month"
+          value={data.statistics.totalEvents}
+          description="All events"
           icon={Calendar}
-          trend="up"
         />
         <StatCard
           title="Active Volunteers"
-          value={statistics.activeVolunteers}
+          value={data.statistics.activeVolunteers}
           description="Currently participating"
           icon={Activity}
         />
         <StatCard
           title="Completed Events"
-          value={statistics.completedEvents}
-          description="+15% from last month"
+          value={data.statistics.completedEvents}
+          description="Finished events"
           icon={CheckCircle2}
-          trend="up"
         />
       </div>
 
@@ -150,15 +227,15 @@ export default function AnalyticsDashboard() {
       <div className="grid gap-4 md:grid-cols-2">
         <StatCard
           title="Pending Reports"
-          value={statistics.pendingReports}
+          value={data.statistics.pendingReports}
           description="Requires attention"
-          icon={Clock}
+          icon={TrendingUp}
         />
         <StatCard
-          title="Total Volunteer Hours"
-          value={statistics.totalHoursVolunteered.toLocaleString()}
-          description="Hours contributed"
-          icon={TrendingUp}
+          title="Total Posts"
+          value={data.statistics.totalPosts.toLocaleString()}
+          description="Posts created"
+          icon={FileText}
         />
       </div>
 
@@ -172,22 +249,22 @@ export default function AnalyticsDashboard() {
           </CardHeader>
           <CardContent>
             <ChartContainer config={userGrowthConfig} className="h-[300px] w-full">
-              <AreaChart data={analyticsData.userGrowth} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <AreaChart data={data.userGrowth} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.1}/>
+                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Area 
-                  type="monotone" 
-                  dataKey="users" 
-                  stroke="hsl(var(--chart-1))" 
-                  fillOpacity={1} 
+                <Area
+                  type="monotone"
+                  dataKey="users"
+                  stroke="hsl(var(--chart-1))"
+                  fillOpacity={1}
                   fill="url(#colorUsers)"
                   strokeWidth={2}
                 />
@@ -204,14 +281,14 @@ export default function AnalyticsDashboard() {
           </CardHeader>
           <CardContent>
             <ChartContainer config={eventsConfig} className="h-[300px] w-full">
-              <BarChart data={analyticsData.eventsPerMonth} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <BarChart data={data.eventsPerMonth} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar 
-                  dataKey="events" 
-                  fill="hsl(var(--chart-2))" 
+                <Bar
+                  dataKey="events"
+                  fill="hsl(var(--chart-2))"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>
@@ -232,7 +309,7 @@ export default function AnalyticsDashboard() {
             <ChartContainer config={{}} className="h-[300px] w-full">
               <PieChart>
                 <Pie
-                  data={analyticsData.eventsByStatus}
+                  data={data.eventsByStatus}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -242,14 +319,24 @@ export default function AnalyticsDashboard() {
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
-                  {analyticsData.eventsByStatus.map((_, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={COLORS[index % COLORS.length]}
-                      stroke="hsl(var(--background))"
-                      strokeWidth={2}
-                    />
-                  ))}
+                  {data.eventsByStatus.map((entry, index) => {
+                    // Assign specific colors for each status
+                    const statusColors: Record<string, string> = {
+                      'Active': '#22c55e', // Green for active events
+                      'Completed': '#3b82f6', // Blue for completed events
+                      'Pending': '#f59e0b', // Orange for pending events
+                    };
+                    const color = statusColors[entry.name] || COLORS[index % COLORS.length];
+
+                    return (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={color}
+                        stroke="hsl(var(--background))"
+                        strokeWidth={2}
+                      />
+                    );
+                  })}
                 </Pie>
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend />
@@ -266,15 +353,15 @@ export default function AnalyticsDashboard() {
           </CardHeader>
           <CardContent>
             <ChartContainer config={volunteerConfig} className="h-[300px] w-full">
-              <LineChart data={analyticsData.volunteerParticipation} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <LineChart data={data.volunteerParticipation} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Line 
-                  type="monotone" 
-                  dataKey="volunteers" 
-                  stroke="hsl(var(--chart-3))" 
+                <Line
+                  type="monotone"
+                  dataKey="volunteers"
+                  stroke="hsl(var(--chart-3))"
                   strokeWidth={3}
                   dot={{ fill: 'hsl(var(--chart-3))', strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, strokeWidth: 0 }}
@@ -295,26 +382,26 @@ export default function AnalyticsDashboard() {
           </CardHeader>
           <CardContent>
             <ChartContainer config={categoriesConfig} className="h-[300px] w-full">
-              <BarChart 
-                data={analyticsData.topEventCategories} 
+              <BarChart
+                data={data.topEventCategories}
                 layout="vertical"
                 margin={{ top: 10, right: 30, left: 80, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={true} vertical={false} />
                 <XAxis type="number" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                <YAxis 
-                  type="category" 
-                  dataKey="category" 
-                  className="text-xs" 
+                <YAxis
+                  type="category"
+                  dataKey="category"
+                  className="text-xs"
                   tick={{ fill: 'hsl(var(--muted-foreground))' }}
                   width={70}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar 
-                  dataKey="count" 
+                <Bar
+                  dataKey="count"
                   radius={[0, 4, 4, 0]}
                 >
-                  {analyticsData.topEventCategories.map((_, index) => (
+                  {data.topEventCategories.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
@@ -331,20 +418,20 @@ export default function AnalyticsDashboard() {
           </CardHeader>
           <CardContent>
             <ChartContainer config={reportsConfig} className="h-[300px] w-full">
-              <BarChart 
-                data={analyticsData.reportsDistribution} 
+              <BarChart
+                data={data.reportsDistribution}
                 margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="type" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar 
-                  dataKey="count" 
-                  fill="hsl(var(--chart-5))" 
+                <Bar
+                  dataKey="count"
+                  fill="hsl(var(--chart-5))"
                   radius={[4, 4, 0, 0]}
                 >
-                  {analyticsData.reportsDistribution.map((_, index) => (
+                  {data.reportsDistribution.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
@@ -353,6 +440,6 @@ export default function AnalyticsDashboard() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </div >
   );
 }
