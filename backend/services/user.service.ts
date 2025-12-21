@@ -47,6 +47,14 @@ export async function updateProfileWithPasswordCheck(
     throw new AppError('No update fields provided', 400); // Bad Request
   }
 
+  // 4. Check username uniqueness if username is being changed
+  if (updateData.username && updateData.username !== user.username) {
+    const existingUser = await UserModel.findOne({ username: updateData.username });
+    if (existingUser) {
+      throw new AppError('Username already taken', 400);
+    }
+  }
+
   // Sanitize updateData and coerce types where necessary
   const validUpdates: any = { ...updateData };
 
@@ -622,4 +630,33 @@ export const getFriendSuggestionsService = async (userId: string, limit: number 
       }
     }
   ]);
+};
+
+// Get outgoing/sent friend requests (pending requests sent by user)
+export const listOutgoingFriendRequestsService = async (userId: string) => {
+  return await FriendRequestModel.find({ sender: userId, status: FriendRequestStatus.Pending })
+    .populate('receiver', 'username name profilePicture')
+    .lean();
+};
+
+// Cancel a friend request (delete pending request sent by user)
+export const cancelFriendRequestService = async (userId: string, requestId: string) => {
+  const request = await FriendRequestModel.findById(requestId);
+
+  if (!request) {
+    throw new AppError('Friend request not found', 404);
+  }
+
+  // Only sender can cancel their own request
+  if (request.sender.toString() !== userId) {
+    throw new AppError('Unauthorized to cancel this request', 403);
+  }
+
+  // Only pending requests can be cancelled
+  if (request.status !== FriendRequestStatus.Pending) {
+    throw new AppError('Can only cancel pending requests', 400);
+  }
+
+  await FriendRequestModel.findByIdAndDelete(requestId);
+  return { message: 'Friend request cancelled successfully' };
 };

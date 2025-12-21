@@ -69,3 +69,17 @@ export async function getUserEventsList(username: string) {
 export async function getUserFriendsList(username: string) {
   return apiFetch(`/users/${username}/friends`);
 }
+
+// Get sent friend requests
+export async function getSentFriendRequests() {
+  return apiFetch('/users/friends/sent');
+}
+
+// Cancel a friend request
+export async function cancelFriendRequest(requestId: string) {
+  return apiFetch(`/users/friends/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ requestId }),
+    headers: { 'Content-Type': 'application/json' }
+  });
+}

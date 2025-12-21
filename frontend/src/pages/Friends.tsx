@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import useAuth from '@/hooks/useAuth';
-import { acceptFriendRequest, getFriendRequests as apiGetRequests, sendFriendRequest, getRelations } from '@/services/user.service';
+import { acceptFriendRequest, getFriendRequests as apiGetRequests, sendFriendRequest, getRelations, getSentFriendRequests, cancelFriendRequest } from '@/services/user.service';
 import { searchUsers as apiSearchUsers } from '@/services/user.service';
 
 import { useSearchParams } from 'react-router-dom';
@@ -16,7 +16,7 @@ export default function FriendsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get('tab') as 'friends' | 'requests' | 'search' || 'friends';
+  const currentTab = searchParams.get('tab') as 'friends' | 'requests' | 'sent' | 'search' || 'friends';
 
   // Helper to update URL when tab changes
   const setTab = (val: string) => {
@@ -26,8 +26,10 @@ export default function FriendsPage() {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
+  const [sentRequests, setSentRequests] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -37,6 +39,18 @@ export default function FriendsPage() {
         setRequests(res.data || res || []);
       } catch (err) {
         console.error('Failed to fetch requests', err);
+      }
+    })();
+  }, [user]);
+
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      try {
+        const res = await getSentFriendRequests();
+        setSentRequests(res.data || res || []);
+      } catch (err) {
+        console.error('Failed to fetch sent requests', err);
       }
     })();
   }, [user]);
@@ -150,6 +164,19 @@ export default function FriendsPage() {
     }
   };
 
+  const handleCancelRequest = async (requestId: string) => {
+    try {
+      setCancellingId(requestId);
+      await cancelFriendRequest(requestId);
+      setSentRequests(prev => prev.filter(r => r._id !== requestId));
+      alert('Request cancelled');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Unable to cancel request');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   const handleUserClick = (username: string) => {
     navigate(`/u/${username}`);
   };
@@ -161,6 +188,7 @@ export default function FriendsPage() {
         <TabsList>
           <TabsTrigger value="friends">Friends</TabsTrigger>
           <TabsTrigger value="requests">Requests</TabsTrigger>
+          <TabsTrigger value="sent">Sent</TabsTrigger>
           <TabsTrigger value="search">Search</TabsTrigger>
         </TabsList>
 
@@ -227,6 +255,40 @@ export default function FriendsPage() {
               </div>
             ))}
             {requests.length === 0 && <div className="text-sm text-muted-foreground">No pending requests</div>}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="sent">
+          <div className="space-y-3">
+            {sentRequests.map((r: any) => (
+              <div
+                key={r._id}
+                className="flex items-center justify-between p-3 border rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={() => handleUserClick(r.receiver.username)}
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10"><AvatarImage src={r.receiver.profilePicture || undefined} /><AvatarFallback>{r.receiver.username[0]?.toUpperCase()}</AvatarFallback></Avatar>
+                  <div>
+                    <div className="font-medium">{r.receiver.name || r.receiver.username}</div>
+                    <div className="text-sm text-muted-foreground">@{r.receiver.username}</div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCancelRequest(r._id);
+                    }}
+                    disabled={cancellingId === r._id}
+                  >
+                    {cancellingId === r._id ? 'Cancelling...' : 'Cancel'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {sentRequests.length === 0 && <div className="text-sm text-muted-foreground">No sent requests</div>}
           </div>
         </TabsContent>
 

@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useRef } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -6,20 +6,26 @@ import { Badge } from "@/components/ui/badge"
 import { Camera, Calendar } from "lucide-react"
 import { formatDate } from "@/utils/formatDate"
 import { useAuth } from "@/hooks/useAuth"
+import { toast } from "sonner"
 
-export function ProfileHeader(): React.ReactElement {
+interface ProfileHeaderProps {
+  avatarPreview: string | null
+  onAvatarChange: (file: File, previewUrl: string) => void
+}
+
+export function ProfileHeader({ avatarPreview, onAvatarChange }: ProfileHeaderProps): React.ReactElement {
   const { user } = useAuth()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!user) return <div>Loading...</div>
 
   const fullname = user.name || user.username || 'Anonymous'
   const username = user.username || ''
-  const avatarUrl = user.profilePicture
+  const avatarUrl = avatarPreview || user.profilePicture
   const role = user.role || 'volunteer'
   const createdAt = user.createdAt || new Date().toISOString()
-  const initials = (fullname.split(' ').map(s => s[0] || '').join('') || username.slice(0, 2)).toUpperCase()
+  const initials = (fullname.split(' ').map((s: string) => s[0] || '').join('') || username.slice(0, 2)).toUpperCase()
 
-  // Get role badge
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin':
@@ -29,6 +35,34 @@ export function ProfileHeader(): React.ReactElement {
       default:
         return <Badge variant="secondary">Volunteer</Badge>
     }
+  }
+
+  const handleCameraClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB')
+      return
+    }
+
+    // Create preview URL and pass to parent
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      onAvatarChange(file, reader.result as string)
+    }
+    reader.readAsDataURL(file)
   }
 
   return (
@@ -44,10 +78,19 @@ export function ProfileHeader(): React.ReactElement {
               )}
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
             <Button
               size="icon"
               variant="outline"
-              className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full">
+              className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full"
+              onClick={handleCameraClick}
+            >
               <Camera className="h-4 w-4" />
               <span className="sr-only">Change avatar</span>
             </Button>

@@ -10,12 +10,18 @@ import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-export function AccountSettings(): React.ReactElement {
+interface AccountSettingsProps {
+  avatarFile?: File | null
+  onAvatarSaved?: () => void
+}
+
+export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsProps): React.ReactElement {
   const { user } = useAuth()
   const navigate = useNavigate()
 
   const [fullname, setFullname] = useState(user?.name || '')
-  const [username] = useState(user?.email || '')
+  const [username, setUsername] = useState(user?.username || '')
+  const [email] = useState(user?.email || '')
   const [currentPassword, setCurrentPassword] = useState<string>('')
   const [newPassword, setNewPassword] = useState<string>('')
   const [confirmPassword, setConfirmPassword] = useState<string>('')
@@ -31,10 +37,25 @@ export function AccountSettings(): React.ReactElement {
 
     setLoading(true)
     try {
-      const response = await updateProfile({
+      // Prepare update data
+      const updateData: any = {
         name: fullname,
+        username: username,
         currentPassword
-      })
+      }
+
+      // Add avatar if file is provided
+      if (avatarFile) {
+        // Convert file to data URL
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(avatarFile)
+        })
+        updateData.profilePicture = dataUrl
+      }
+
+      const response = await updateProfile(updateData)
 
       // Update localStorage with new user data
       if (response.user) {
@@ -45,9 +66,12 @@ export function AccountSettings(): React.ReactElement {
 
       toast.success('Profile updated')
       setCurrentPassword('')
+      onAvatarSaved?.()
       // Just stay on the page, no need to navigate
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Update failed')
+      // Try multiple paths to get the error message
+      const errorMessage = err.response?.data?.message || err.message || 'Update failed'
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -97,8 +121,13 @@ export function AccountSettings(): React.ReactElement {
             <Input id="name" value={fullname} onChange={e => setFullname(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="username">Email</Label>
-            <Input id="username" value={username} disabled className="bg-muted" />
+            <Label htmlFor="username">Username</Label>
+            <Input id="username" value={username} onChange={e => setUsername(e.target.value)} />
+            <p className="text-xs text-muted-foreground">Your unique username</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" value={email} disabled className="bg-muted" />
             <p className="text-xs text-muted-foreground">Email cannot be changed</p>
           </div>
           <div className="space-y-2">
