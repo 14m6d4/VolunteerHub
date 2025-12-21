@@ -4,6 +4,7 @@ import { FeedType } from "../models/Feed.model.ts";
 import { RegistrationModel } from "../models/Registration.model.ts";
 import { EventModel } from "../models/Event.model.ts";
 import UserModel from "../models/User.model.ts";
+import { CommentModel } from "../models/Comment.model.ts";
 
 function calculateScore(feed, data, user, friendCount = 0) {
     const now = Date.now();
@@ -36,13 +37,9 @@ function calculateScore(feed, data, user, friendCount = 0) {
         engagementScore = membersScore + activityScore;
         typeBonus = 10;
 
-        // Velocity Boost for trending events
-        // Use the velocity score from the best feature found during analysis
         velocityScore = Math.min(60, data.bestFeature?.score || 0);
     }
 
-    // Social score based on friend count in the event
-    // Each friend in the event adds significant  value (up to 30 points for 6+ friends)
     const socialScore = Math.min(30, friendCount * 5);
 
     const totalScore = recencyScore + engagementScore + typeBonus + socialScore + velocityScore;
@@ -59,8 +56,10 @@ export const FeedService = {
             let joinedEventIds: any[] = [];
             let userFriendsIds: any[] = [];
 
+            let posts: any[] = [];
+            let events: any[] = [];
+
             if (user) {
-                // Fetch user's friends
                 const userData = await UserModel.findById(user._id).select('friends').lean();
                 userFriendsIds = userData?.friends || [];
 
@@ -71,52 +70,82 @@ export const FeedService = {
                 joinedEventIds = joinedRegs.map(r => r.eventId);
 
                 postQuery = { eventId: { $in: joinedEventIds } };
-
                 eventQuery._id = { $nin: joinedEventIds };
+
+                const postsPromise = PostModel.find(postQuery)
+                    .sort({ createdAt: -1 })
+                    .limit(limit)
+                    .skip(skip)
+                    .populate("authorId", "username name profilePicture role")
+                    .populate("eventId", "title image")
+                    .lean();
+
+                const eventsPromise = EventModel.find(eventQuery)
+                    .sort({ currentMembers: -1, createdAt: -1 })
+                    .limit(5)
+                    .lean();
+
+                [posts, events] = await Promise.all([postsPromise, eventsPromise]);
             } else {
-                postQuery = { isPublic: true };
-                eventQuery.isPublic = true;
+                events = await EventModel.find(eventQuery)
+                    .sort({ currentMembers: -1, createdAt: -1 })
+                    .limit(5)
+                    .lean();
             }
 
-            const postsPromise = PostModel.find(postQuery)
-                .sort({ createdAt: -1 })
-                .limit(limit)
-                .skip(skip)
-                .populate("authorId", "username name profilePicture role")
-                .populate("eventId", "title image")
-                .lean();
-            const eventsPromise = EventModel.find(eventQuery)
-                .sort({ currentMembers: -1, createdAt: -1 })
-                .limit(5)
-                .lean();
-
-            const [posts, events] = await Promise.all([postsPromise, eventsPromise]);
-
-            const WINDOWS = [1, 2, 3, 5];
+            const WINDOWS = [1, 2];
             const nowTime = Date.now();
 
-            // Helper function to count friends in an event
-            const countFriendsInEvent = async (eventId: any) => {
-                if (userFriendsIds.length === 0) return 0;
-                const count = await RegistrationModel.countDocuments({
-                    eventId,
-                    volunteerId: { $in: userFriendsIds },
-                    status: { $in: ["approved", "completed"] }
-                });
-                return count;
-            };
+            const allEventIds = [
+                ...new Set([
+                    ...posts.map(p => p.eventId?._id || p.eventId),
+                    ...events.map(e => e._id)
+                ])
+            ].filter(id => id);
 
-            const postsWithComments = await Promise.all(posts.map(async (p: any) => {
-                const comments = await (await import("../models/Comment.model.ts")).CommentModel.find({ postId: p._id })
-                    .sort({ createdAt: -1 })
-                    .limit(2)
-                    .populate("authorId", "name username profilePicture");
+            let friendCountMap = new Map();
+            if (user && userFriendsIds.length > 0) {
+                const friendRegs = await RegistrationModel.aggregate([
+                    {
+                        $match: {
+                            eventId: { $in: allEventIds },
+                            volunteerId: { $in: userFriendsIds },
+                            status: { $in: ["approved", "completed"] }
+                        }
+                    },
+                    { $group: { _id: "$eventId", count: { $sum: 1 } } }
+                ]);
+                friendCountMap = new Map(friendRegs.map(r => [r._id.toString(), r.count]));
+            }
 
-                const commentCount = await (await import("../models/Comment.model.ts")).CommentModel.countDocuments({ postId: p._id });
-                const friendCount = await countFriendsInEvent(p.eventId._id || p.eventId);
+            const postIds = posts.map(p => p._id);
+            const commentCounts = await CommentModel.aggregate([
+                { $match: { postId: { $in: postIds } } },
+                { $group: { _id: "$postId", count: { $sum: 1 } } }
+            ]);
+            const commentCountMap = new Map(commentCounts.map(c => [c._id.toString(), c.count]));
 
-                return { ...p, comments, commentCount, friendCount };
-            }));
+            const latestComments = await CommentModel.find({ postId: { $in: postIds } })
+                .sort({ createdAt: -1 })
+                .populate("authorId", "name username profilePicture")
+                .limit(40)
+                .lean();
+
+            const postsWithComments = posts.map((p: any) => {
+                const pId = p._id.toString();
+                const eventId = (p.eventId?._id || p.eventId).toString();
+
+                const comments = latestComments
+                    .filter(c => c.postId.toString() === pId)
+                    .slice(0, 2);
+
+                return {
+                    ...p,
+                    comments,
+                    commentCount: commentCountMap.get(pId) || 0,
+                    friendCount: friendCountMap.get(eventId) || 0
+                };
+            });
 
             const postItems = postsWithComments.map(p => ({
                 type: "post",
@@ -125,60 +154,65 @@ export const FeedService = {
                 friendCount: p.friendCount
             }));
 
-            const eventsWithVelocity = await Promise.all(events.map(async (e: any) => {
-                // Total counts
-                const postCount = await PostModel.countDocuments({ eventId: e._id });
-                const friendCount = await countFriendsInEvent(e._id);
+            const eventIds = events.map(e => e._id);
+            const maxWindow = Math.max(...WINDOWS);
+            const cutoff = new Date(nowTime - maxWindow * 24 * 3600000);
 
-                const eventPosts = await PostModel.find({ eventId: e._id }).select('_id createdAt').lean();
-                const eventPostIds = eventPosts.map(p => p._id);
+            const recentRegs = await RegistrationModel.find({
+                eventId: { $in: eventIds },
+                status: { $in: ["approved", "completed"] },
+                createdAt: { $gte: cutoff }
+            }).select('eventId createdAt').lean();
 
-                // Analyze multiple windows
+
+            const allEventPosts = await PostModel.find({
+                eventId: { $in: eventIds }
+            }).select('eventId createdAt').lean();
+
+            const eventPostIds = allEventPosts.map(p => p._id);
+            const recentCommentsAgg = await CommentModel.find({
+                postId: { $in: eventPostIds },
+                createdAt: { $gte: cutoff }
+            }).select('postId createdAt').lean();
+
+            const eventsWithVelocity = events.map((e: any) => {
+                const eIdStr = e._id.toString();
+                const postsForEvent = allEventPosts.filter(p => p.eventId.toString() === eIdStr);
+                const postCount = postsForEvent.length;
+                const friendCount = friendCountMap.get(eIdStr) || 0;
+
                 const features: any[] = [];
-
                 for (const days of WINDOWS) {
-                    const cutoff = new Date(nowTime - days * 24 * 3600000);
+                    const windowCutoff = new Date(nowTime - days * 24 * 3600000);
 
-                    // Members growth
-                    const members = await RegistrationModel.countDocuments({
-                        eventId: e._id,
-                        status: { $in: ["approved", "completed"] },
-                        createdAt: { $gte: cutoff }
-                    });
+                    const members = recentRegs.filter(r =>
+                        r.eventId.toString() === eIdStr && r.createdAt >= windowCutoff
+                    ).length;
                     if (members > 0) {
-                        features.push({
-                            type: 'rapid_growth',
-                            count: members,
-                            days,
-                            score: (members / days) * 12 // Points per member per day
-                        });
+                        features.push({ type: 'rapid_growth', count: members, days, score: (members / days) * 12 });
                     }
 
-                    // Posts growth
-                    const recentPosts = eventPosts.filter(p => (p as any).createdAt >= cutoff).length;
+                    const recentPosts = postsForEvent.filter(p => p.createdAt >= windowCutoff).length;
                     if (recentPosts > 0) {
-                        features.push({
-                            type: 'active_community',
-                            count: recentPosts,
-                            days,
-                            score: (recentPosts / days) * 18 // Points per post per day
-                        });
+                        features.push({ type: 'active_community', count: recentPosts, days, score: (recentPosts / days) * 18 });
+                    }
+
+                    const ePostIds = new Set(postsForEvent.map(p => p._id.toString()));
+                    const comments = recentCommentsAgg.filter(c =>
+                        ePostIds.has(c.postId.toString()) && c.createdAt >= windowCutoff
+                    ).length;
+                    if (comments > 0) {
+                        features.push({ type: 'hot_discussion', count: comments, days, score: (comments / days) * 6 });
                     }
                 }
 
-                // Pick the best feature (highest score)
                 let bestFeature = { type: 'trending_now', count: 0, days: 0, score: 0 };
                 if (features.length > 0) {
                     bestFeature = features.reduce((prev, current) => (prev.score > current.score) ? prev : current);
                 }
 
-                return {
-                    ...e,
-                    postCount,
-                    friendCount,
-                    bestFeature
-                };
-            }));
+                return { ...e, postCount, friendCount, bestFeature };
+            });
 
             const eventItems = eventsWithVelocity.map(e => ({
                 type: "trending",
