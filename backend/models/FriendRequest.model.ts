@@ -16,14 +16,13 @@ export interface IFriendRequest extends Document {
 const FriendRequestSchema = new Schema<IFriendRequest>({
   sender: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   receiver: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  status: { 
-    type: String, 
-    enum: Object.values(FriendRequestStatus), 
-    default: FriendRequestStatus.Pending 
+  status: {
+    type: String,
+    enum: Object.values(FriendRequestStatus),
+    default: FriendRequestStatus.Pending
   }
 }, { timestamps: true });
 
-// Ensure unique request between two users if still pending
 FriendRequestSchema.index({ sender: 1, receiver: 1 }, { unique: true });
 
 export default mongoose.model<IFriendRequest>('FriendRequest', FriendRequestSchema);

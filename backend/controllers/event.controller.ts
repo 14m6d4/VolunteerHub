@@ -21,7 +21,6 @@ export const EventController = {
             console.log("Creating event with body:", req.body);
             if (req.file) {
                 console.log(`[EventController] Processing file from memory`);
-                // Upload to ImgBB directly from memory buffer
                 const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
                 console.log(`[EventController] ImgBB URL: ${imageUrl}`);
 
@@ -30,7 +29,6 @@ export const EventController = {
                 console.log("[EventController] No file in request");
             }
 
-            // managerId from auth middleware
             const managerId = (req.user as any)._id;
             const event = await EventService.createEvent(req.body, managerId);
             return res.status(201).json({ success: true, data: event });
@@ -43,12 +41,9 @@ export const EventController = {
         try {
             const eventId = req.params.id;
             if (req.file) {
-                // Upload to ImgBB directly from memory buffer
                 const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
                 req.body.image = imageUrl;
             }
-
-            // permission check: manager or admin
             const updated = await EventService.updateEvent(eventId, req.body, (req.user as any)?._id);
             return res.json({ success: true, data: updated });
         } catch (err) {
@@ -77,17 +72,15 @@ export const EventController = {
 
     async list(req: Request, res: Response, next: NextFunction) {
         try {
-            const user = req.user; // undefined nếu không login
+            const user = req.user;
             const status = req.query.status as string | undefined;
             console.log("List Events - User:", user ? { id: (user as any)._id, role: (user as any).role } : null);
 
-            // Pending visibility check
             if (status === "pending") {
                 if (!user) {
                     return res.status(403).json({ success: false, message: "Forbidden" });
                 }
                 if (user.role === "manager") {
-                    // manager chỉ được xem event pending do họ tạo
                     req.query.managerId = user._id;
                 } else if (user.role !== "admin") {
                     return res.status(403).json({ success: false, message: "Forbidden" });

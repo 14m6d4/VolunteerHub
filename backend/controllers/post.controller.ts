@@ -6,7 +6,6 @@ export const PostController = {
         try {
             const userId = (req.user as any)._id;
 
-            // Extract from body since route is generic /api/posts
             const { discussionId, eventId, content } = req.body;
 
             const post = await PostService.createPost({

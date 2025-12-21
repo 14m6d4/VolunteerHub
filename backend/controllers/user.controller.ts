@@ -1,5 +1,3 @@
-// backend/controllers/user.controller.ts
-
 import { type Response, type NextFunction } from 'express';
 import { updateProfileWithPasswordCheck } from '../services/user.service.ts';
 import type { UpdateProfileData } from '../types/user.ts';
@@ -11,31 +9,18 @@ import { UserRole } from '../types/user.ts';
 import { roleMiddleware } from '../middlewares/role.middleware.ts';
 import { uploadToImgBB } from '../services/imgbb.service.ts';
 
-// Combine the password field with the profile data payload for the API request
 export type SecureUpdateProfilePayload = UpdateProfileData & {
   currentPassword?: string;
 };
 
-/**
- * Controller to handle the secure update of the user's profile.
- * Requires current password verification before proceeding.
- *
- * @param req The Express request object (casted to include user data and body payload).
- * @param res The Express response object.
- * @param next The Express next function for error handling.
- */
 export async function updateProfileSecure(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    // 1. Get the authenticated user ID
     const userId = req.user._id.toString();
 
-    // 2. Extract payload including the current password
     const { currentPassword, ...updateData }: SecureUpdateProfilePayload = req.body;
 
-    // --- ImgBB Upload Logic ---
     if (updateData.profilePicture && updateData.profilePicture.startsWith('data:image')) {
       try {
-        // Extract base64 data
         const matches = updateData.profilePicture.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
 
         if (matches && matches.length === 3) {
@@ -48,7 +33,6 @@ export async function updateProfileSecure(req: AuthenticatedRequest, res: Respon
           console.log(`[user.controller] Uploading avatar for user ${userId} to ImgBB...`);
           const publicUrl = await uploadToImgBB(buffer, filename);
 
-          // Replace base64 string with Public URL
           updateData.profilePicture = publicUrl;
         }
       } catch (uploadErr) {
@@ -56,19 +40,15 @@ export async function updateProfileSecure(req: AuthenticatedRequest, res: Respon
         throw new AppError('Failed to upload profile picture', 500);
       }
     }
-    // ---------------------------------
 
-    // 3. Delegate the logic to the service layer
     const updatedUser = await updateProfileWithPasswordCheck(userId, currentPassword, updateData);
 
-    // 4. Send success response (200 OK)
     return res.status(200).json({
       message: 'Profile updated successfully',
       user: updatedUser
     });
 
   } catch (error) {
-    // 5. Forward the error (e.g., AppError with status 401 for wrong password)
     next(error);
   }
 }
@@ -94,8 +74,6 @@ export async function getPublicProfile(
       throw new AppError('User not found or deactivated', 404);
     }
 
-    // Nếu là chính mình → vẫn chỉ trả về public fields (frontend sẽ tự check để hiện form)
-    // Safely format optional date fields
     const birthdateIso = user.birthdate ? new Date(user.birthdate).toISOString().split('T')[0] : null;
     const createdAtIso = user.createdAt ? new Date(user.createdAt).toISOString() : null;
 
@@ -157,7 +135,6 @@ export async function listFriends(req: AuthenticatedRequest, res: Response, next
   }
 }
 
-// Get sent friend requests
 export async function listSentFriendRequests(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user._id.toString();
@@ -168,7 +145,6 @@ export async function listSentFriendRequests(req: AuthenticatedRequest, res: Res
   }
 }
 
-// Cancel a friend request
 export async function cancelFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user._id.toString();
@@ -180,7 +156,6 @@ export async function cancelFriendRequest(req: AuthenticatedRequest, res: Respon
   }
 }
 
-// Reject a friend request
 export async function rejectFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user._id.toString();
@@ -204,10 +179,6 @@ export async function friendRelations(req: AuthenticatedRequest, res: Response, 
   }
 }
 
-/**
- * Admin action: Ban a user by id
- * Expects optional body: { reason?: string, until?: string }
- */
 export async function banUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.params.id as string;
@@ -267,7 +238,6 @@ export async function unfriendUser(req: AuthenticatedRequest, res: Response, nex
 
 import { ReportService } from '../services/report.service.ts';
 
-// ...
 
 export async function reportUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
@@ -347,16 +317,11 @@ export async function getFriendSuggestions(req: AuthenticatedRequest, res: Respo
   }
 }
 
-/**
- * Get user profile statistics based on role
- * GET /api/users/:username/stats
- */
 export async function getUserStats(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { username } = req.params;
     if (!username) throw new AppError('Username parameter required', 400);
 
-    // Find the user
     const user = await UserModel.findOne({ username: username as string, isActive: true })
       .select('_id role')
       .lean();
@@ -365,7 +330,6 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
       throw new AppError('User not found or deactivated', 404);
     }
 
-    // Block admin profile access
     if (user.role === UserRole.Admin) {
       throw new AppError('Access to admin profiles is forbidden', 403);
     }
@@ -376,12 +340,10 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
     let stats: any = {};
 
     if (user.role === UserRole.Volunteer) {
-      // For volunteers: Count active events they participated in
       const { EventModel } = await import('../models/Event.model.ts');
       const { RegistrationModel, RegistrationStatus } = await import('../models/Registration.model.ts');
       const { EventStatus } = await import('../models/Event.model.ts');
 
-      // Get all approved registrations for this volunteer
       const registrations = await RegistrationModel.find({
         volunteerId: userId,
         status: RegistrationStatus.APPROVED
@@ -390,13 +352,11 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
       const eventIds = registrations.map(r => r.eventId);
 
       if (eventIds.length > 0) {
-        // Count active events (approved status only)
         const activeEvents = await EventModel.countDocuments({
           _id: { $in: eventIds },
           status: EventStatus.APPROVED
         });
 
-        // Count completed events (finished)
         const completedEvents = await EventModel.countDocuments({
           _id: { $in: eventIds },
           status: EventStatus.FINISHED
@@ -413,16 +373,13 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
         };
       }
     } else if (user.role === UserRole.Manager) {
-      // For managers: Count active events (approved status) and organized events (finished status)
       const { EventModel, EventStatus } = await import('../models/Event.model.ts');
 
-      // Count active events: only approved status
       const activeEvents = await EventModel.countDocuments({
         managerId: userId,
         status: EventStatus.APPROVED
       });
 
-      // Count events organized (finished events only)
       const eventsOrganized = await EventModel.countDocuments({
         managerId: userId,
         status: EventStatus.FINISHED
@@ -434,7 +391,6 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
       };
     }
 
-    // Get friends count for all users
     const userWithFriends = await UserModel.findById(userId).select('friends').lean();
     const friendsCount = (userWithFriends && (userWithFriends as any).friends) ? (userWithFriends as any).friends.length : 0;
 
@@ -452,13 +408,11 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
   }
 }
 
-// Get user's events by username (public)
 export async function getUserEvents(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { username } = req.params;
     if (!username) throw new AppError('Username parameter required', 400);
 
-    // Find the user
     const user = await UserModel.findOne({ username: username as string, isActive: true })
       .select('_id role')
       .lean();
@@ -467,7 +421,6 @@ export async function getUserEvents(req: AuthenticatedRequest, res: Response, ne
       throw new AppError('User not found or deactivated', 404);
     }
 
-    // Block admin profile access
     if (user.role === UserRole.Admin) {
       throw new AppError('Access to admin profiles is forbidden', 403);
     }
@@ -479,7 +432,6 @@ export async function getUserEvents(req: AuthenticatedRequest, res: Response, ne
     let events: any[] = [];
 
     if (user.role === UserRole.Volunteer) {
-      // Get approved registrations for volunteer
       const registrations = await RegistrationModel.find({
         volunteerId: userId,
         status: RegistrationStatus.APPROVED
@@ -495,7 +447,6 @@ export async function getUserEvents(req: AuthenticatedRequest, res: Response, ne
           .lean();
       }
     } else if (user.role === UserRole.Manager) {
-      // Get events organized by manager
       events = await EventModel.find({
         managerId: userId
       })
@@ -512,13 +463,11 @@ export async function getUserEvents(req: AuthenticatedRequest, res: Response, ne
   }
 }
 
-// Get user's friends by username (public)
 export async function getUserFriendsList(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { username } = req.params;
     if (!username) throw new AppError('Username parameter required', 400);
 
-    // Find the user
     const user = await UserModel.findOne({ username: username as string, isActive: true })
       .select('_id role friends')
       .populate({
@@ -531,7 +480,6 @@ export async function getUserFriendsList(req: AuthenticatedRequest, res: Respons
       throw new AppError('User not found or deactivated', 404);
     }
 
-    // Block admin profile access
     if (user.role === UserRole.Admin) {
       throw new AppError('Access to admin profiles is forbidden', 403);
     }

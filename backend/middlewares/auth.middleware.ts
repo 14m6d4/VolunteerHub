@@ -35,7 +35,6 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
             return next(createHttpError(401, "User no longer exists"));
         }
 
-        // Attach user to request object
         (req as any).user = user;
         return next();
     } catch (err) {
@@ -61,7 +60,6 @@ export async function optionalAuthMiddleware(req: Request, res: Response, next: 
         const user = await User.findById(decoded.id).select("+passwordHash");
 
         if (user) {
-            // Attach user to request object
             (req as any).user = user;
         }
         return next();

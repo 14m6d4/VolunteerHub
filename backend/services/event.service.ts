@@ -154,12 +154,8 @@ export const EventService = {
             EventModel.countDocuments(query)
         ]);
 
-        // Populate pending requests if we are listing for a manager or generally
-        // This is needed for the frontend ManagerEventCard to show pending request count
         const itemsWithRequests = await Promise.all(items.map(async (item) => {
             const eventObj = item.toObject();
-
-            // Use dynamic import to be consistent with other methods in this file or avoid circular deps
             const RegistrationModel = (await import("../models/Registration.model.ts")).RegistrationModel;
             const RegistrationStatus = (await import("../models/Registration.model.ts")).RegistrationStatus;
 
@@ -168,22 +164,15 @@ export const EventService = {
                 status: RegistrationStatus.PENDING
             }).select('volunteerId');
 
-            // Attach requests array (mocking User objects with just ID to satisfy length check and basic existence)
-            // Frontend assumes requests is User[]. We provide minimal object.
             (eventObj as any).requests = pendingRegs.map(r => ({
                 id: r.volunteerId,
-                // We could fetch names here if needed, but for the card badge, length is enough
             }));
 
-            // Calculate pending reports for posts in this event
             const PostModel = (await import("../models/Post.model.ts")).PostModel;
             const ReportModel = (await import("../models/Report.model.ts")).ReportModel;
 
-            // Get all post IDs for this event
             const posts = await PostModel.find({ eventId: item._id }).select('_id');
             const postIds = posts.map(p => p._id);
-
-            // Count pending reports targeting these posts
             const pendingReportsCount = await ReportModel.countDocuments({
                 targetType: 'post',
                 targetId: { $in: postIds },

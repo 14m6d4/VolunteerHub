@@ -16,7 +16,6 @@ export const CommentService = {
             content
         });
 
-        // Send notification to post author if someone else comments
         if (post.authorId._id.toString() !== userId) {
             try {
                 const commenter = await User.findById(userId).select('name username');

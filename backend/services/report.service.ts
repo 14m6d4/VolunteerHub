@@ -7,13 +7,10 @@ import createHttpError from "http-errors";
 import User from "../models/User.model.ts";
 
 export const ReportService = {
-    // Báo cáo sự kiện
     async reportEvent(reporterId: string, eventId: string, reason: string, description?: string) {
-        // Kiểm tra sự kiện có tồn tại không
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
 
-        // Tạo báo cáo
         const report = await ReportModel.create({
             reporter: reporterId,
             targetId: event._id,
@@ -23,7 +20,6 @@ export const ReportService = {
             status: 'pending'
         });
 
-        // Gửi thông báo cho admin
         const admins = await User.find({ role: "admin" });
         admins.forEach(admin => {
             NotificationService.notify(admin._id.toString(), {
@@ -37,13 +33,10 @@ export const ReportService = {
         return report;
     },
 
-    // Báo cáo bài viết
     async reportPost(reporterId: string, postId: string, reason: string, description?: string) {
-        // Kiểm tra bài viết có tồn tại không
         const post = await PostModel.findById(postId);
         if (!post) throw createHttpError(404, "Post not found");
 
-        // Tạo báo cáo
         const report = await ReportModel.create({
             reporter: reporterId,
             targetId: post._id,
@@ -53,7 +46,6 @@ export const ReportService = {
             status: 'pending'
         });
 
-        // Gửi thông báo cho manager của event (nếu có)
         if (post.eventId) {
             const event = await EventModel.findById(post.eventId);
             if (event) {
@@ -69,13 +61,10 @@ export const ReportService = {
         return report;
     },
 
-    // Báo cáo người dùng
     async reportUser(reporterId: string, targetId: string, reason: string, description?: string) {
-        // Kiểm tra user có tồn tại không
         const targetUser = await User.findById(targetId);
         if (!targetUser) throw createHttpError(404, "User not found");
 
-        // Tạo báo cáo
         const report = await ReportModel.create({
             reporter: reporterId,
             targetId: targetUser._id,
@@ -85,7 +74,6 @@ export const ReportService = {
             status: 'pending'
         });
 
-        // Gửi thông báo cho admin
         const admins = await User.find({ role: "admin" });
         console.log(`[ReportService] reportUser: Found ${admins.length} admins to notify.`);
 
@@ -102,14 +90,12 @@ export const ReportService = {
         return report;
     },
 
-    // Lấy tất cả báo cáo (dành cho admin page)
     async getAllReports(filter: any = {}) {
         const reports = await ReportModel.find(filter)
             .populate('reporter', 'username name profilePicture')
             .sort({ createdAt: -1 })
             .lean();
 
-        // Populate target details based on type
         const populatedReports = await Promise.all(
             reports.map(async (report: any) => {
                 let targetDetails = null;
@@ -135,26 +121,21 @@ export const ReportService = {
         return populatedReports;
     },
 
-    // Lấy các báo cáo theo target (Event, Post)
     async getReportsByTarget(targetId: string, targetType: ReportTargetType) {
         return ReportModel.find({ targetId, targetType }).sort({ createdAt: -1 });
     },
 
-    // Lấy báo cáo cho Manager (chỉ báo cáo về Post thuộc Event mà họ quản lý)
     async getReportsForManager(managerId: string) {
-        // 1. Tìm tất cả Event mà user là manager
         const events = await EventModel.find({ managerId }).select('_id');
         const eventIds = events.map(e => e._id);
 
         if (eventIds.length === 0) return [];
 
-        // 2. Tìm tất cả Post thuộc các Event đó
         const posts = await PostModel.find({ eventId: { $in: eventIds } }).select('_id');
         const postIds = posts.map(p => p._id);
 
         if (postIds.length === 0) return [];
 
-        // 3. Tìm các Report liên quan đến các Post đó
         return ReportModel.find({
             targetType: ReportTargetType.Post,
             targetId: { $in: postIds }
@@ -163,15 +144,12 @@ export const ReportService = {
             .sort({ createdAt: -1 });
     },
 
-    // Lấy báo cáo cho một Event cụ thể (dành cho manager)
     async getReportsForEvent(eventId: string) {
-        // 1. Tìm tất cả Post thuộc Event này
         const posts = await PostModel.find({ eventId }).select('_id');
         const postIds = posts.map(p => p._id);
 
         if (postIds.length === 0) return [];
 
-        // 2. Tìm các Report liên quan đến các Post đó
         return ReportModel.find({
             targetType: ReportTargetType.Post,
             targetId: { $in: postIds }
@@ -180,7 +158,6 @@ export const ReportService = {
             .sort({ createdAt: -1 });
     },
 
-    //Cập nhật trạng thái của báo cáo (resolved, rejected)
     async updateReportStatus(reportId: string, status: 'resolved' | 'rejected') {
         const report = await ReportModel.findById(reportId).populate('reporter', 'username');
         if (!report) throw createHttpError(404, "Report not found");
@@ -188,7 +165,6 @@ export const ReportService = {
         report.status = status;
         await report.save();
 
-        // Notify the reporter about the resolution
         try {
             const notificationTitle = status === 'resolved'
                 ? 'Report Resolved'
@@ -219,22 +195,17 @@ export const ReportService = {
             console.error("Failed to notify reporter about report status:", err);
         }
 
-        // If resolving a post report, delete the post
         if (status === 'resolved' && report.targetType === ReportTargetType.Post) {
             try {
                 await PostModel.findByIdAndDelete(report.targetId);
                 console.log(`[ReportService] Deleted post ${report.targetId} due to resolved report #${report._id}`);
             } catch (err) {
                 console.error("Failed to delete post after report resolve:", err);
-                // Continue even if deletion fails - report is still resolved
             }
         }
 
-        // If resolving a user report, ban the user automatically
         if (status === 'resolved' && report.targetType === ReportTargetType.User) {
             try {
-                // Dynamically import to avoid potential circular dependency issues if any arise, 
-                // though currently user.service.ts doesn't import ReportService.
                 const { banUserService } = await import('./user.service.ts');
                 await banUserService(report.targetId.toString(), `Banned due to Report #${report._id}: ${report.reason}`);
             } catch (err) {

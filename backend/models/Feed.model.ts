@@ -8,8 +8,8 @@ export enum FeedType {
 
 export interface IFeed extends Document {
     type: FeedType;
-    refId: mongoose.Types.ObjectId; // Event._id hoặc Post._id
-    eventId?: mongoose.Types.ObjectId; // dùng filter
+    refId: mongoose.Types.ObjectId;
+    eventId?: mongoose.Types.ObjectId;
     createdAt: Date;
 }
 

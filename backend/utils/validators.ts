@@ -1,5 +1,3 @@
-// backend/utils/validators.ts
-
 import { z } from 'zod';
 import { EventStatus } from "../models/Event.model.ts";
 
@@ -54,14 +52,9 @@ export const createEventSchema = z.object({
   endAt: z.string().datetime().or(z.date()).optional(),
   tags: z.union([z.array(z.string()), z.string()]).transform(val => {
     if (Array.isArray(val)) return val;
-    return [val]; // Handle single tag case if multipart sends distinct keys, typically it handles array.
-    // Multer handles array if keys are same. 
-    // Zod with express-validator logic might differ. 
-    // If middleware parses body using express.json for non-files, it's typed.
-    // If using multer, req.body has strings/arrays.
+    return [val];
     return val;
   }).pipe(z.array(z.string())).optional().default([]),
-  // Handle array input from multer which might be just one string if single item, or array
   maxMembers: z.preprocess(val => {
     if (val === 'null' || val === 'undefined' || val === '') return null;
     const n = Number(val);
@@ -80,7 +73,7 @@ export const updateEventSchema = z.object({
   location: z.string().optional().default(''),
   startAt: z.string().datetime().or(z.date()).optional(),
   endAt: z.string().datetime().or(z.date()).optional(),
-  tags: z.array(z.string()).optional().default([]), // Multer handles arrays
+  tags: z.array(z.string()).optional().default([]),
   maxMembers: z.preprocess(val => {
     if (val === 'null' || val === 'undefined' || val === '') return null;
     const n = Number(val);
@@ -99,7 +92,6 @@ export const updateEventSchema = z.object({
 
 // --- User Profile Schema ---
 export const secureUpdateProfileSchema = z.object({
-  // Current password is optional; server will require it for local accounts
   currentPassword: z.string().min(6, 'Password must be at least 6 characters long').optional(),
   name: z.string().min(1, 'Name cannot be empty').max(100, 'Name too long').optional(),
   username: z.string()

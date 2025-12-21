@@ -125,7 +125,6 @@ export async function getAnalytics(req: Request, res: Response) {
             });
         }
 
-        // ============ TOP EVENT CATEGORIES CHART ============
         const categoryAggregation = await EventModel.aggregate([
             { $unwind: '$tags' },
             { $group: { _id: '$tags', count: { $sum: 1 } } },
@@ -138,7 +137,6 @@ export async function getAnalytics(req: Request, res: Response) {
             count: item.count
         }));
 
-        // ============ REPORTS DISTRIBUTION CHART ============
         const reasonAggregation = await ReportModel.aggregate([
             { $group: { _id: '$reason', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
@@ -149,7 +147,6 @@ export async function getAnalytics(req: Request, res: Response) {
             count: item.count
         }));
 
-        // ============ RESPONSE ============
         const data = {
             statistics: {
                 totalUsers,

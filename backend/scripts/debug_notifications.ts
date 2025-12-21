@@ -1,4 +1,3 @@
-// scripts/debug_notifications.ts
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -19,12 +18,10 @@ const run = async () => {
         await mongoose.connect(process.env.MONGODB_URI as string);
         console.log('Connected.');
 
-        // 1. Check for admins
         const admins = await User.find({ role: 'admin' });
         console.log(`Found ${admins.length} admins.`);
         admins.forEach(a => console.log(` - ${a.username} (${a._id})`));
 
-        // 2. Find a test user to report
         const target = await User.findOne({ role: 'volunteer' });
         if (!target) {
             console.log('No volunteer user found to report.');
@@ -32,8 +29,6 @@ const run = async () => {
         }
         console.log(`Reporting user: ${target.username} (${target._id})`);
 
-        // 3. Trigger report
-        // Need a reporter ID (can be one of the admins or the user themselves for testing)
         const reporter = admins[0] || target;
 
         console.log('Calling ReportService.reportUser...');
