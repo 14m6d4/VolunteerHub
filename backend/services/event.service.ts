@@ -150,7 +150,7 @@ export const EventService = {
         }
 
         const [items, total] = await Promise.all([
-            EventModel.find(query).sort({ startAt: 1 }).skip(skip).limit(limit),
+            EventModel.find(query).sort({ startAt: -1 }).skip(skip).limit(limit),
             EventModel.countDocuments(query)
         ]);
 
@@ -174,6 +174,23 @@ export const EventService = {
                 id: r.volunteerId,
                 // We could fetch names here if needed, but for the card badge, length is enough
             }));
+
+            // Calculate pending reports for posts in this event
+            const PostModel = (await import("../models/Post.model.ts")).PostModel;
+            const ReportModel = (await import("../models/Report.model.ts")).ReportModel;
+
+            // Get all post IDs for this event
+            const posts = await PostModel.find({ eventId: item._id }).select('_id');
+            const postIds = posts.map(p => p._id);
+
+            // Count pending reports targeting these posts
+            const pendingReportsCount = await ReportModel.countDocuments({
+                targetType: 'post',
+                targetId: { $in: postIds },
+                status: 'pending'
+            });
+
+            (eventObj as any).pendingReportsCount = pendingReportsCount;
 
             return eventObj;
         }));

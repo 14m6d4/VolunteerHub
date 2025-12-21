@@ -264,7 +264,23 @@ export const ManagerEventDashboard = () => {
     try {
       await kickMember(regId);
       toast.success('Member Removed');
-      if (selectedEvent) handleManageMembers(selectedEvent); // Refresh modal data
+
+      // Update local state
+      if (selectedEvent) {
+        handleManageMembers(selectedEvent); // Refresh modal data
+
+        // Update dashboard list state
+        setEvents(prev => prev.map(ev => {
+          if (ev.id === selectedEvent.id) {
+            return {
+              ...ev,
+              membersCount: Math.max(0, ev.membersCount - 1),
+              // We don't track full members list in dashboard view usually, so just count
+            };
+          }
+          return ev;
+        }));
+      }
     } catch (error) {
       console.error("Failed to remove member:", error);
       toast.error("Failed to remove member");
@@ -277,7 +293,22 @@ export const ManagerEventDashboard = () => {
     try {
       await approveRegistration(regId);
       toast.success('Request Approved');
-      if (selectedEvent) handleManageMembers(selectedEvent); // Refresh modal data
+
+      if (selectedEvent) {
+        handleManageMembers(selectedEvent); // Refresh modal data
+
+        // Update dashboard list state
+        setEvents(prev => prev.map(ev => {
+          if (ev.id === selectedEvent.id) {
+            return {
+              ...ev,
+              requests: ev.requests?.filter(r => r.id !== userId) || [],
+              membersCount: ev.membersCount + 1
+            };
+          }
+          return ev;
+        }));
+      }
     } catch (error) {
       console.error("Failed to approve request:", error);
       toast.error("Failed to approve request");
@@ -290,7 +321,21 @@ export const ManagerEventDashboard = () => {
     try {
       await rejectRegistration(regId);
       toast.success('Request Rejected');
-      if (selectedEvent) handleManageMembers(selectedEvent); // Refresh modal data
+
+      if (selectedEvent) {
+        handleManageMembers(selectedEvent); // Refresh modal data
+
+        // Update dashboard list state
+        setEvents(prev => prev.map(ev => {
+          if (ev.id === selectedEvent.id) {
+            return {
+              ...ev,
+              requests: ev.requests?.filter(r => r.id !== userId) || []
+            };
+          }
+          return ev;
+        }));
+      }
     } catch (error) {
       console.error("Failed to reject request:", error);
       toast.error("Failed to reject request");
@@ -308,7 +353,23 @@ export const ManagerEventDashboard = () => {
         })
       );
       toast.success('All Requests Approved');
-      if (selectedEvent) handleManageMembers(selectedEvent);
+
+      if (selectedEvent) {
+        handleManageMembers(selectedEvent);
+
+        // Update dashboard list state
+        setEvents(prev => prev.map(ev => {
+          if (ev.id === selectedEvent.id) {
+            const addedCount = ev.requests?.length || 0;
+            return {
+              ...ev,
+              requests: [],
+              membersCount: ev.membersCount + addedCount
+            };
+          }
+          return ev;
+        }));
+      }
     } catch (error) {
       console.error("Failed to approve all:", error);
       toast.error("Failed to approve all requests");
@@ -326,7 +387,21 @@ export const ManagerEventDashboard = () => {
         })
       );
       toast.success('All Requests Rejected');
-      if (selectedEvent) handleManageMembers(selectedEvent);
+
+      if (selectedEvent) {
+        handleManageMembers(selectedEvent);
+
+        // Update dashboard list state
+        setEvents(prev => prev.map(ev => {
+          if (ev.id === selectedEvent.id) {
+            return {
+              ...ev,
+              requests: []
+            };
+          }
+          return ev;
+        }));
+      }
     } catch (error) {
       console.error("Failed to reject all:", error);
       toast.error("Failed to reject all requests");
@@ -381,6 +456,19 @@ export const ManagerEventDashboard = () => {
 
   const clearTags = () => {
     setFilters(prev => ({ ...prev, selectedTags: [] }));
+  };
+
+  const handleReportAction = (event: Event) => {
+    // Decrement pending reports count when a report is resolved/rejected
+    setEvents(prev => prev.map(ev => {
+      if (ev.id === event.id) {
+        return {
+          ...ev,
+          pendingReportsCount: Math.max(0, (ev.pendingReportsCount || 0) - 1)
+        };
+      }
+      return ev;
+    }));
   };
 
   return (
@@ -517,6 +605,7 @@ export const ManagerEventDashboard = () => {
                     onMarkCompleted={handleMarkCompleted}
                     onEdit={handleEditEvent}
                     onDelete={handleDeleteEvent}
+                    onReportAction={handleReportAction}
                   />
                 ))}
               </div>
@@ -541,6 +630,7 @@ export const ManagerEventDashboard = () => {
                     onMarkCompleted={handleMarkCompleted}
                     onEdit={handleEditEvent}
                     onDelete={handleDeleteEvent}
+                    onReportAction={handleReportAction}
                   />
                 ))}
               </div>
@@ -565,6 +655,7 @@ export const ManagerEventDashboard = () => {
                     onMarkCompleted={handleMarkCompleted}
                     onEdit={handleEditEvent}
                     onDelete={handleDeleteEvent}
+                    onReportAction={handleReportAction}
                   />
                 ))}
               </div>

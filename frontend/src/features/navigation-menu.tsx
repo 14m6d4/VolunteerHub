@@ -23,10 +23,46 @@ export default function NavBar() {
     else notifications.openPanel();
   };
 
+  const getLinks = () => {
+    const commonLinks = [
+      { href: "/feed", label: "Home" }, // User requested "Home" mapped to /feed
+    ];
+
+    // Default/Guest links
+    if (!user) {
+      return [
+        { href: "/", label: "Home" },
+        { href: "/events", label: "Events" }, // Public events
+        { href: "/users", label: "Users" }, // Public users?
+        { href: "/about", label: "About" },
+      ];
+    }
+
+    if (user.role === 'manager') {
+      return [
+        ...commonLinks,
+        { href: "/manage-events", label: "Events Management" },
+        { href: "/users", label: "Users" },
+        { href: "/about", label: "About" },
+      ];
+    }
+
+    // Volunteer and Admin share the same structure as per request
+    // Admin: Home (/feed), Events (/events), Users (/users), About
+    // Volunteer: Home (/feed), Events (/events), Users (/users), About
+    return [
+      ...commonLinks,
+      { href: "/events", label: "Events" },
+      { href: "/users", label: "Users" },
+      { href: "/about", label: "About" },
+    ];
+  };
+
   return (
     <div className="relative w-full h-16">
       <Navbar01
         user={user}
+        navigationLinks={getLinks()}
         onLogout={handleLogout}
         onNotificationClick={handleNotificationClick}
         hasNotifications={notifications.unreadCount > 0}
