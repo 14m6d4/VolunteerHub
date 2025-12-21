@@ -1,56 +1,38 @@
-// backend/services/user.service.ts
-
-// Import necessary types and models
 import type { UpdateProfileData, IUser } from '../types/user.ts';
-import UserModel from '../models/User.model.ts'; // Mongoose User Model
+import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
 import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
 import FriendRequestModel, { FriendRequestStatus } from '../models/FriendRequest.model.ts';
 import * as notificationService from './notification.service.ts';
 
-/**
- * Updates the user's profile after verifying the current password.
- * * @param userId The ID of the authenticated user.
- * @param currentPassword The password provided by the user for verification.
- * @param updateData The fields to update (e.g., firstName, lastName, bio, phone).
- * @returns The updated user object, excluding sensitive fields.
- * @throws AppError if password is wrong, user not found, or update fails.
- */
 export async function updateProfileWithPasswordCheck(
   userId: string,
   currentPassword: string | undefined,
   updateData: UpdateProfileData
 ): Promise<IUser> {
 
-  // 1. Get the user object, specifically requesting the hidden passwordHash field
   const user = await UserModel.findById(userId).select('+passwordHash');
 
   if (!user) {
-    // Should theoretically not happen if auth middleware is correct
     throw new AppError('User not found', 404);
   }
 
-  // 2. Password Verification
-  // Only require current password when changing password
-  // For other profile updates (name, username, avatar, etc.), no password needed
   const isChangingPassword = !!updateData.password;
-  
+
   if (isChangingPassword && user.authProvider === 'local') {
     if (!currentPassword) {
       throw new AppError('Current password is required to change password', 400);
     }
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
-      throw new AppError('Incorrect current password', 401); // Unauthorized
+      throw new AppError('Incorrect current password', 401);
     }
   }
 
-  // 3. Check if any fields were actually provided for update
   if (Object.keys(updateData).length === 0) {
     throw new AppError('No update fields provided', 400); // Bad Request
   }
 
-  // 4. Check username uniqueness if username is being changed
   if (updateData.username && updateData.username !== user.username) {
     const existingUser = await UserModel.findOne({ username: updateData.username });
     if (existingUser) {
@@ -58,10 +40,8 @@ export async function updateProfileWithPasswordCheck(
     }
   }
 
-  // Sanitize updateData and coerce types where necessary
   const validUpdates: any = { ...updateData };
 
-  // Convert birthdate string (YYYY-MM-DD) into a Date object to satisfy Mongoose Date schema
   if (validUpdates.birthdate && typeof validUpdates.birthdate === 'string') {
     const d = new Date(validUpdates.birthdate);
     if (isNaN(d.getTime())) {
@@ -70,18 +50,15 @@ export async function updateProfileWithPasswordCheck(
     validUpdates.birthdate = d;
   }
 
-  // Treat empty profilePicture string as removing the picture
   if (Object.prototype.hasOwnProperty.call(validUpdates, 'profilePicture') && validUpdates.profilePicture === '') {
     validUpdates.profilePicture = undefined;
   }
 
-  // Handle password change - need to use save() to trigger password hashing hook
   if (validUpdates.password) {
     const newPassword = validUpdates.password;
-    delete validUpdates.password; // Remove from bulk update
+    delete validUpdates.password;
 
     try {
-      // Update other fields first using findByIdAndUpdate
       if (Object.keys(validUpdates).length > 0) {
         await UserModel.findByIdAndUpdate(
           userId,
@@ -90,7 +67,6 @@ export async function updateProfileWithPasswordCheck(
         );
       }
 
-      // Then update password using save() to trigger hashing
       const userForPassword = await UserModel.findById(userId).select('+passwordHash');
       if (!userForPassword) {
         throw new AppError('User not found after update', 500);
@@ -99,7 +75,6 @@ export async function updateProfileWithPasswordCheck(
       userForPassword.passwordHash = newPassword;
       await userForPassword.save();
 
-      // Return final updated user
       const updatedUser = await UserModel.findById(userId)
         .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt')
         .exec();
@@ -120,27 +95,24 @@ export async function updateProfileWithPasswordCheck(
   }
 
   try {
-    // 4. Perform the update operation (no password field)
     const updatedUser = await UserModel.findByIdAndUpdate(
       userId,
       { $set: validUpdates },
       { new: true, runValidators: true }
     )
-      .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt') // Exclude sensitive/unnecessary fields
+      .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt')
       .exec();
 
     if (!updatedUser) {
-      throw new AppError('User not found after update', 500); // Unexpected error
+      throw new AppError('User not found after update', 500);
     }
 
-    // Return the updated and sanitized user object
     return updatedUser as IUser;
 
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
     }
-    // Handle specific database errors (e.g., duplicate unique field like email)
     console.error('Database error during secure profile update:', error);
     throw new AppError('Failed to update profile due to invalid data or server error', 500);
   }
@@ -148,7 +120,7 @@ export async function updateProfileWithPasswordCheck(
 
 interface GoogleProfileData {
   email: string;
-  name: string; // Tên hiển thị đầy đủ
+  name: string;
   googleId: string;
 }
 
@@ -159,7 +131,6 @@ export async function findOrCreateByGoogleId(
 ): Promise<IUser> {
   const { email, name, googleId } = profileData;
 
-  // 1. Tìm kiếm người dùng bằng googleId hoặc email
   let user = await UserModel.findOne({
     $or: [{ googleId }, { email }],
   })
@@ -167,34 +138,28 @@ export async function findOrCreateByGoogleId(
     .exec();
 
   if (user) {
-    // ... (Logic liên kết tài khoản local đã tồn tại)
 
     if (user.authProvider === 'local' && !user.googleId) {
-      // ... (Logic cập nhật và lưu user)
     }
 
     return user as IUser;
   }
 
-  // 2. Người dùng chưa tồn tại, chuẩn bị tạo tài khoản mới.
   try {
-    // Lọc phần username từ email (ví dụ: 'john.doe@example.com' -> 'john.doe')
     const baseUsername = email.split('@')[0];
 
-    // Tự động tạo username duy nhất
     const uniqueUsername = await generateUniqueUsername(baseUsername);
 
     const newUser = await UserModel.create({
       email,
       name,
       googleId,
-      username: uniqueUsername, // SỬ DỤNG USERNAME ĐÃ ĐƯỢC LỌC VÀ KIỂM TRA
+      username: uniqueUsername,
       authProvider: 'google',
       isVerified: true,
-      birthdate: DEFAULT_BIRTHDATE, // SỬ DỤNG GIÁ TRỊ MẶC ĐỊNH
+      birthdate: DEFAULT_BIRTHDATE,
     });
 
-    // ... (Logic trả về sanitizedUser)
     const sanitizedUser = await UserModel.findById(newUser._id)
       .select('-passwordHash -__v -refreshToken -otp -otpExpiresAt')
       .exec();
@@ -206,7 +171,6 @@ export async function findOrCreateByGoogleId(
     return sanitizedUser as IUser;
 
   } catch (error) {
-    // ... (Xử lý lỗi)
     if (error instanceof AppError) throw error;
     console.error('Database error during Google user creation:', error);
     throw new AppError('Failed to create user with Google', 500);
@@ -218,22 +182,19 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
   let isUnique = false;
   let attempts = 0;
 
-  // Vòng lặp tối đa 5 lần để tránh lặp vô hạn
+
   while (!isUnique && attempts < 5) {
-    // 1. Kiểm tra xem username có tồn tại không
     const userExists = await UserModel.exists({ username });
 
     if (!userExists) {
       isUnique = true;
     } else {
-      // 2. Nếu đã tồn tại, thêm 3 ký tự số ngẫu nhiên
-      const randomNumber = Math.floor(100 + Math.random() * 900); // Số từ 100 đến 999
+      const randomNumber = Math.floor(100 + Math.random() * 900);
       username = `${baseUsername}${randomNumber}`;
       attempts++;
     }
   }
 
-  // Nếu sau nhiều lần thử vẫn trùng, hãy ném lỗi (rất hiếm)
   if (!isUnique) {
     throw new AppError('Failed to generate a unique username', 500);
   }
@@ -255,7 +216,6 @@ export const searchUsersService = async (query: string, limit: number = 10) => {
     .lean();
 };
 
-// Add friend (Simple logic: push to friends array)
 export const addFriendService = async (userId: string, friendId: string) => {
   if (userId === friendId) throw new AppError('Cannot add yourself', 400);
 
@@ -264,21 +224,18 @@ export const addFriendService = async (userId: string, friendId: string) => {
     throw new AppError('Already friends', 400);
   }
 
-  // Update both sides
   await UserModel.findByIdAndUpdate(userId, { $addToSet: { friends: friendId } });
   await UserModel.findByIdAndUpdate(friendId, { $addToSet: { friends: userId } });
 
   return { success: true };
 };
 
-// Remove friend from both users' friends arrays
 export const removeFriendService = async (userId: string, friendId: string) => {
   if (userId === friendId) throw new AppError('Cannot remove yourself', 400);
 
   const user = await UserModel.findById(userId);
   if (!user) throw new AppError('User not found', 404);
 
-  // If not friends, return an error
   if (!((user as any).friends || []).map((f: any) => f.toString()).includes(friendId)) {
     throw new AppError('Not friends', 400);
   }
@@ -289,7 +246,6 @@ export const removeFriendService = async (userId: string, friendId: string) => {
   return { success: true };
 };
 
-// Report user service
 export const reportUserService = async (reporterId: string, targetId: string, reason: string, description?: string) => {
   return await ReportModel.create({
     reporter: reporterId as any,
@@ -303,13 +259,11 @@ export const reportUserService = async (reporterId: string, targetId: string, re
 export const sendFriendRequestService = async (senderId: string, receiverId: string) => {
   if (senderId === receiverId) throw new AppError('Cannot add yourself', 400);
 
-  // Check if already friends
   const sender = await UserModel.findById(senderId);
   if (sender?.friends?.includes(receiverId as any)) {
     throw new AppError('Already friends', 400);
   }
 
-  // Check if a request already exists between these two users
   const existingRequest = await FriendRequestModel.findOne({
     sender: senderId as any,
     receiver: receiverId as any
@@ -319,14 +273,11 @@ export const sendFriendRequestService = async (senderId: string, receiverId: str
     if (existingRequest.status === FriendRequestStatus.Pending) {
       throw new AppError('Request already sent', 400);
     }
-    // If it exists but is not pending (e.g., accepted, declined), remove it so we can create a new one
-    // causing the unique index violation to be avoided
     await FriendRequestModel.deleteOne({ _id: existingRequest._id });
   }
 
   const created = await FriendRequestModel.create({ sender: senderId as any, receiver: receiverId as any } as any);
 
-  // Create a notification for the receiver (if they allow notifications)
   try {
     const receiver = await UserModel.findById(receiverId).select('notificationsEnabled');
     if (receiver && (receiver as any).notificationsEnabled !== false) {
@@ -346,7 +297,6 @@ export const sendFriendRequestService = async (senderId: string, receiverId: str
   return created;
 };
 
-// Accept friend request
 export const acceptFriendRequestService = async (requestId: string, currentUserId: string) => {
   const request = await FriendRequestModel.findById(requestId);
 
@@ -358,15 +308,12 @@ export const acceptFriendRequestService = async (requestId: string, currentUserI
     throw new AppError('Request is no longer pending', 400);
   }
 
-  // Update status
   request.status = FriendRequestStatus.Accepted;
   await request.save();
 
-  // Add to friends array for both users
   await UserModel.findByIdAndUpdate(request.sender, { $addToSet: { friends: request.receiver } });
   await UserModel.findByIdAndUpdate(request.receiver, { $addToSet: { friends: request.sender } });
 
-  // Notify the sender that their request was accepted
   try {
     const sender = request.sender.toString();
     await notificationService.createNotification({
@@ -390,7 +337,6 @@ export const listIncomingFriendRequestsService = async (userId: string) => {
     .lean();
 };
 
-// List friends for a user (populate basic public fields)
 export const listFriendsService = async (userId: string) => {
   const doc = await UserModel.findById(userId)
     .select('friends')
@@ -400,16 +346,13 @@ export const listFriendsService = async (userId: string) => {
   return (doc && (doc as any).friends) || [];
 };
 
-// Return relations for multiple target ids: 'friends' | 'pending_sent' | 'pending_received' | 'none'
+
 export const getRelationsForTargets = async (userId: string, targets: string[]) => {
-  // fetch user's friends
   const user = await UserModel.findById(userId).select('friends').lean();
-  // Convert ObjectIds to strings for comparison
   const friendSet = new Set(
     ((user && (user as any).friends) || []).map((id: any) => id.toString())
   );
 
-  // fetch pending requests where user is sender or receiver
   const pending = await FriendRequestModel.find({
     $or: [
       { sender: userId as any, receiver: { $in: targets as any }, status: FriendRequestStatus.Pending },
@@ -472,7 +415,7 @@ export const adminSearchUsers = async (filters: {
 
   if (status && status !== 'all') {
     if (status === 'banned') query.isBanned = true;
-    else if (status === 'active') query.isBanned = false; // Assuming active means not banned. If you have isActive field, use it too.
+    else if (status === 'active') query.isBanned = false;
   }
 
   const sort: any = {};
@@ -494,26 +437,22 @@ export const adminSearchUsers = async (filters: {
 };
 
 export const createUserService = async (data: any) => {
-  // Check if username/email exists
   const exists = await UserModel.findOne({ $or: [{ username: data.username }, { email: data.email }] });
   if (exists) throw new AppError('Username or email already exists', 400);
 
-  // Map password to passwordHash for the model
   if (data.password) {
     data.passwordHash = data.password;
     delete data.password;
   }
 
-  // Ensure default birthdate if not provided (required for local auth)
   if (!data.birthdate) {
     data.birthdate = new Date('2000-01-01');
   }
 
-  // Note: Password hashing is handled by pre-save hook in User model
   const user = await UserModel.create({
     ...data,
-    isActive: true, // Default active
-    isVerified: true // Admin created users are verified
+    isActive: true,
+    isVerified: true
   });
 
   return user;
@@ -526,12 +465,10 @@ export const deleteUserService = async (userId: string) => {
 }
 
 export const updateUserAdminService = async (userId: string, data: any) => {
-  // If password is provided but empty, remove it so we don't overwrite with empty string
   if (data.password === '' || data.password === undefined) {
     delete data.password;
   }
 
-  // Check uniqueness if username/email changed
   if (data.username || data.email) {
     const query: any = { _id: { $ne: userId }, $or: [] };
     if (data.username) query.$or.push({ username: data.username });
@@ -543,18 +480,12 @@ export const updateUserAdminService = async (userId: string, data: any) => {
     }
   }
 
-  // Use findById first to leverage save() hook if password needs hashing
-  // BUT for simplicity if password is NOT changed, findByIdAndUpdate is faster.
-  // If password IS changed, we need to save() to trigger pre-save hash.
-
   if (data.password) {
     const user = await UserModel.findById(userId);
     if (!user) throw new AppError('User not found', 404);
 
-    // Map password to passwordHash
     user.passwordHash = data.password;
 
-    // Update other fields
     const { password, ...otherData } = data;
     Object.assign(user, otherData);
 
@@ -587,7 +518,6 @@ export const unbanUserService = async (userId: string) => {
 };
 
 export const getFriendSuggestionsService = async (userId: string, limit: number = 10) => {
-  // Get current user's friends to calculate intersection and exclusion
   const currentUser = await UserModel.findById(userId).select('friends').lean();
   if (!currentUser) throw new AppError('User not found', 404);
 
@@ -597,10 +527,10 @@ export const getFriendSuggestionsService = async (userId: string, limit: number 
     {
       $match: {
         _id: {
-          $ne: currentUser._id, // Not me
-          $nin: myFriends       // Not my friends
+          $ne: currentUser._id,
+          $nin: myFriends
         },
-        role: { $ne: 'admin' }, // No admins
+        role: { $ne: 'admin' },
         isActive: true,
         isBanned: false
       }
@@ -618,7 +548,7 @@ export const getFriendSuggestionsService = async (userId: string, limit: number 
       }
     },
     {
-      $sort: { mutualFriendsCount: -1, createdAt: -1 } // Most mutual friends first, then newest
+      $sort: { mutualFriendsCount: -1, createdAt: -1 }
     },
     {
       $limit: limit
@@ -629,20 +559,18 @@ export const getFriendSuggestionsService = async (userId: string, limit: number 
         username: 1,
         name: 1,
         profilePicture: 1,
-        mutualFriends: "$mutualFriendsCount" // Rename for frontend consistency if needed
+        mutualFriends: "$mutualFriendsCount"
       }
     }
   ]);
 };
 
-// Get outgoing/sent friend requests (pending requests sent by user)
 export const listOutgoingFriendRequestsService = async (userId: string) => {
   return await FriendRequestModel.find({ sender: userId, status: FriendRequestStatus.Pending })
     .populate('receiver', 'username name profilePicture')
     .lean();
 };
 
-// Cancel a friend request (delete pending request sent by user)
 export const cancelFriendRequestService = async (userId: string, requestId: string) => {
   const request = await FriendRequestModel.findById(requestId);
 
@@ -650,12 +578,10 @@ export const cancelFriendRequestService = async (userId: string, requestId: stri
     throw new AppError('Friend request not found', 404);
   }
 
-  // Only sender can cancel their own request
   if (request.sender.toString() !== userId) {
     throw new AppError('Unauthorized to cancel this request', 403);
   }
 
-  // Only pending requests can be cancelled
   if (request.status !== FriendRequestStatus.Pending) {
     throw new AppError('Can only cancel pending requests', 400);
   }
@@ -664,7 +590,6 @@ export const cancelFriendRequestService = async (userId: string, requestId: stri
   return { message: 'Friend request cancelled successfully' };
 };
 
-// Reject a friend request (receiver declines incoming request)
 export const rejectFriendRequestService = async (userId: string, requestId: string) => {
   const request = await FriendRequestModel.findById(requestId);
 
@@ -672,12 +597,10 @@ export const rejectFriendRequestService = async (userId: string, requestId: stri
     throw new AppError('Friend request not found', 404);
   }
 
-  // Only receiver can reject a request sent to them
   if (request.receiver.toString() !== userId) {
     throw new AppError('Unauthorized to reject this request', 403);
   }
 
-  // Only pending requests can be rejected
   if (request.status !== FriendRequestStatus.Pending) {
     throw new AppError('Can only reject pending requests', 400);
   }

@@ -1,14 +1,7 @@
-// backend/middlewares/validation.middleware.ts
-
 import { type Request, type Response, type NextFunction } from 'express';
 import { type ZodSchema, ZodError } from 'zod';
 import AppError from '../utils/appError.ts';
 
-/**
- * Middleware for validating request bodies using Zod schemas.
- * @param schema - Zod schema to validate against
- * @returns Middleware function
- */
 export const validateBody = (schema: ZodSchema) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -28,11 +21,7 @@ export const validateBody = (schema: ZodSchema) => {
   };
 };
 
-/**
- * Middleware for validating query parameters using Zod schemas.
- * @param schema - Zod schema to validate against
- * @returns Middleware function
- */
+
 export const validateQuery = (schema: ZodSchema) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -51,11 +40,7 @@ export const validateQuery = (schema: ZodSchema) => {
   };
 };
 
-/**
- * Middleware for validating path parameters using Zod schemas.
- * @param schema - Zod schema to validate against
- * @returns Middleware function
- */
+
 export const validateParams = (schema: ZodSchema) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {

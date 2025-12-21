@@ -1,5 +1,3 @@
-// backend/routes/auth.routes.ts
-
 import express, { type Request, type Response } from 'express';
 import * as authController from '../controllers/auth.controller.ts';
 import validateBody from '../middlewares/validation.middleware.ts';

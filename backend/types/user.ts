@@ -1,61 +1,60 @@
-// backend/types/user.ts
 import { type ObjectId } from 'mongoose';
 
 /**
  * @enum UserRole
  */
 export enum UserRole {
-    Volunteer = 'volunteer',
-    Manager = 'manager',
-    Admin = 'admin',
+  Volunteer = 'volunteer',
+  Manager = 'manager',
+  Admin = 'admin',
 }
 
 /**
  * @interface IUser
  */
 export interface IUser {
-    _id: ObjectId;
-    // Auth & Profile
-    username: string;
-    // Optional full/display name
-    name?: string;
-    email: string;
-    passwordHash?: string;
-    birthdate: Date;
-    role: UserRole;
-    
-    // Status
-    isVerified: boolean;
-    isActive: boolean;
+  _id: ObjectId;
+  // Auth & Profile
+  username: string;
+  // Optional full/display name
+  name?: string;
+  email: string;
+  passwordHash?: string;
+  birthdate: Date;
+  role: UserRole;
 
-    // Auth Provider
-    authProvider: 'local' | 'google';
-    googleId?: string; 
-    profilePicture?: string;
-    
-    // Social
-    friends?: string[]; 
+  // Status
+  isVerified: boolean;
+  isActive: boolean;
 
-    // Notification Prefs
-    notificationsEnabled: boolean;
-    notifyOnMention: boolean;
-    notifyOnEventUpdate: boolean;
-    // Moderation / Ban fields
-    isBanned?: boolean;
-    bannedReason?: string;
-    bannedUntil?: Date;
+  // Auth Provider
+  authProvider: 'local' | 'google';
+  googleId?: string;
+  profilePicture?: string;
 
-    //OTP
-    otp?: string | null | undefined;
-    otpExpiresAt?: Date | null | undefined;
+  // Social
+  friends?: string[];
 
-    // Timestamps
-    createdAt: Date;
-    updatedAt: Date;
+  // Notification Prefs
+  notificationsEnabled: boolean;
+  notifyOnMention: boolean;
+  notifyOnEventUpdate: boolean;
+  // Moderation / Ban fields
+  isBanned?: boolean;
+  bannedReason?: string;
+  bannedUntil?: Date;
+
+  //OTP
+  otp?: string | null | undefined;
+  otpExpiresAt?: Date | null | undefined;
+
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface IUserDocument extends IUser, Document {
-    comparePassword: (candidatePassword: string) => Promise<boolean>;
+  comparePassword: (candidatePassword: string) => Promise<boolean>;
 }
 
 /**
@@ -63,9 +62,9 @@ export interface IUserDocument extends IUser, Document {
  * Data encoded inside the JWT (used for authentication).
  */
 export interface ITokenPayload {
-    id: string; 
-    email: string;
-    role: UserRole;
+  id: string;
+  email: string;
+  role: UserRole;
 }
 
 export interface ILoginDTO {

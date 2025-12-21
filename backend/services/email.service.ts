@@ -1,11 +1,8 @@
-// backend/services/email.service.ts
-
 import nodemailer from 'nodemailer';
 import { type IUserDocument } from '../types/user.ts';
 
-// TODO: Load SMTP configuration from environment variables
 const mailerConfig = {
-    service: process.env.EMAIL_SERVICE || 'gmail', // Ví dụ: 'Gmail'
+    service: process.env.EMAIL_SERVICE || 'gmail',
     auth: {
         user: process.env.EMAIL_USERNAME,
         pass: process.env.EMAIL_PASSWORD,
@@ -14,11 +11,6 @@ const mailerConfig = {
 
 const transporter = nodemailer.createTransport(mailerConfig);
 
-/**
- * Sends the verification OTP code to the user's email.
- * @param user - The user document
- * @param otpCode - The 6-digit code
- */
 export async function sendVerificationEmail(
     user: IUserDocument,
     otpCode: string
@@ -40,15 +32,9 @@ export async function sendVerificationEmail(
         console.log(`Verification email sent to: ${user.email}`);
     } catch (error) {
         console.error('ERROR sending email:', error);
-        // Tùy chọn: Log lỗi hoặc throw AppError
     }
 }
 
-/**
- * Sends a password reset OTP code to the user's email.
- * @param user - The user document
- * @param otpCode - The 6-digit code
- */
 export async function sendResetPasswordEmail(
     user: IUserDocument,
     otpCode: string
