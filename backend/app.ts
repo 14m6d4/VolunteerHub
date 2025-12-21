@@ -18,6 +18,7 @@ import reportRoutes from "./routes/report.routes.ts"
 import fileRoutes from "./routes/file.routes.ts"
 import feedRoutes from "./routes/feed.routes.ts";
 import commentRoutes from "./routes/comment.routes.ts"
+import adminRoutes from "./routes/admin.routes.ts"
 // Strip trailing slash from FRONTEND_URL to avoid CORS issues
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, '');
 
@@ -62,6 +63,7 @@ app.use("/api/report", reportRoutes)
 app.use("/api/feed", feedRoutes)
 app.use("/api/comments", commentRoutes)
 app.use("/file", fileRoutes)
+app.use("/api/admin", adminRoutes)
 app.use("/uploads", express.static("uploads"));
 
 // 404 handler for unknown API routes - return JSON
