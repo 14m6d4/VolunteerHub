@@ -15,7 +15,6 @@ export async function getAnalytics(req: Request, res: Response) {
 
         const ongoingEvents = await EventModel.find({
             status: EventStatus.APPROVED,
-            startAt: { $lte: now },
             $or: [
                 { endAt: { $gte: now } },
                 { endAt: null }
