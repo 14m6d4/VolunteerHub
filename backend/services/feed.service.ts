@@ -133,7 +133,7 @@ export const FeedService = {
 
             const postsWithComments = posts.map((p: any) => {
                 const pId = p._id.toString();
-                const eventId = (p.eventId?._id || p.eventId).toString();
+                const eventId = (p.eventId?._id || p.eventId)?.toString() || "";
 
                 const comments = latestComments
                     .filter(c => c.postId.toString() === pId)
@@ -177,7 +177,7 @@ export const FeedService = {
 
             const eventsWithVelocity = events.map((e: any) => {
                 const eIdStr = e._id.toString();
-                const postsForEvent = allEventPosts.filter(p => p.eventId.toString() === eIdStr);
+                const postsForEvent = allEventPosts.filter(p => p.eventId?.toString() === eIdStr);
                 const postCount = postsForEvent.length;
                 const friendCount = friendCountMap.get(eIdStr) || 0;
 

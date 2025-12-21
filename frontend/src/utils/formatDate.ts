@@ -70,3 +70,23 @@ export function formatTime(date: Date | string): string {
     minute: '2-digit',
   });
 }
+/**
+ * Format an event date with minutes rounded to the nearest 5 (e.g., "Dec 20, 2024, 10:30 AM")
+ */
+export function formatEventDate(date: Date | string): string {
+  const d = new Date(date);
+  const minutes = d.getMinutes();
+  const roundedMinutes = Math.round(minutes / 5) * 5;
+  d.setMinutes(roundedMinutes);
+  d.setSeconds(0);
+  d.setMilliseconds(0);
+
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true
+  });
+}
