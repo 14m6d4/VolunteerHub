@@ -16,7 +16,7 @@ export function EventShortcuts({ events }: EventShortcutsProps) {
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Bookmark className="h-4 w-4" />
-          My Events
+          Events Shortcuts
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
