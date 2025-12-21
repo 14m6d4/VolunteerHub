@@ -15,7 +15,7 @@ export default function NavBar() {
 
   const handleLogout = () => {
     logout();
-    navigate("/");
+    navigate("/feed");
   };
 
   const handleNotificationClick = () => {
@@ -25,7 +25,7 @@ export default function NavBar() {
 
   const getLinks = () => {
     const commonLinks = [
-      { href: "/feed", label: "Home" }, // User requested "Home" mapped to /feed
+      { href: "/feed", label: "Home" },
     ];
 
     // Default/Guest links
