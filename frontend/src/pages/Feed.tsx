@@ -352,8 +352,8 @@ export default function FeedPage() {
                           navigate('/feed');
                         }
                       }}
-                    onDeletePost={handleDeletePost}
-                    onDeleteComment={handleDeleteComment}
+                      onDeletePost={handleDeletePost}
+                      onDeleteComment={handleDeleteComment}
                     />
                   );
                 } else {
