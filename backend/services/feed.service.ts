@@ -92,7 +92,7 @@ export const FeedService = {
 
             const [posts, events] = await Promise.all([postsPromise, eventsPromise]);
 
-            const WINDOWS = [1, 2, 3, 5];
+            const WINDOWS = [1, 2, 3, 5, 7];
             const nowTime = Date.now();
 
             // Helper function to count friends in an event
@@ -162,6 +162,20 @@ export const FeedService = {
                             count: recentPosts,
                             days,
                             score: (recentPosts / days) * 18 // Points per post per day
+                        });
+                    }
+
+                    // Comments growth
+                    const comments = await (await import("../models/Comment.model.ts")).CommentModel.countDocuments({
+                        postId: { $in: eventPostIds },
+                        createdAt: { $gte: cutoff }
+                    });
+                    if (comments > 0) {
+                        features.push({
+                            type: 'hot_discussion',
+                            count: comments,
+                            days,
+                            score: (comments / days) * 6 // Points per comment per day
                         });
                     }
                 }

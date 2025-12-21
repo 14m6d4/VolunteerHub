@@ -119,6 +119,9 @@ export default function FeedPage() {
                 case 'active_community':
                   reason = `${count} new posts in ${timeStr}`;
                   break;
+                case 'hot_discussion':
+                  reason = `${count} new comments in ${timeStr}`;
+                  break;
                 default:
                   reason = 'Trending now in your community';
               }
