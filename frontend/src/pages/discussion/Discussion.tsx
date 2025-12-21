@@ -110,11 +110,11 @@ export default function DiscussionPage() {
         ]);
 
         const approvedMembers = (registrationsData?.data || registrationsData || [])
-          .filter((r: any) => r.status === 'approved' && r.volunteerId)
+          .filter((r: any) => (r.status === 'approved' || r.status === 'completed') && r.volunteerId)
           .map((r: any) => ({
             id: r.volunteerId._id || r.volunteerId.id,
             name: r.volunteerId.name,
-            username: r.volunteerId.name,
+            username: r.volunteerId.username,
             email: r.volunteerId.email,
             avatarUrl: r.volunteerId.profilePicture,
             role: 'volunteer',

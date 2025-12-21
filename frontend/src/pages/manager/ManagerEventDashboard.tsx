@@ -560,7 +560,7 @@ export const ManagerEventDashboard = () => {
                   <ManagerEventCard
                     key={event.id}
                     event={event}
-                    onClick={() => { }} // No navigation for completed events
+                    onClick={() => handleCardClick(event)}
                     onManageMembers={handleManageMembers}
                     onMarkCompleted={handleMarkCompleted}
                     onEdit={handleEditEvent}

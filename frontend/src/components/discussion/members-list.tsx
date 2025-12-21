@@ -1,6 +1,7 @@
 // frontend/src/components/discussion/members-list.tsx
 
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ interface MembersListProps {
 }
 
 export function MembersList({ members, managerId }: MembersListProps) {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredMembers = useMemo(() => {
@@ -56,7 +58,11 @@ export function MembersList({ members, managerId }: MembersListProps) {
           const isManager = managerId && (member.id === managerId || (member as any).userId === managerId);
           const displayRole = isManager ? 'manager' : member.role;
           return (
-            <Card key={member.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={member.id}
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => navigate(`/u/${(member as any).username || member.id}`)}
+            >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
