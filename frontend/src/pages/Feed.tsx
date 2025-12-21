@@ -1,6 +1,7 @@
 // frontend/src/pages/Feed.tsx
 
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { FeedPostCard, TrendingEventCard, EventShortcuts, FriendSuggestions } from '@/components/feed';
 import { useAuth } from '@/context/AuthContext';
 import { getFeed, likePost, createPost } from '@/services/feed.service';
@@ -18,6 +19,8 @@ type FeedItem =
 export default function FeedPage() {
   const { user } = useAuth();
   // State now holds mixed items directly
+  const { eventId, postId } = useParams();
+  const navigate = useNavigate();
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [joinedEvents, setJoinedEvents] = useState<EventShortcut[]>([]);
   const [friendSuggestions, setFriendSuggestions] = useState<FriendSuggestion[]>([]);
@@ -260,6 +263,12 @@ export default function FeedPage() {
                     }}
                     onLike={handleLike}
                     onAddComment={handleAddComment}
+                    isDetailOpen={postId === item.data.id}
+                    onDetailOpenChange={(open) => {
+                      if (!open) {
+                        navigate('/feed');
+                      }
+                    }}
                   />
                 );
               } else {

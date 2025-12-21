@@ -1,7 +1,7 @@
 // frontend/src/pages/discussion/Discussion.tsx
 
 import { useState, useMemo, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Info, MessageSquare, Star, Users, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import {
   CreatePostTrigger,
   MembersList,
   SearchPosts,
+  PostDetailDialog
 } from '@/components/discussion';
 import { getEventById, getEventPosts, getEventRegistrations } from '@/services/event.service';
 import { createPost, likePost } from '@/services/feed.service';
@@ -22,7 +23,8 @@ import type { PostWithUser, CommentWithUser } from '@/types/discussion';
 import type { Event } from '@/types/event';
 
 export default function DiscussionPage() {
-  const { eventId } = useParams<{ eventId: string }>();
+  const { eventId, postId } = useParams<{ eventId: string; postId?: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [posts, setPosts] = useState<PostWithUser[]>([]);
@@ -34,10 +36,49 @@ export default function DiscussionPage() {
   // mapping postId -> comments
   const [commentsMap, setCommentsMap] = useState<Record<string, CommentWithUser[]>>({});
 
+  // Derived state for deep linked post
+  const [selectedPost, setSelectedPost] = useState<PostWithUser | null>(null);
+  const isDetailOpen = !!postId;
+
+  // Sync state with URL postId
+  useEffect(() => {
+    if (postId) {
+      // Check if post is already in loaded posts
+      const found = posts.find(p => p.id === postId);
+      if (found) {
+        setSelectedPost(found);
+      } else {
+        // If not found (e.g. direct link or not loaded yet), create a minimally valid object.
+        // PostDetailDialog will fetch the real data.
+        setSelectedPost({
+          id: postId,
+          userId: 'loading',
+          content: '',
+          timestamp: new Date(),
+          likes: 0,
+          likedByMe: false,
+          commentCount: 0,
+          comments: [],
+          author: {
+            id: 'loading',
+            name: 'Loading...',
+            avatarUrl: '',
+            role: 'volunteer'
+          }
+        });
+      }
+    } else {
+      setSelectedPost(null);
+    }
+  }, [postId, posts]);
+
+  const handleCloseDetail = () => {
+    navigate(`/events/${eventId}`);
+  };
+
   const fetchComments = async (postId: string) => {
     try {
       const res = await getComments(postId);
-      // Map backend comments (populated author) to frontend CommentWithUser
       const mappedComments = (res.data || res || []).map((c: any) => ({
         id: c._id,
         userId: c.authorId?._id || c.authorId,
@@ -47,7 +88,7 @@ export default function DiscussionPage() {
           id: c.authorId?._id || 'unknown',
           name: c.authorId?.name || 'Unknown',
           avatar: c.authorId?.profilePicture,
-          role: 'volunteer' // backend might not populated role on comment author yet, assume volunteer or populate
+          role: 'volunteer'
         }
       }));
       setCommentsMap(prev => ({ ...prev, [postId]: mappedComments }));
@@ -66,35 +107,31 @@ export default function DiscussionPage() {
           getEventPosts(eventId),
           getEventRegistrations(eventId)
         ]);
-        // Map members
+
         const approvedMembers = (registrationsData?.data || registrationsData || [])
           .filter((r: any) => r.status === 'approved' && r.volunteerId)
           .map((r: any) => ({
             id: r.volunteerId._id || r.volunteerId.id,
             name: r.volunteerId.name,
-            username: r.volunteerId.name, // fallback
+            username: r.volunteerId.name,
             email: r.volunteerId.email,
             avatar: r.volunteerId.image,
-            role: 'volunteer', // default
+            role: 'volunteer',
             joinDate: r.createdAt
           }));
         setMembers(approvedMembers);
 
-        // Map backend event to frontend DiscussionEvent
         const rawEvent = eventData?.data?.event || eventData?.event || eventData;
         const mappedEvent: any = {
           ...rawEvent,
           id: rawEvent._id || rawEvent.id,
           date: rawEvent.startAt || rawEvent.date,
-          bannerImage: rawEvent.image, // Map backend image field
+          bannerImage: rawEvent.image,
           membersCount: rawEvent.currentMembers || approvedMembers.length,
           members: approvedMembers
         };
         setEvent(mappedEvent);
 
-        // Transform backend posts to frontend PostWithUser
-        // Backend returns Populate authorId.
-        // We need to map it.
         const mappedPosts = (postsData.data || postsData || []).map((p: any) => ({
           id: p._id,
           userId: p.authorId?._id || p.authorId,
@@ -109,13 +146,12 @@ export default function DiscussionPage() {
             avatar: p.authorId?.image,
             role: p.authorId?.role || 'volunteer'
           },
-          comments: [] // Init empty, fetch separate
+          comments: []
         }));
 
         setPosts(mappedPosts);
 
-        // Fetch comments for all these posts (Simple approach)
-        // In producton: Lazy load. Here: Load all for "all info displayed" request
+        // Pre-fetch comments for visible posts if needed, or rely on lazy load
         mappedPosts.forEach((post: any) => {
           fetchComments(post.id);
         });
@@ -130,14 +166,10 @@ export default function DiscussionPage() {
     loadData();
   }, [eventId, user]);
 
-
-
-  // Get featured posts (from managers only)
   const featuredPosts = useMemo(() => {
     return posts.filter((post) => post.author.role === 'manager' || post.author.role === 'admin');
   }, [posts]);
 
-  // Handle creating a new post
   const handleCreatePost = async (content: string, imageFile?: File) => {
     if (!eventId || !user) return;
     try {
@@ -150,7 +182,8 @@ export default function DiscussionPage() {
 
       await createPost(formData);
       toast.success("Post created");
-      // Reload posts
+      // Reload posts logic (simplified by re-fetching or appending)
+      // Here reusing extraction from loadData roughly
       const postsData = await getEventPosts(eventId);
       const mappedPosts = (postsData.data || postsData || []).map((p: any) => ({
         id: p._id,
@@ -176,11 +209,9 @@ export default function DiscussionPage() {
     }
   };
 
-  // Handle liking a post
   const handleLike = async (postId: string) => {
     try {
       await likePost(postId);
-      // Optimistic update
       setPosts(prev => prev.map(p => {
         if (p.id === postId) {
           const liked = !p.likedByMe;
@@ -197,14 +228,17 @@ export default function DiscussionPage() {
     }
   };
 
-  // Handle adding a comment
   const handleAddComment = async (postId: string, content: string) => {
     try {
       await createComment(postId, { content });
-      fetchComments(postId); // Reload comments
+      fetchComments(postId);
     } catch (e) {
       toast.error("Failed to add comment");
     }
+  };
+
+  const handleViewDetail = (postId: string) => {
+    navigate(`/events/${eventId}/posts/${postId}`);
   };
 
   if (loading) {
@@ -215,11 +249,8 @@ export default function DiscussionPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Event Header with Banner */}
       <EventHeader event={{ ...event, members } as any} />
 
-      {/* Tabs Navigation */}
-      {/* Tabs Navigation */}
       <div className="px-4 sm:px-6 lg:px-8 py-6">
         <div className="max-w-4xl mx-auto">
           <Tabs defaultValue="discussion" className="w-full">
@@ -246,18 +277,14 @@ export default function DiscussionPage() {
               </TabsTrigger>
             </TabsList>
 
-            {/* About Tab */}
             <TabsContent value="about" className="mt-6">
               <EventAbout event={event as any} />
             </TabsContent>
 
-            {/* Discussion Tab */}
             <TabsContent value="discussion" className="mt-6">
               <div className="space-y-4">
-                {/* Create Post Trigger */}
                 <CreatePostTrigger onClick={() => setIsCreatePostOpen(true)} />
 
-                {/* Posts Feed */}
                 {posts.map((post) => (
                   <PostCard
                     key={post.id}
@@ -267,6 +294,7 @@ export default function DiscussionPage() {
                     currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
                     onLike={handleLike}
                     onAddComment={handleAddComment}
+                    onViewDetail={() => handleViewDetail(post.id)}
                   />
                 ))}
 
@@ -280,7 +308,6 @@ export default function DiscussionPage() {
               </div>
             </TabsContent>
 
-            {/* Featured Tab */}
             <TabsContent value="featured" className="mt-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
@@ -297,6 +324,7 @@ export default function DiscussionPage() {
                     currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
                     onLike={handleLike}
                     onAddComment={handleAddComment}
+                    onViewDetail={() => handleViewDetail(post.id)}
                   />
                 ))}
 
@@ -310,7 +338,6 @@ export default function DiscussionPage() {
               </div>
             </TabsContent>
 
-            {/* Members Tab */}
             <TabsContent value="members" className="mt-6">
               <MembersList
                 members={members}
@@ -318,7 +345,6 @@ export default function DiscussionPage() {
               />
             </TabsContent>
 
-            {/* Search Tab */}
             <TabsContent value="search" className="mt-6">
               <SearchPosts
                 posts={posts}
@@ -327,18 +353,33 @@ export default function DiscussionPage() {
                 currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
                 onLike={handleLike}
                 onAddComment={handleAddComment}
+                onViewDetail={handleViewDetail}
               />
             </TabsContent>
           </Tabs>
         </div>
       </div>
 
-      {/* Create Post Modal */}
       <CreatePostModal
         open={isCreatePostOpen}
         onOpenChange={setIsCreatePostOpen}
         onPost={async (content, image) => { await handleCreatePost(content, image as any); }}
       />
+
+      {selectedPost && (
+        <PostDetailDialog
+          open={isDetailOpen}
+          onOpenChange={(open) => !open && handleCloseDetail()}
+          post={selectedPost}
+          comments={commentsMap[selectedPost.id] || []}
+          currentUserId={user?.id || ''}
+          currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
+          onAddComment={(content) => handleAddComment(selectedPost.id, content)}
+          onLike={() => handleLike(selectedPost.id)}
+          isLiked={selectedPost.likedByMe || false}
+          likeCount={selectedPost.likes}
+        />
+      )}
     </div>
   );
 }

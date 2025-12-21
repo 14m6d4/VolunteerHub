@@ -62,5 +62,14 @@ export const PostController = {
         } catch (err) {
             next(err);
         }
+    },
+
+    async getById(req: Request, res: Response, next: NextFunction) {
+        try {
+            const post = await PostService.getPostById(req.params.postId);
+            res.json({ success: true, data: post });
+        } catch (err) {
+            next(err);
+        }
     }
 };

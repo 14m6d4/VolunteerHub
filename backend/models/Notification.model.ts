@@ -18,7 +18,8 @@ export enum NotificationType {
   REPORT_RESOLVED = 'report_resolved',
   REPORT_REJECTED = 'report_rejected',
   POST_LIKED = 'post_liked',
-  POST_COMMENTED = 'post_commented'
+  POST_COMMENTED = 'post_commented',
+  EVENT_COMPLETED = 'event_completed'
 }
 
 export interface INotification extends Document {

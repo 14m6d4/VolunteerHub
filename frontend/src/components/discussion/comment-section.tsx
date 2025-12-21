@@ -1,6 +1,7 @@
 // frontend/src/components/discussion/comment-section.tsx
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +20,8 @@ interface CommentSectionProps {
   hasMoreComments: boolean;
   totalComments: number;
   currentUser: CurrentUser;
-  onViewAllComments: () => void;
+  onViewAllComments?: () => void;
+  viewAllCommentsUrl?: string;
   onAddComment: (content: string) => void;
 }
 
@@ -29,6 +31,7 @@ export function CommentSection({
   totalComments,
   currentUser,
   onViewAllComments,
+  viewAllCommentsUrl,
   onAddComment,
 }: CommentSectionProps) {
   const [newComment, setNewComment] = useState('');
@@ -54,12 +57,21 @@ export function CommentSection({
     <div className="w-full space-y-3">
       {/* View All Comments Button */}
       {hasMoreComments && (
-        <button
-          onClick={onViewAllComments}
-          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-        >
-          View all {totalComments} comments
-        </button>
+        viewAllCommentsUrl ? (
+          <Link
+            to={viewAllCommentsUrl}
+            className="text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
+            View all {totalComments} comments
+          </Link>
+        ) : (
+          <button
+            onClick={onViewAllComments}
+            className="text-sm text-muted-foreground hover:text-primary transition-colors"
+          >
+            View all {totalComments} comments
+          </button>
+        )
       )}
 
       {/* Comment Previews */}
