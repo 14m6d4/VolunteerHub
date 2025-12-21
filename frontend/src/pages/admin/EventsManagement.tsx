@@ -41,6 +41,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
   Tooltip,
@@ -267,6 +268,7 @@ export default function EventsManagement() {
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
             <SelectItem value="finished">Finished</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -496,7 +498,7 @@ export default function EventsManagement() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <DialogTitle>Delete Event</DialogTitle>
+            <AlertDialogTitle>Delete Event</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete <strong>"{eventToDelete?.title}"</strong>? This action cannot be undone.
             </AlertDialogDescription>
@@ -514,7 +516,7 @@ export default function EventsManagement() {
       <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <DialogTitle>Reject Event</DialogTitle>
+            <AlertDialogTitle>Reject Event</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to reject <strong>"{eventToReject?.title}"</strong>? The event will be removed from the system.
             </AlertDialogDescription>
@@ -532,7 +534,7 @@ export default function EventsManagement() {
       <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <DialogTitle>Delete Selected Events</DialogTitle>
+            <AlertDialogTitle>Delete Selected Events</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete {selectedRows.size} selected events? This action cannot be undone.
             </AlertDialogDescription>

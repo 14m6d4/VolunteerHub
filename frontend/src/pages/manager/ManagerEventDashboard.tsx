@@ -79,9 +79,6 @@ export const ManagerEventDashboard = () => {
       const fetchedEvents = (response.items || []).map((event: any) => ({
         ...event,
         date: formatEventDate(event.startAt),
-        managerStatus: event.status === 'pending' ? 'pending'
-          : event.status === 'approved' ? 'active'
-            : 'completed',
         membersCount: event.currentMembers || 0
       }));
 
@@ -136,14 +133,10 @@ export const ManagerEventDashboard = () => {
   }, [events, filters]);
 
   // Categorize events
-  // Assuming 'managerStatus' comes from backend, or we derive it
-  // If backend doesn't provide managerStatus, we default to 'active' or derive from date
-  const activeEvents = processedEvents.filter(event => !event.isPast && event.managerStatus !== 'completed' && event.managerStatus !== 'pending');
-  // Pending events might be those waiting for admin approval (if that workflow exists)
-  // Or if we treat 'available' as active. 
-  // Let's rely on event.managerStatus if present, otherwise default logic
-  const pendingEvents = processedEvents.filter(event => event.managerStatus === 'pending');
-  const completedEvents = processedEvents.filter(event => event.managerStatus === 'completed' || (event.isPast && event.managerStatus !== 'active'));
+  const approvedEvents = processedEvents.filter(event => event.status === 'approved');
+  const pendingEvents = processedEvents.filter(event => event.status === 'pending');
+  const finishedEvents = processedEvents.filter(event => event.status === 'finished');
+  const cancelledEvents = processedEvents.filter(event => event.status === 'cancelled');
 
   const handleCreateEvent = () => {
     setSelectedEvent(null);
@@ -575,23 +568,24 @@ export const ManagerEventDashboard = () => {
         </div>
       ) : (
         /* Tabs Section */
-        <Tabs defaultValue="active" className="w-full">
-          <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
-            <TabsTrigger value="active">Active Events ({activeEvents.length})</TabsTrigger>
+        <Tabs defaultValue="approved" className="w-full">
+          <TabsList className="grid w-full max-w-4xl grid-cols-4 mb-6">
+            <TabsTrigger value="approved">Approved ({approvedEvents.length})</TabsTrigger>
             <TabsTrigger value="pending">Pending ({pendingEvents.length})</TabsTrigger>
-            <TabsTrigger value="completed">Past Events ({completedEvents.length})</TabsTrigger>
+            <TabsTrigger value="finished">Finished ({finishedEvents.length})</TabsTrigger>
+            <TabsTrigger value="cancelled">Cancelled ({cancelledEvents.length})</TabsTrigger>
           </TabsList>
 
-          {/* Active Events Tab */}
-          <TabsContent value="active" className="mt-6">
-            {activeEvents.length === 0 ? (
+          {/* Approved Events Tab */}
+          <TabsContent value="approved" className="mt-6">
+            {approvedEvents.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <p className="text-lg">No active events found.</p>
-                <p className="text-sm mt-2">Create a new event to get started.</p>
+                <p className="text-lg">No approved events.</p>
+                <p className="text-sm mt-2">Create new events to get started.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {activeEvents.map(event => (
+                {approvedEvents.map(event => (
                   <ManagerEventCard
                     key={event.id}
                     event={event}
@@ -612,7 +606,6 @@ export const ManagerEventDashboard = () => {
             {pendingEvents.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <p className="text-lg">No pending events.</p>
-                <p className="text-sm mt-2">All events are approved.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -632,16 +625,39 @@ export const ManagerEventDashboard = () => {
             )}
           </TabsContent>
 
-          {/* Completed Events Tab */}
-          <TabsContent value="completed" className="mt-6">
-            {completedEvents.length === 0 ? (
+          {/* Finished Events Tab */}
+          <TabsContent value="finished" className="mt-6">
+            {finishedEvents.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <p className="text-lg">No completed events.</p>
-                <p className="text-sm mt-2">Mark active events as completed when they finish.</p>
+                <p className="text-lg">No finished events.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {completedEvents.map(event => (
+                {finishedEvents.map(event => (
+                  <ManagerEventCard
+                    key={event.id}
+                    event={event}
+                    onClick={() => handleCardClick(event)}
+                    onManageMembers={handleManageMembers}
+                    onMarkCompleted={handleMarkCompleted}
+                    onEdit={handleEditEvent}
+                    onDelete={handleDeleteEvent}
+                    onReportAction={handleReportAction}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Cancelled Events Tab */}
+          <TabsContent value="cancelled" className="mt-6">
+            {cancelledEvents.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-lg">No cancelled events.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {cancelledEvents.map(event => (
                   <ManagerEventCard
                     key={event.id}
                     event={event}

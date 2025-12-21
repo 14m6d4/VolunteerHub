@@ -59,7 +59,8 @@ const seed = async () => {
         const hashedPassword = await bcryptjs.hash("password123", 12);
         const now = new Date();
         const twoYearsAgo = new Date(now.getTime() - 730 * 24 * 60 * 60 * 1000); // 2 years ago for user creation start
-        const oneYearFuture = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const twoWeeksFuture = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
         const adminId = new mongoose.Types.ObjectId();
         const users: any[] = [
@@ -269,7 +270,7 @@ const seed = async () => {
             const id = new mongoose.Types.ObjectId();
             eventIds.push(id);
             const managerId = getRandomElement(managerIds);
-            const startAt = getRandomDate(twoYearsAgo, oneYearFuture);
+            const startAt = getRandomDate(twoYearsAgo, twoWeeksFuture);
             const duration = getRandomInt(2, 48) * 60 * 60 * 1000; // 2 to 48 hours
             const endAt = new Date(startAt.getTime() + duration);
 
@@ -304,8 +305,8 @@ const seed = async () => {
                 tags: getRandomElements(EventTags, getRandomInt(1, 3)),
                 image: getRandomElement(eventImages),
                 isPublic: true,
-                createdAt: getRandomDate(twoYearsAgo, startAt),
-                updatedAt: new Date()
+                createdAt: getRandomDate(twoYearsAgo, new Date(Math.min(startAt.getTime(), Date.now()))),
+                updatedAt: new Date(Math.min(startAt.getTime(), Date.now()))
             });
 
             // Discussion for each event
@@ -321,6 +322,17 @@ const seed = async () => {
 
         for (const event of events) {
             if (event.status === EventStatus.DRAFT) continue;
+
+            // Register the Manager (User Requirement 1)
+            registrations.push({
+                _id: new mongoose.Types.ObjectId(),
+                eventId: event._id,
+                volunteerId: event.managerId, // Manager is a member
+                status: RegistrationStatus.APPROVED,
+                note: "Event Manager (Auto-joined)",
+                createdAt: event.createdAt,
+                completedAt: event.status === EventStatus.FINISHED ? event.endAt : null
+            });
 
             // Random number of volunteers to register
             const attendeesCount = getRandomInt(0, Math.min(event.maxMembers + 5, volunteerIds.length));
@@ -390,7 +402,12 @@ const seed = async () => {
                     content: getRandomComment(),
                     image: Math.random() > 0.5 ? getRandomElement(eventImages) : undefined,
                     pinned: Math.random() > 0.95,
-                    createdAt: getRandomDate(event.createdAt, new Date())
+
+                    createdAt: getRandomDate(
+                        new Date(Math.max(event.createdAt.getTime(), oneMonthAgo.getTime())),
+                        new Date(Date.now() - 3600000)
+                    ), // Max(EventCreate, 1MonthAgo) -> 1 hour ago
+                    updatedAt: new Date(Date.now() - 3600000)
                 });
 
                 // Randomly report some posts
@@ -405,7 +422,7 @@ const seed = async () => {
                         reason: getRandomElement(["Spam", "Harassment", "Hate Speech", "False Information"]),
                         description: "Automated seed report description.",
                         status: getRandomElement(["pending", "resolved", "rejected"]),
-                        createdAt: new Date()
+                        createdAt: getRandomDate(new Date(Date.now() - 3600000), new Date(Date.now() - 60000)) // Report slightly after post
                     });
                 }
             }
@@ -472,8 +489,10 @@ const seed = async () => {
                         "Is there parking available?", "Count me in!", "Thanks for organizing this."
                     ]),
                     likes: [],
-                    createdAt: getRandomDate(post.createdAt, new Date()),
-                    updatedAt: new Date()
+                    likes: [],
+                    // Comment > Post (at least 1 min later) & strictly past
+                    createdAt: getRandomDate(new Date(post.createdAt.getTime() + 60000), new Date(Date.now() - 60000)),
+                    updatedAt: new Date(Date.now() - 60000)
                 });
             }
         }

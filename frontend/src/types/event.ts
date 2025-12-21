@@ -1,5 +1,4 @@
-export type EventStatus = 'joined' | 'past' | 'pending' | 'available';
-export type ManagerEventStatus = 'active' | 'pending' | 'completed';
+export type EventStatus = 'draft' | 'pending' | 'approved' | 'cancelled' | 'finished';
 
 export interface User {
   id: string;
@@ -21,8 +20,6 @@ export interface Event {
   status: EventStatus;
   tags: string[];
   description: string;
-  // Manager-specific fields
-  managerStatus?: ManagerEventStatus;
   requests?: User[];
   members?: User[];
   managerId?: string | { _id: string; name: string; email: string };

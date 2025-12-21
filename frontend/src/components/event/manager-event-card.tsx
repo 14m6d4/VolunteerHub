@@ -35,13 +35,17 @@ export const ManagerEventCard = ({
   const [reportsDialogOpen, setReportsDialogOpen] = useState(false);
 
   const getStatusBadge = () => {
-    switch (event.managerStatus) {
-      case 'active':
-        return <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>;
+    switch (event.status) {
+      case 'approved':
+        return <Badge className="bg-green-500 hover:bg-green-600">Approved</Badge>;
       case 'pending':
         return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pending Approval</Badge>;
-      case 'completed':
-        return <Badge variant="secondary">Completed</Badge>;
+      case 'finished':
+        return <Badge variant="secondary">Finished</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelled</Badge>;
+      case 'draft':
+        return <Badge variant="outline">Draft</Badge>;
       default:
         return null;
     }
@@ -96,7 +100,7 @@ export const ManagerEventCard = ({
                   <FileWarning className="h-4 w-4 mr-2" />
                   View Reports
                 </DropdownMenuItem>
-                {event.managerStatus === 'active' && (
+                {event.status === 'approved' && (
                   <DropdownMenuItem onClick={(e) => handleMenuAction(e, () => onMarkCompleted(event))}>
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Mark as Completed
