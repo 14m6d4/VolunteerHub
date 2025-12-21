@@ -15,13 +15,13 @@ export async function createPost(groupId: string, data: any) {
 }
 
 export async function likePost(postId: string) {
-    return apiFetch(`/groups/posts/${postId}/like`, {
+    return apiFetch(`/posts/${postId}/like`, {
         method: "POST",
     });
 }
 
 export async function deletePost(postId: string) {
-    return apiFetch(`/groups/posts/${postId}`, {
+    return apiFetch(`/posts/${postId}`, {
         method: "DELETE",
     });
 }

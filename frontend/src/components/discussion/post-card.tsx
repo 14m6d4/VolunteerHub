@@ -7,7 +7,17 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Heart, MessageCircle, Flag } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Heart, MessageCircle, Flag, Trash2 } from 'lucide-react';
 import type { PostWithUser, CommentWithUser } from '@/types/discussion';
 import { CommentSection } from './comment-section';
 import { ReportDialog } from './report-dialog';
@@ -22,6 +32,8 @@ interface PostCardProps {
   onLike: (postId: string) => void;
   onAddComment: (postId: string, content: string) => void;
   onViewDetail?: () => void;
+  onDeletePost?: (postId: string) => void;
+  onDeleteComment?: (commentId: string) => void;
 }
 
 export function PostCard({
@@ -32,10 +44,13 @@ export function PostCard({
   onLike,
   onAddComment,
   onViewDetail,
+  onDeletePost,
+  onDeleteComment,
 }: PostCardProps) {
   const navigate = useNavigate();
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
 
@@ -47,6 +62,13 @@ export function PostCard({
     } else {
       setLikeCount((prev) => prev - 1);
       setIsLiked(false);
+    }
+  };
+
+  const handleDeletePost = () => {
+    if (onDeletePost) {
+      onDeletePost(post.id);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -95,20 +117,32 @@ export function PostCard({
                 </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={() => setShowReportDialog(true)}
-            >
-              <Flag className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {currentUserId === post.author.id && onDeletePost && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => setShowReportDialog(true)}
+              >
+                <Flag className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
 
         {/* Body */}
-        <CardContent className="pb-3 pt-0">
-          <p className="text-sm whitespace-pre-wrap">{post.content}</p>
+        <CardContent className="pb-3 pt-0 overflow-hidden">
+          <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{post.content}</p>
           {post.imageUrl && (
             <div className="rounded-lg overflow-hidden mt-3">
               <img
@@ -150,6 +184,7 @@ export function PostCard({
             currentUser={currentUser}
             onViewAllComments={() => onViewDetail ? onViewDetail() : setShowDetailDialog(true)}
             onAddComment={(content: string) => onAddComment(post.id, content)}
+            onDeleteComment={onDeleteComment}
           />
         </CardFooter>
       </Card >
@@ -159,8 +194,6 @@ export function PostCard({
         open={showReportDialog}
         onOpenChange={setShowReportDialog}
         postId={post.id}
-        reporterId={currentUserId}
-        eventId={post.eventId}
       />
 
       {/* Post Detail Dialog */}
@@ -176,7 +209,29 @@ export function PostCard({
         onLike={() => handleLike()}
         isLiked={isLiked}
         likeCount={likeCount}
+        onDeleteComment={onDeleteComment}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePost}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

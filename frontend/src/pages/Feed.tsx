@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FeedPostCard, TrendingEventCard, EventShortcuts, FriendSuggestions } from '@/components/feed';
 import { useAuth } from '@/context/AuthContext';
-import { getFeed, likePost, createPost } from '@/services/feed.service';
+import { getFeed, likePost } from '@/services/feed.service';
 import { getEvents, getMyRegistrations } from '@/services/event.service';
-import { searchUsers, getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
-import { createComment } from '@/services/post.service';
+import { getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
+import { createComment, deletePost, deleteComment } from '@/services/post.service';
 import type { FeedPostWithUser, TrendingEvent, FriendSuggestion, EventShortcut } from '@/types/feed';
 import { toast } from 'sonner';
 
@@ -19,7 +19,7 @@ type FeedItem =
 export default function FeedPage() {
   const { user } = useAuth();
   // State now holds mixed items directly
-  const { eventId, postId } = useParams();
+  const { postId } = useParams();
   const navigate = useNavigate();
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [joinedEvents, setJoinedEvents] = useState<EventShortcut[]>([]);
@@ -42,12 +42,6 @@ export default function FeedPage() {
         // Process Events for Shortcuts (Joined Events)
         const allEvents = eventsRes.items || [];
         const myRegs = myRegRes.data || myRegRes || [];
-
-        // Extract joined event IDs
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const myEventIds = new Set(myRegs.map((r: any) =>
-          typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id
-        ));
 
         // Create Joined Events List (Shortcuts)
         const myEventsList: EventShortcut[] = [];
@@ -230,6 +224,45 @@ export default function FeedPage() {
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    try {
+      await deletePost(postId);
+      setFeedItems(prev => prev.filter(item => !(item.type === 'post' && item.data.id === postId)));
+      toast.success("Post deleted successfully");
+      // If we're viewing this post detail, navigate back
+      if (postId === postId) {
+        navigate('/feed');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete post");
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await deleteComment(commentId);
+      // Update feedItems by removing the deleted comment from the post
+      setFeedItems(prev => prev.map(item => {
+        if (item.type === 'post') {
+          return {
+            ...item,
+            data: {
+              ...item.data,
+              comments: item.data.comments.filter(c => c.id !== commentId),
+              commentCount: Math.max(0, item.data.commentCount - 1)
+            }
+          };
+        }
+        return item;
+      }));
+      toast.success("Comment deleted successfully");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete comment");
+    }
+  };
+
   const handleSendFriendRequest = async (userId: string) => {
     try {
       await sendFriendRequest(userId);
@@ -287,6 +320,8 @@ export default function FeedPage() {
                         navigate('/feed');
                       }
                     }}
+                    onDeletePost={handleDeletePost}
+                    onDeleteComment={handleDeleteComment}
                   />
                 );
               } else {
