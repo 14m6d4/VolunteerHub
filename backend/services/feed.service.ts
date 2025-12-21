@@ -48,7 +48,7 @@ function calculateScore(feed, data, user, friendCount = 0) {
 }
 
 export const FeedService = {
-    async getFeed({ page = 1, limit = 20, tab = "all" }, user?) {
+    async getFeed({ page = 1, limit = 40, tab = "all" }, user?) {
         try {
             const skip = (page - 1) * limit;
             let postQuery: any = {};
@@ -69,8 +69,15 @@ export const FeedService = {
                 }).select("eventId");
                 joinedEventIds = joinedRegs.map(r => r.eventId);
 
-                postQuery = { eventId: { $in: joinedEventIds } };
-                eventQuery._id = { $nin: joinedEventIds };
+                let relevantEventIds = [...joinedEventIds];
+                if (user.role === 'manager') {
+                    const managedEvents = await EventModel.find({ managerId: user._id }).select("_id");
+                    const managedIds = managedEvents.map(e => e._id);
+                    relevantEventIds = [...new Set([...relevantEventIds, ...managedIds])];
+                }
+
+                postQuery = { eventId: { $in: relevantEventIds } };
+                eventQuery._id = { $nin: relevantEventIds };
 
                 const postsPromise = PostModel.find(postQuery)
                     .sort({ createdAt: -1 })
@@ -81,15 +88,11 @@ export const FeedService = {
                     .lean();
 
                 const eventsPromise = EventModel.find(eventQuery)
-                    .sort({ currentMembers: -1, createdAt: -1 })
-                    .limit(5)
                     .lean();
 
                 [posts, events] = await Promise.all([postsPromise, eventsPromise]);
             } else {
                 events = await EventModel.find(eventQuery)
-                    .sort({ currentMembers: -1, createdAt: -1 })
-                    .limit(5)
                     .lean();
             }
 
@@ -127,7 +130,7 @@ export const FeedService = {
 
             const latestComments = await CommentModel.find({ postId: { $in: postIds } })
                 .sort({ createdAt: -1 })
-                .populate("authorId", "name username profilePicture")
+                .populate("authorId", "name username profilePicture role")
                 .limit(40)
                 .lean();
 
@@ -194,7 +197,7 @@ export const FeedService = {
 
                     const recentPosts = postsForEvent.filter(p => p.createdAt >= windowCutoff).length;
                     if (recentPosts > 0) {
-                        features.push({ type: 'active_community', count: recentPosts, days, score: (recentPosts / days) * 40 });
+                        features.push({ type: 'active_community', count: recentPosts, days, score: (recentPosts / days) * 20 });
                     }
 
                     const ePostIds = new Set(postsForEvent.map(p => p._id.toString()));
