@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
 import { X } from 'lucide-react';
 import {
   Dialog,
@@ -58,18 +57,15 @@ export const CreateEditEventModal = ({
         description: event.description,
       });
       setImageFile(null); // Reset file on edit open
-      // Parse date string to Date object
-      // Assuming format: "Jan 15, 2026 - 8:00 AM"
-      try {
-        const dateStr = event.date.split(' - ')[0];
-        const timeStr = event.date.split(' - ')[1];
-        if (dateStr && timeStr) {
-          const parsedDate = new Date(`${dateStr} ${timeStr}`);
-          if (!isNaN(parsedDate.getTime())) {
-            setEventDate(parsedDate);
-          }
+      // Use startAt field directly from backend (ISO string)
+      if (event.startAt) {
+        const parsedDate = new Date(event.startAt);
+        if (!isNaN(parsedDate.getTime())) {
+          setEventDate(parsedDate);
+        } else {
+          setEventDate(undefined);
         }
-      } catch (error) {
+      } else {
         setEventDate(undefined);
       }
     } else {

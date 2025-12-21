@@ -1,6 +1,7 @@
 // frontend/src/components/discussion/post-card.tsx
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,7 @@ export function PostCard({
   onAddComment,
   onViewDetail,
 }: PostCardProps) {
+  const navigate = useNavigate();
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -68,12 +70,20 @@ export function PostCard({
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={post.author.avatar} alt={post.author.name} />
+                <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
                 <AvatarFallback>{getInitials(post.author.name)}</AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-sm">{post.author.name}</p>
+                  <p
+                    className="font-semibold text-sm cursor-pointer hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/u/${post.author.username || post.author.id}`);
+                    }}
+                  >
+                    {post.author.name}
+                  </p>
                   {post.author.role === 'manager' && (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                       Manager

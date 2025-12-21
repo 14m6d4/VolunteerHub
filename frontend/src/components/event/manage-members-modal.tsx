@@ -58,6 +58,11 @@ export const ManageMembersModal = ({
   const members = event.members || [];
   const requests = event.requests || [];
 
+  // Extract managerId from event (can be string or object)
+  const managerId = typeof event.managerId === 'string'
+    ? event.managerId
+    : event.managerId?._id;
+
   // Pagination logic for members
   const membersTotalPages = Math.ceil(members.length / ITEMS_PER_PAGE);
   const membersStartIndex = (membersPage - 1) * ITEMS_PER_PAGE;
@@ -114,26 +119,31 @@ export const ManageMembersModal = ({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedMembers.map((member, index) => (
-                        <TableRow key={member.id}>
-                          <TableCell className="font-medium">
-                            {membersStartIndex + index + 1}
-                          </TableCell>
-                          <TableCell className="font-medium">{member.name}</TableCell>
-                          <TableCell className="text-muted-foreground">@{member.username}</TableCell>
-                          <TableCell className="text-sm">{member.email}</TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onRemoveMember(member.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {paginatedMembers.map((member, index) => {
+                        const isManager = managerId && member.id === managerId;
+                        return (
+                          <TableRow key={member.id}>
+                            <TableCell className="font-medium">
+                              {membersStartIndex + index + 1}
+                            </TableCell>
+                            <TableCell className="font-medium">{member.name}</TableCell>
+                            <TableCell className="text-muted-foreground">@{member.username}</TableCell>
+                            <TableCell className="text-sm">{member.email}</TableCell>
+                            <TableCell className="text-right">
+                              {!isManager && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => onRemoveMember(member.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <X className="h-4 w-4 mr-1" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -142,7 +152,7 @@ export const ManageMembersModal = ({
                   <Pagination>
                     <PaginationContent>
                       <PaginationItem>
-                        <PaginationPrevious 
+                        <PaginationPrevious
                           onClick={() => setMembersPage(prev => Math.max(1, prev - 1))}
                           className={membersPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                         />
@@ -159,7 +169,7 @@ export const ManageMembersModal = ({
                         </PaginationItem>
                       ))}
                       <PaginationItem>
-                        <PaginationNext 
+                        <PaginationNext
                           onClick={() => setMembersPage(prev => Math.min(membersTotalPages, prev + 1))}
                           className={membersPage === membersTotalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                         />
@@ -243,7 +253,7 @@ export const ManageMembersModal = ({
                   <Pagination>
                     <PaginationContent>
                       <PaginationItem>
-                        <PaginationPrevious 
+                        <PaginationPrevious
                           onClick={() => setRequestsPage(prev => Math.max(1, prev - 1))}
                           className={requestsPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                         />
@@ -260,7 +270,7 @@ export const ManageMembersModal = ({
                         </PaginationItem>
                       ))}
                       <PaginationItem>
-                        <PaginationNext 
+                        <PaginationNext
                           onClick={() => setRequestsPage(prev => Math.min(requestsTotalPages, prev + 1))}
                           className={requestsPage === requestsTotalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                         />

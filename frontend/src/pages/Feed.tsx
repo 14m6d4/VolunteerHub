@@ -85,7 +85,8 @@ export default function FeedPage() {
                 author: {
                   id: p.authorId._id,
                   name: p.authorId.name,
-                  avatar: p.authorId.profilePicture,
+                  username: p.authorId.username,
+                  avatarUrl: p.authorId.profilePicture,
                   role: p.authorId.role
                 },
                 comments: (p.comments || []).map((c: any) => ({
@@ -96,7 +97,8 @@ export default function FeedPage() {
                   author: {
                     id: c.authorId._id,
                     name: c.authorId.name,
-                    avatar: c.authorId.profilePicture,
+                    username: c.authorId.username,
+                    avatarUrl: c.authorId.profilePicture,
                     role: 'volunteer'
                   }
                 })),
@@ -187,7 +189,7 @@ export default function FeedPage() {
         author: {
           id: user.id,
           name: user.name,
-          avatar: user.profilePicture || '',
+          avatarUrl: user.profilePicture || '',
           role: user.role
         }
       };

@@ -87,7 +87,8 @@ export default function DiscussionPage() {
         author: {
           id: c.authorId?._id || 'unknown',
           name: c.authorId?.name || 'Unknown',
-          avatar: c.authorId?.profilePicture,
+          username: c.authorId?.username,
+          avatarUrl: c.authorId?.profilePicture,
           role: 'volunteer'
         }
       }));
@@ -109,13 +110,13 @@ export default function DiscussionPage() {
         ]);
 
         const approvedMembers = (registrationsData?.data || registrationsData || [])
-          .filter((r: any) => r.status === 'approved' && r.volunteerId)
+          .filter((r: any) => (r.status === 'approved' || r.status === 'completed') && r.volunteerId)
           .map((r: any) => ({
             id: r.volunteerId._id || r.volunteerId.id,
             name: r.volunteerId.name,
-            username: r.volunteerId.name,
+            username: r.volunteerId.username,
             email: r.volunteerId.email,
-            avatar: r.volunteerId.image,
+            avatarUrl: r.volunteerId.profilePicture,
             role: 'volunteer',
             joinDate: r.createdAt
           }));
@@ -143,7 +144,8 @@ export default function DiscussionPage() {
           author: {
             id: p.authorId?._id || 'unknown',
             name: p.authorId?.name || 'Unknown',
-            avatar: p.authorId?.image,
+            username: p.authorId?.username,
+            avatarUrl: p.authorId?.profilePicture || p.authorId?.image,
             role: p.authorId?.role || 'volunteer'
           },
           comments: []
@@ -196,7 +198,8 @@ export default function DiscussionPage() {
         author: {
           id: p.authorId?._id || 'unknown',
           name: p.authorId?.name || 'Unknown',
-          avatar: p.authorId?.image,
+          username: p.authorId?.username,
+          avatarUrl: p.authorId?.profilePicture || p.authorId?.image,
           role: p.authorId?.role || 'volunteer'
         },
         comments: []
