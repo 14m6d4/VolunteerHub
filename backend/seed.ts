@@ -277,6 +277,7 @@ const seed = async () => {
 
             let approvedCount = 0;
             for (const volunteerId of attendees) {
+                const regId = new mongoose.Types.ObjectId();
                 let status = RegistrationStatus.PENDING;
 
                 if (event.status === EventStatus.FINISHED) {
@@ -298,6 +299,7 @@ const seed = async () => {
                 }
 
                 registrations.push({
+                    _id: regId,
                     eventId: event._id,
                     volunteerId: volunteerId,
                     status,
@@ -341,8 +343,10 @@ const seed = async () => {
 
                 // Randomly report some posts
                 if (Math.random() > 0.85) {
+                    const reportId = new mongoose.Types.ObjectId();
                     const reporterId = getRandomElement(volunteerIds);
                     reports.push({
+                        _id: reportId,
                         reporter: reporterId,
                         targetId: postId,
                         targetType: ReportTargetType.Post,
@@ -371,8 +375,10 @@ const seed = async () => {
 
             const status = getRandomElement(['pending', 'accepted', 'declined']);
             const reqCreatedAt = getRandomDate(twoYearsAgo, new Date()); // Random time
+            const reqId = new mongoose.Types.ObjectId();
 
             friendRequests.push({
+                _id: reqId,
                 sender,
                 receiver,
                 status,
@@ -432,16 +438,9 @@ const seed = async () => {
             return u ? u.name : "Unknown User";
         };
 
-        const getUserUsername = (id: mongoose.Types.ObjectId) => {
-            const u = users.find(u => u._id.equals(id));
-            return u ? u.username : "unknown";
-        };
-
         // Friend Request Notifications
         for (const req of Array.from(uniqueRequests.values())) {
             const senderName = getUserName(req.sender);
-            const senderUsername = getUserUsername(req.sender);
-            const receiverName = getUserName(req.receiver);
 
             // "Sender sent request to Receiver" -> Notify Receiver
             if (req.status === 'pending') {
@@ -452,8 +451,6 @@ const seed = async () => {
                     title: `New Friend Request from ${senderName}`,
                     body: `${senderName} sent you a friend request.`,
                     data: {
-                        senderName,
-                        username: senderUsername,
                         requestId: req._id
                     },
                     isRead: Math.random() > 0.7,
@@ -461,6 +458,7 @@ const seed = async () => {
                     updatedAt: req.createdAt
                 });
             } else if (req.status === 'accepted') {
+                const receiverName = getUserName(req.receiver);
                 notifications.push({
                     user: req.sender,
                     actor: req.receiver, // Receiver accepted
@@ -468,8 +466,7 @@ const seed = async () => {
                     title: "Friend Request Accepted",
                     body: `${receiverName} accepted your friend request.`,
                     data: {
-                        username: getUserUsername(req.receiver),
-                        actorName: receiverName
+                        requestId: req._id
                     },
                     isRead: Math.random() > 0.5,
                     createdAt: new Date(req.createdAt.getTime() + 1000 * 60 * 60),
@@ -478,23 +475,28 @@ const seed = async () => {
             }
         }
 
-        // Event Join Notifications (Notify Managers)
+        // Event Join / Registration Notifications
         for (const reg of registrations) {
-            if (reg.status === RegistrationStatus.APPROVED && Math.random() > 0.7) {
-                const event = events.find(e => e._id.equals(reg.eventId));
-                const volunteerName = getUserName(reg.volunteerId);
+            const event = events.find(e => e._id.equals(reg.eventId));
+            const volunteerName = getUserName(reg.volunteerId);
 
-                if (event) {
+            if (!event) continue;
+
+            // Notify Manager of New Registration (Pending or Approved)
+            if (reg.status === RegistrationStatus.PENDING || reg.status === RegistrationStatus.APPROVED) {
+                // If pending -> Request. If Approved -> Joined (auto-approve or manual)
+                // We simplify: if pending, notify pending. If approved (and rand), notify joined.
+                if (Math.random() > 0.5) {
+                    const isPending = reg.status === RegistrationStatus.PENDING;
                     notifications.push({
                         user: event.managerId,
                         actor: reg.volunteerId,
-                        type: NotificationType.EVENT_JOINED,
-                        title: "New Event Participant",
-                        body: `${volunteerName} joined your event "${event.title}".`,
+                        type: isPending ? NotificationType.REGISTRATION_PENDING : NotificationType.EVENT_JOINED,
+                        title: isPending ? "New Registration Request" : "New Event Participant",
+                        body: `${volunteerName} ${isPending ? 'requested to join' : 'joined'} your event "${event.title}".`,
                         data: {
                             eventId: event._id,
-                            eventName: event.title,
-                            actorName: volunteerName
+                            registrationId: reg._id
                         },
                         isRead: Math.random() > 0.6,
                         createdAt: reg.createdAt,
@@ -504,11 +506,40 @@ const seed = async () => {
             }
         }
 
+        // Report Resolution Notifications
+        for (const report of reports) {
+            if (report.status === 'resolved' || report.status === 'rejected') {
+                const resolutionType = report.status === 'resolved' ? NotificationType.REPORT_RESOLVED : NotificationType.REPORT_REJECTED;
+                notifications.push({
+                    user: report.reporter,
+                    type: resolutionType,
+                    title: report.status === 'resolved' ? "Report Resolved" : "Report Rejected",
+                    body: `Your report has been ${report.status}.`,
+                    data: {
+                        reportId: report._id,
+                        targetId: report.targetId,
+                        targetType: report.targetType,
+                        // Add context based on target type
+                        ...(report.targetType === ReportTargetType.Post ? {
+                            postId: report.targetId,
+                            eventId: posts.find(p => p._id.equals(report.targetId))?.eventId
+                        } : {}),
+                        ...(report.targetType === ReportTargetType.Event ? {
+                            eventId: report.targetId
+                        } : {})
+                    },
+                    isRead: Math.random() > 0.3,
+                    createdAt: new Date(report.createdAt.getTime() + 24 * 60 * 60 * 1000), // Resolved 1 day later
+                    updatedAt: new Date()
+                });
+            }
+        }
+
         // Comment Notifications (Notify Post Authors)
         for (const comment of comments) {
             if (Math.random() > 0.5) {
                 const post = posts.find(p => p._id.equals(comment.postId));
-                if (post && !post.authorId.equals(comment.authorId)) { // Don't notify self
+                if (post && !post.authorId.equals(comment.authorId)) {
                     const commenterName = getUserName(comment.authorId);
                     notifications.push({
                         user: post.authorId,
@@ -518,8 +549,7 @@ const seed = async () => {
                         body: `${commenterName} commented on your post.`,
                         data: {
                             postId: post._id,
-                            eventId: post.eventId,
-                            actorName: commenterName
+                            eventId: post.eventId
                         },
                         isRead: Math.random() > 0.4,
                         createdAt: comment.createdAt,
@@ -529,7 +559,7 @@ const seed = async () => {
             }
         }
 
-        // Event Reminders (simulated)
+        // Event Reminders
         for (let i = 0; i < 50; i++) {
             const user = getRandomElement(volunteerIds);
             const event = getRandomElement(events);
@@ -539,8 +569,7 @@ const seed = async () => {
                 title: `Reminder: ${event.title}`,
                 body: `Don't forget about upcoming event: ${event.title}`,
                 data: {
-                    eventId: event._id,
-                    eventName: event.title
+                    eventId: event._id
                 },
                 isRead: Math.random() > 0.8,
                 createdAt: getRandomDate(twoYearsAgo, new Date()),
@@ -556,7 +585,9 @@ const seed = async () => {
 
         // Report Users (Impersonation, etc.)
         for (let i = 0; i < 10; i++) {
+            const repId = new mongoose.Types.ObjectId();
             extraReports.push({
+                _id: repId,
                 reporter: getRandomElement(volunteerIds),
                 targetId: getRandomElement(volunteerIds),
                 targetType: ReportTargetType.User,
@@ -569,7 +600,9 @@ const seed = async () => {
 
         // Report Events (Spam, Fraud)
         for (let i = 0; i < 5; i++) {
+            const repId = new mongoose.Types.ObjectId();
             extraReports.push({
+                _id: repId,
                 reporter: getRandomElement(volunteerIds),
                 targetId: getRandomElement(eventIds),
                 targetType: ReportTargetType.Event,

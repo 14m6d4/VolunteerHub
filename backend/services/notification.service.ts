@@ -28,6 +28,7 @@ export async function getNotificationsForUser(userId: string, opts: { skip?: num
 		.sort({ createdAt: -1 })
 		.skip(skip)
 		.limit(limit)
+		.populate('actor', 'name username profilePicture')
 		.lean();
 	return docs;
 }
