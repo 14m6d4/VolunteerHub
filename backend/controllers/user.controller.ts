@@ -341,7 +341,7 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
     let stats: any = {};
 
     if (user.role === UserRole.Volunteer) {
-      // For volunteers: Count active and completed events they participated in
+      // For volunteers: Count active events they participated in
       const { EventModel } = await import('../models/Event.model.ts');
       const { RegistrationModel, RegistrationStatus } = await import('../models/Registration.model.ts');
       const { EventStatus } = await import('../models/Event.model.ts');
@@ -355,15 +355,10 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
       const eventIds = registrations.map(r => r.eventId);
 
       if (eventIds.length > 0) {
-        // Count active events (approved and ongoing)
+        // Count active events (approved status only)
         const activeEvents = await EventModel.countDocuments({
           _id: { $in: eventIds },
-          status: EventStatus.APPROVED,
-          startAt: { $lte: now },
-          $or: [
-            { endAt: { $gte: now } },
-            { endAt: null }
-          ]
+          status: EventStatus.APPROVED
         });
 
         // Count completed events (finished)

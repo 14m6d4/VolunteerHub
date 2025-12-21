@@ -574,9 +574,7 @@ export default function ProfilePage() {
                       ? stats.activeEvents
                       : stats.eventsJoined}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {profile?.role === 'manager' ? 'Active Events' : 'Events Joined'}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Active Events</p>
                 </div>
               </div>
             </CardContent>
