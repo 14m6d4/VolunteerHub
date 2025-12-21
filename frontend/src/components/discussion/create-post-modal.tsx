@@ -1,4 +1,4 @@
-// frontend/src/components/discussion/create-post-modal.tsx
+
 
 import { useState, useRef } from 'react';
 import {
@@ -95,7 +95,6 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
         <Separator />
 
         <div className="space-y-4">
-          {/* User Info */}
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
               <AvatarImage src={user.profilePicture} alt={user.name} />
@@ -116,7 +115,6 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
             style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
           />
 
-          {/* Image Preview */}
           {imagePreview && (
             <div className="relative rounded-lg overflow-hidden border">
               <img
@@ -138,7 +136,6 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
 
         <Separator />
 
-        {/* Actions */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Add to your post:</span>

@@ -28,7 +28,6 @@ const initialState: ThemeProviderState = {
 
 const THEME_STYLE_ID = "dynamic-theme-style"
 
-// Import theme CSS as strings using Vite's ?inline query
 const themeModules: Record<Exclude<CustomTheme, "default">, () => Promise<{ default: string }>> = {
   "vintage-paper": () => import("@/styles/themes/vintage-paper.css?inline"),
   "neo-brutalism": () => import("@/styles/themes/neo-brutalism.css?inline"),
@@ -41,17 +40,15 @@ const themeModules: Record<Exclude<CustomTheme, "default">, () => Promise<{ defa
 }
 
 async function loadThemeStylesheet(theme: CustomTheme) {
-  // Remove existing theme style
   const existingStyle = document.getElementById(THEME_STYLE_ID)
   if (existingStyle) {
     existingStyle.remove()
   }
 
-  // Load Google Fonts for this theme
   loadGoogleFonts(theme)
 
   if (theme === "default") {
-    return // Default theme uses App.css
+    return
   }
 
   try {
@@ -106,7 +103,6 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement
     
-    // Load the appropriate theme stylesheet
     loadThemeStylesheet(customTheme).then(() => {
       setIsThemeLoaded(true)
     })
@@ -118,7 +114,6 @@ export function ThemeProvider({
     }
   }, [customTheme])
 
-  // Load initial theme on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem(customThemeStorageKey) as CustomTheme
     if (savedTheme && savedTheme !== "default") {

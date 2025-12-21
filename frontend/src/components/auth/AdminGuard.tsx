@@ -7,8 +7,7 @@ const AdminGuard = () => {
 
     if (loading) return <div>Loading...</div>;
 
-    // If user is not logged in OR user is not admin, show 404
-    // This effectively hides the existence of the route
+    // not logged in or not admin, show 404
     if (!user || user.role !== 'admin') {
         return <Error404 />;
     }

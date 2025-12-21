@@ -20,9 +20,7 @@ export default function SignupPage() {
       setStep(2)
       setSignupError(null)
     } catch (err: any) {
-      // eslint-disable-next-line no-console
       console.error('Register failed', err)
-      // Format error: apiFetch throws Error with message that may be JSON
       try {
         const msg = err?.message || String(err)
         let parsed: any = msg
@@ -33,7 +31,6 @@ export default function SignupPage() {
         if (typeof parsed === 'string') setSignupError(parsed)
         else if (Array.isArray(parsed)) setSignupError(parsed)
         else if (parsed && typeof parsed === 'object') {
-          // prefer message property
           if (parsed.message) setSignupError(parsed.message)
           else setSignupError(JSON.stringify(parsed))
         } else setSignupError(String(msg))
@@ -47,12 +44,9 @@ export default function SignupPage() {
     try {
       if (!registeredEmail) throw new Error('Missing registered email')
       await authService.verifyOTP({ email: registeredEmail, otp })
-      // on success, redirect to login
       window.location.href = '/login'
     } catch (err: any) {
-      // eslint-disable-next-line no-console
       console.error('OTP verify failed', err)
-      // TODO: show UI error
     }
   }
 

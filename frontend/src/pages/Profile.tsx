@@ -1,4 +1,4 @@
-// frontend/src/pages/Profile.tsx
+
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
@@ -56,24 +56,17 @@ import {
   ShieldX
 } from 'lucide-react';
 
-// User Stats Component
 interface UserStats {
   eventsJoined: number;
   eventsOrganized: number;
-  activeEvents?: number; // For managers only
+  activeEvents?: number;
   friends: number;
 }
 
-// Friend relation types
 type FriendRelation = 'none' | 'friends' | 'pending_sent' | 'pending_received' | 'self';
-
-// Event filter types
 type EventFilter = 'all' | 'active' | 'completed';
-
-// Pagination config
 const ITEMS_PER_PAGE = 6;
 
-// Report reasons
 const REPORT_REASONS = [
   { value: 'spam', label: 'Spam or misleading' },
   { value: 'inappropriate', label: 'Inappropriate content' },
@@ -87,7 +80,6 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
 
-  // State
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
@@ -97,16 +89,13 @@ export default function ProfilePage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [forbidden, setForbidden] = useState(false);
 
-  // Search & Filter state
   const [eventSearch, setEventSearch] = useState('');
   const [eventFilter, setEventFilter] = useState<EventFilter>('all');
   const [friendSearch, setFriendSearch] = useState('');
 
-  // Pagination state
   const [eventPage, setEventPage] = useState(1);
   const [friendPage, setFriendPage] = useState(1);
 
-  // Report dialog state
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [reportDescription, setReportDescription] = useState('');
@@ -115,11 +104,9 @@ export default function ProfilePage() {
 
   const isOwnProfile = currentUser?.username === username;
 
-  // Filtered & paginated events
   const filteredEvents = useMemo(() => {
     let result = events;
 
-    // Apply search
     if (eventSearch.trim()) {
       const searchLower = eventSearch.toLowerCase();
       result = result.filter(e =>
@@ -128,17 +115,12 @@ export default function ProfilePage() {
       );
     }
 
-    // Manager specific filtering logic
     if (profile?.role === 'manager') {
-      // 1. Hide pending events completely from public profile
       result = result.filter(e => e.managerStatus !== 'pending');
 
-      // 2. Apply Strict Filters
       if (eventFilter === 'active') {
-        // Active: Must be Approved AND Not Past
         result = result.filter(e => e.managerStatus === 'active' && !e.isPast);
       } else if (eventFilter === 'completed') {
-        // Completed: Must be Strictly Finished (Action required to move to this state)
         result = result.filter(e => e.managerStatus === 'completed');
       }
     } else {
@@ -175,7 +157,6 @@ export default function ProfilePage() {
     friendPage * ITEMS_PER_PAGE
   );
 
-  // Reset pagination when filters change
   useEffect(() => {
     setEventPage(1);
   }, [eventSearch, eventFilter]);
@@ -201,12 +182,10 @@ export default function ProfilePage() {
           const statsRes = await getUserStats(username);
           const statsData = statsRes.data || statsRes;
 
-          // Update stats based on role and profile being viewed
           if (statsData.stats) {
-            // For managers, activeEvents is separate from eventsJoined
             if (profileData.role === 'manager') {
               setStats({
-                eventsJoined: 0, // Managers don't join events
+                eventsJoined: 0,
                 eventsOrganized: statsData.stats.eventsOrganized || 0,
                 activeEvents: statsData.stats.activeEvents || 0,
                 friends: statsData.stats.friends || 0
@@ -230,7 +209,6 @@ export default function ProfilePage() {
           console.error('Failed to fetch stats:', statsErr);
         }
 
-        // Fetch events and friends for the viewed user (public data)
         if (username) {
           try {
             const [eventsRes, friendsRes] = await Promise.all([
@@ -241,7 +219,6 @@ export default function ProfilePage() {
             const eventsData = eventsRes.data || eventsRes || [];
             const friendsData = friendsRes.data || friendsRes || [];
 
-            // Transform events data
             const userEvents: Event[] = eventsData.map((e: any) => ({
               id: e._id || e.id,
               title: e.title,
@@ -254,7 +231,6 @@ export default function ProfilePage() {
               status: e.endAt && new Date(e.endAt) < new Date() ? 'past' : 'joined',
               tags: e.tags || [],
               description: e.description,
-              // Add managerStatus for ManagerEventCard
               managerStatus: e.status === 'pending' ? 'pending'
                 : e.status === 'approved' ? 'active'
                   : e.status === 'finished' ? 'completed'
@@ -268,7 +244,6 @@ export default function ProfilePage() {
           }
         }
 
-        // Set relation between current user and viewed profile
         if (isOwnProfile) {
           setRelation('self');
         } else if (currentUser && profileData) {
@@ -378,7 +353,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Get role badge variant
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
       case 'admin':
@@ -390,7 +364,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Get initials for avatar fallback
   const getInitials = (name?: string, username?: string) => {
     if (name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -398,12 +371,10 @@ export default function ProfilePage() {
     return username?.slice(0, 2).toUpperCase() || 'U';
   };
 
-  // Loading skeleton
   if (loading) {
     return (
       <div className="container mx-auto py-10 px-4 max-w-5xl">
         <div className="space-y-8">
-          {/* Header Skeleton */}
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row items-center gap-6">

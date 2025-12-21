@@ -12,16 +12,13 @@ import { useState } from 'react'
 import useAuth from '@/hooks/useAuth'
 
 function stripHtml(html: string) {
-  // basic HTML tag stripper
   return html.replace(/<[^>]*>/g, '').trim()
 }
 
 function parseApiError(raw: string) {
-  // Try to detect JSON-like messages
   let title = 'Login failed'
   const details: string[] = []
 
-  // If looks like JSON, try parse
   try {
     const maybe = JSON.parse(raw)
     if (maybe) {
@@ -30,21 +27,17 @@ function parseApiError(raw: string) {
       if (maybe.errors && Array.isArray(maybe.errors)) {
         maybe.errors.forEach((e: any) => details.push(stripHtml(String(e))))
       }
-      // If Zod style issues
       if (maybe.errors && typeof maybe.errors === 'object' && maybe.errors.length) {
         maybe.errors.forEach((it: any) => details.push(stripHtml(String(it))))
       }
     }
   } catch (_e) {
-    // not JSON — maybe HTML or text
     const cleaned = stripHtml(raw)
-    // If message contains multiple lines or separators, split
     if (cleaned.includes('\n')) {
       const parts = cleaned.split('\n').map(s => s.trim()).filter(Boolean)
       title = parts.shift() || title
       parts.forEach(p => details.push(p))
     } else if (cleaned.includes(':')) {
-      // common "field: message" -> show first as title and rest as details
       const parts = cleaned.split(/[,;]\s*|\:\s*/)
       title = parts.shift() || title
       parts.forEach(p => details.push(p))
@@ -53,7 +46,6 @@ function parseApiError(raw: string) {
     }
   }
 
-  // Ensure details are unique and not duplicating title
   const uniq = details.filter((d, i, arr) => d && arr.indexOf(d) === i && d !== title)
   return { title, details: uniq }
 }
@@ -78,10 +70,8 @@ export function LoginForm({
 
     try {
       await login({ email, password })
-      // redirect to feed page after login
       window.location.href = '/feed'
     } catch (err: any) {
-      // Parse error message: support plain text, JSON ({message, errors}), or HTML
       const raw = err?.message || String(err) || 'Login failed'
       const parsed = parseApiError(raw)
       setError(parsed.title)

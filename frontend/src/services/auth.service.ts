@@ -10,18 +10,14 @@ export async function login(payload: LoginPayload) {
     body: JSON.stringify(payload),
   });
 
-  // Debug log: show raw response
   try {
-    // eslint-disable-next-line no-console
     console.debug('[auth.service] login response:', data);
   } catch { }
 
-  // Support common token field names (accessToken, access_token, token)
   const token = data?.accessToken || data?.access_token || data?.token;
   if (token) {
     setAuthToken(token);
   } else {
-    // eslint-disable-next-line no-console
     console.warn('[auth.service] no access token found in login response');
   }
 
@@ -44,7 +40,6 @@ export async function register(payload: { username: string; email: string; passw
   });
 
   try {
-    // eslint-disable-next-line no-console
     console.debug('[auth.service] register response:', data);
   } catch { }
 
@@ -58,7 +53,6 @@ export async function verifyOTP(payload: { email: string; otp: string }) {
   });
 
   try {
-    // eslint-disable-next-line no-console
     console.debug('[auth.service] verifyOTP response:', data);
   } catch { }
 

@@ -41,7 +41,6 @@ export interface MockReport {
   createdAt: string;
 }
 
-// Generate mock users
 export const mockUsers: MockUser[] = [
   { id: '1', fullName: 'John Doe', username: 'johndoe', email: 'john.doe@email.com', status: 'active', role: 'volunteer', createdAt: '2024-01-15' },
   { id: '2', fullName: 'Jane Smith', username: 'janesmith', email: 'jane.smith@email.com', status: 'active', role: 'manager', createdAt: '2024-02-20' },
@@ -60,7 +59,6 @@ export const mockUsers: MockUser[] = [
   { id: '15', fullName: 'James Lewis', username: 'jamesl', email: 'james.l@email.com', status: 'active', role: 'volunteer', createdAt: '2024-12-15' },
 ];
 
-// Generate mock events
 export const mockEvents: MockEvent[] = [
   { id: '1', name: 'Beach Cleanup Drive', detail: 'Join us for a beach cleanup event to protect marine life and keep our beaches beautiful.', date: '2025-01-15', location: 'Vung Tau Beach', members: 45, tags: ['environment', 'cleanup'], status: 'active', createdAt: '2024-12-01' },
   { id: '2', name: 'Tree Planting Festival', detail: 'Plant trees and contribute to a greener future in our community park.', date: '2025-01-20', location: 'Hanoi Central Park', members: 120, tags: ['environment', 'planting'], status: 'active', createdAt: '2024-12-05' },
@@ -74,7 +72,6 @@ export const mockEvents: MockEvent[] = [
   { id: '10', name: 'Free Medical Checkup Camp', detail: 'Provide free health checkups to residents in underserved areas.', date: '2025-02-15', location: 'Rural Health Center', members: 35, tags: ['health', 'charity'], status: 'pending', createdAt: '2024-12-18' },
 ];
 
-// Generate mock reports
 export const mockReports: MockReport[] = [
   { id: '1', reporter: { id: 'u1', username: 'johndoe', name: 'John Doe', email: 'john@email.com' }, targetType: 'post', targetId: 'post-123', reason: 'Spam', description: 'This post contains promotional spam content.', status: 'pending', createdAt: '2024-12-18' },
   { id: '2', reporter: { id: 'u2', username: 'janesmith', name: 'Jane Smith', email: 'jane@email.com' }, targetType: 'user', targetId: 'u5', targetUsername: 'spammer99', reason: 'Harassment', description: 'This user has been sending harassing messages.', status: 'pending', createdAt: '2024-12-17' },

@@ -56,8 +56,7 @@ export const CreateEditEventModal = ({
         tags: event.tags || [],
         description: event.description,
       });
-      setImageFile(null); // Reset file on edit open
-      // Use startAt field directly from backend (ISO string)
+      setImageFile(null);
       if (event.startAt) {
         const parsedDate = new Date(event.startAt);
         if (!isNaN(parsedDate.getTime())) {
@@ -69,7 +68,6 @@ export const CreateEditEventModal = ({
         setEventDate(undefined);
       }
     } else {
-      // Create mode - reset form
       setFormData({
         title: '',
         image: '',
@@ -87,7 +85,6 @@ export const CreateEditEventModal = ({
     if (!eventDate) {
       return;
     }
-    // Pass startAt as ISO string for backend validation
     onSave({ ...formData, startAt: eventDate.toISOString(), imageFile } as any);
     onOpenChange(false);
   };
@@ -96,7 +93,6 @@ export const CreateEditEventModal = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
-      // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       setFormData(prev => ({ ...prev, image: previewUrl }));
     }
@@ -153,7 +149,7 @@ export const CreateEditEventModal = ({
                 accept="image/*"
                 onChange={handleFileChange}
                 className="cursor-pointer"
-                required={!event && !imageFile} // Required only if creating new event and no file selected yet
+                required={!event && !imageFile}
               />
               {formData.image && (
                 <div className="relative h-40 w-full overflow-hidden rounded-md border">

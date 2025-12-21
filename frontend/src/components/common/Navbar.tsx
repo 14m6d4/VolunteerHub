@@ -68,7 +68,6 @@ const Logo = (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
   return <img src={logoImage || "/placeholder.svg"} alt="Gizmo Logo" className="h-10 w-10" {...props} />
 }
 
-// Hamburger icon component
 const HamburgerIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
     className={cn("pointer-events-none", className)}
@@ -98,7 +97,6 @@ const HamburgerIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) =
   </svg>
 )
 
-// Bell icon component for notifications
 const BellIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
     className={className}
@@ -118,7 +116,6 @@ const BellIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-// User icon component
 const UserIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
     className={className}
@@ -138,7 +135,6 @@ const UserIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-// Settings icon component
 const SettingsIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
     className={className}
@@ -179,7 +175,6 @@ const LogOutIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-// FileText icon component for Pastes
 const FileTextIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
     className={className}
@@ -202,7 +197,6 @@ const FileTextIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) =>
   </svg>
 )
 
-// Image icon component for Gallery
 const ImageIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
     className={className}
@@ -242,7 +236,6 @@ const MessageSquareIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement
   </svg>
 )
 
-// HelpCircle icon component for Help and Support
 const HelpCircleIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
     className={className}
@@ -263,7 +256,6 @@ const HelpCircleIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) 
   </svg>
 )
 
-// TrashIcon component
 const TrashIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
     className={className}

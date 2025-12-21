@@ -58,18 +58,14 @@ export const ManageMembersModal = ({
   const members = event.members || [];
   const requests = event.requests || [];
 
-  // Extract managerId from event (can be string or object)
   const managerId = typeof event.managerId === 'string'
     ? event.managerId
     : event.managerId?._id;
-
-  // Pagination logic for members
   const membersTotalPages = Math.ceil(members.length / ITEMS_PER_PAGE);
   const membersStartIndex = (membersPage - 1) * ITEMS_PER_PAGE;
   const membersEndIndex = membersStartIndex + ITEMS_PER_PAGE;
   const paginatedMembers = members.slice(membersStartIndex, membersEndIndex);
 
-  // Pagination logic for requests
   const requestsTotalPages = Math.ceil(requests.length / ITEMS_PER_PAGE);
   const requestsStartIndex = (requestsPage - 1) * ITEMS_PER_PAGE;
   const requestsEndIndex = requestsStartIndex + ITEMS_PER_PAGE;

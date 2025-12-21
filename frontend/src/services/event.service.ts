@@ -43,13 +43,13 @@ export async function getEventRegistrations(eventId: string) {
 
 export async function approveRegistration(registrationId: string) {
     return apiFetch(`/register/${registrationId}/approve`, {
-        method: "POST", // Changed to POST to match routes
+        method: "POST",
     });
 }
 
 export async function rejectRegistration(registrationId: string) {
     return apiFetch(`/register/${registrationId}/reject`, {
-        method: "POST", // Changed to POST to match routes
+        method: "POST",
     });
 }
 

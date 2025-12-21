@@ -86,20 +86,15 @@ export function EventReportsDialog({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Dialog states for actions
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [reportToReject, setReportToReject] = useState<EventReport | null>(null);
   const [reportToResolve, setReportToResolve] = useState<EventReport | null>(null);
 
-  // Fetch reports for this event
   const fetchReports = async () => {
     setLoading(true);
     try {
-      // Get reports for posts in this specific event
       const data = await apiFetch(`/report/event/${eventId}/reports`);
-
-      // Transform the data
       const transformedData: EventReport[] = (data || []).map((report: any) => ({
         id: report._id,
         reporter: {
@@ -117,7 +112,6 @@ export function EventReportsDialog({
         createdAt: report.createdAt,
       }));
 
-      // Apply status filter if needed
       const filtered = statusFilter && statusFilter !== 'all'
         ? transformedData.filter(r => r.status === statusFilter)
         : transformedData;
@@ -138,7 +132,6 @@ export function EventReportsDialog({
     }
   }, [open, statusFilter]);
 
-  // Filtering logic
   const filteredReports = useMemo(() => {
     let result = [...reports];
 
@@ -156,7 +149,6 @@ export function EventReportsDialog({
     return result;
   }, [reports, searchQuery]);
 
-  // Handlers
   const handleResolve = async () => {
     if (!reportToResolve) return;
 

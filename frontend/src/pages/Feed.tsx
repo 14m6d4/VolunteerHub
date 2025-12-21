@@ -1,4 +1,4 @@
-// frontend/src/pages/Feed.tsx
+
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -12,7 +12,6 @@ import type { FeedPostWithUser, TrendingEvent, FriendSuggestion, EventShortcut }
 import { toast } from 'sonner';
 import { formatEventDate } from '@/utils/formatDate';
 
-// Feed item type for mixed content
 type FeedItem =
   | { type: 'post'; data: FeedPostWithUser }
   | { type: 'trending'; data: TrendingEvent };

@@ -10,7 +10,6 @@ export default function NavBar() {
   const { user, logout } = useAuth();
   const notifications = useNotifications();
 
-  // eslint-disable-next-line no-console
   console.log('[NavBar] Rendering with user:', user ? (user.username || user.email) : 'null', 'unread:', notifications.unreadCount);
 
   const handleLogout = () => {
@@ -28,7 +27,6 @@ export default function NavBar() {
       { href: "/feed", label: "Home" },
     ];
 
-    // Default/Guest links
     if (!user) {
       return [
         { href: "/feed", label: "Home" },
@@ -47,9 +45,6 @@ export default function NavBar() {
       ];
     }
 
-    // Volunteer and Admin share the same structure as per request
-    // Admin: Home (/feed), Events (/events), Users (/users), About
-    // Volunteer: Home (/feed), Events (/events), Users (/users), About
     return [
       ...commonLinks,
       { href: "/events", label: "Events" },

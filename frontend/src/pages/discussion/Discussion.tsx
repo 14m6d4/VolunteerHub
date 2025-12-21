@@ -1,4 +1,4 @@
-// frontend/src/pages/discussion/Discussion.tsx
+
 
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -32,24 +32,17 @@ export default function DiscussionPage() {
   const [loading, setLoading] = useState(true);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
 
-  // Local cache for comments to avoid refetching heavily
-  // mapping postId -> comments
   const [commentsMap, setCommentsMap] = useState<Record<string, CommentWithUser[]>>({});
 
-  // Derived state for deep linked post
   const [selectedPost, setSelectedPost] = useState<PostWithUser | null>(null);
   const isDetailOpen = !!postId;
 
-  // Sync state with URL postId
   useEffect(() => {
     if (postId) {
-      // Check if post is already in loaded posts
       const found = posts.find(p => p.id === postId);
       if (found) {
         setSelectedPost(found);
       } else {
-        // If not found (e.g. direct link or not loaded yet), create a minimally valid object.
-        // PostDetailDialog will fetch the real data.
         setSelectedPost({
           id: postId,
           userId: 'loading',
@@ -152,7 +145,6 @@ export default function DiscussionPage() {
 
         setPosts(mappedPosts);
 
-        // Pre-fetch comments for visible posts if needed, or rely on lazy load
         mappedPosts.forEach((post: any) => {
           fetchComments(post.id);
         });
@@ -183,8 +175,6 @@ export default function DiscussionPage() {
 
       await createPost(formData);
       toast.success("Post created");
-      // Reload posts logic (simplified by re-fetching or appending)
-      // Here reusing extraction from loadData roughly
       const postsData = await getEventPosts(eventId);
       const mappedPosts = (postsData.data || postsData || []).map((p: any) => ({
         id: p._id,
@@ -244,7 +234,6 @@ export default function DiscussionPage() {
       await deletePost(postId);
       setPosts(prev => prev.filter(p => p.id !== postId));
       toast.success("Post deleted successfully");
-      // If we're viewing this post detail, navigate back
       if (postId === selectedPost?.id) {
         navigate(`/events/${eventId}`);
       }
@@ -257,7 +246,6 @@ export default function DiscussionPage() {
   const handleDeleteComment = async (commentId: string) => {
     try {
       await deleteComment(commentId);
-      // Update commentsMap by removing the deleted comment
       setCommentsMap(prev => {
         const newMap = { ...prev };
         Object.keys(newMap).forEach(postId => {

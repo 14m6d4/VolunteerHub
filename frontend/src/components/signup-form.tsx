@@ -44,7 +44,6 @@ export function SignupForm({
       })(),
     }
 
-    // Clear previous local error
     setLocalError(null)
 
     const pw = (fd.get('password') as string) || ''

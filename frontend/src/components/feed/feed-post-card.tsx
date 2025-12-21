@@ -1,4 +1,4 @@
-// frontend/src/components/feed/feed-post-card.tsx
+
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -53,7 +53,6 @@ export function FeedPostCard({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [localShowDetailDialog, setLocalShowDetailDialog] = useState(false);
 
-  // Use controlled state if provided, otherwise use local state
   const showDetailDialog = onDetailOpenChange !== undefined ? isDetailOpen : localShowDetailDialog;
   const setShowDetailDialog = onDetailOpenChange !== undefined
     ? onDetailOpenChange
@@ -76,7 +75,6 @@ export function FeedPostCard({
   const previewComments = comments.slice(0, 2);
   const hasMoreComments = comments.length > 2;
 
-  // Convert FeedPostWithUser to PostWithUser for dialogs
   const postForDialog = {
     ...post,
     author: post.author,

@@ -74,7 +74,6 @@ interface User {
 }
 
 export default function UsersManagement() {
-  // State
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,7 +86,6 @@ export default function UsersManagement() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Dialog states
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -95,7 +93,6 @@ export default function UsersManagement() {
   const [bulkActionDialogOpen, setBulkActionDialogOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<'ban' | 'delete' | null>(null);
 
-  // Form state
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -112,7 +109,6 @@ export default function UsersManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Construct query params
       const params = new URLSearchParams();
       if (searchQuery) params.append('q', searchQuery);
       if (statusFilter !== 'all') params.append('status', statusFilter);
@@ -137,7 +133,6 @@ export default function UsersManagement() {
     fetchUsers();
   }, [searchQuery, statusFilter, roleFilter, sortField, sortOrder, currentPage, rowsPerPage]);
 
-  // Handlers
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -267,8 +262,6 @@ export default function UsersManagement() {
   };
 
   const handleBulkAction = async () => {
-    // Not implemented in backend yet for bulk, would loop frontend calls or add bulk endpoint
-    // For now, let's just loop
     if (bulkAction === 'ban') {
       for (const id of selectedRows) {
         await apiFetch(`/users/admin/ban/${id}`, { method: 'POST' });
@@ -286,8 +279,6 @@ export default function UsersManagement() {
   };
 
   const handleExport = (format: 'csv' | 'json') => {
-    // Export ALL users (need to fetch all or export current view)
-    // For simplicity export current view
     const dataToExport = users.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
 
     if (format === 'csv') {

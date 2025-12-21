@@ -21,9 +21,6 @@ export function OTPForm({ className, onSubmit, onVerify, ...props }: React.Compo
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    // Support two handler shapes for backward compatibility:
-    // - onSubmit(otp: string)
-    // - onVerify({ otp: string })
     if (onSubmit) await onSubmit(otp)
     else if (onVerify) await onVerify({ otp })
   }

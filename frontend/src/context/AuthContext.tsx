@@ -2,7 +2,7 @@ import { createContext, useState, useEffect, useCallback, useContext } from 'rea
 import type { PropsWithChildren } from 'react';
 import * as authService from '@/services/auth.service';
 
-type User = any; // Có thể thay bằng interface IUser nếu bạn có trong types
+type User = any;
 
 interface AuthContextType {
   user: User | null;
@@ -17,7 +17,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch profile khi app mount nếu có token
   useEffect(() => {
     let mounted = true;
     const init = async () => {
@@ -30,7 +29,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         console.log('[AuthProvider] Found accessToken on mount, fetching profile...');
         const res = await authService.getProfile();
         if (mounted) {
-          // Redirect to banned page if the account is banned
           if (res?.user?.isBanned) {
             const params = new URLSearchParams();
             if (res.user.bannedReason) params.set('reason', res.user.bannedReason);
@@ -42,7 +40,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
       } catch (err: any) {
         console.error('[AuthProvider] Failed to fetch profile on mount:', err);
-        // Preserve previous user on transient network errors
         if (!err?.isNetworkError && mounted) setUser(null);
       } finally {
         if (mounted) setLoading(false);
@@ -52,7 +49,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => { mounted = false };
   }, []);
 
-  // Lắng nghe thay đổi token (multi-tab hoặc custom event)
   useEffect(() => {
     const handleTokenChange = async () => {
       try {

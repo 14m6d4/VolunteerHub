@@ -1,4 +1,4 @@
-// frontend/src/components/discussion/index.ts
+
 
 export { PostCard } from './post-card';
 export { CommentSection } from './comment-section';
