@@ -76,7 +76,7 @@ export default function SearchUsersPage() {
             <div>
               {u.relation === 'friends' && <Button size="sm" disabled>Friends</Button>}
               {u.relation === 'pending_sent' && <Button size="sm" disabled>Pending</Button>}
-              {u.relation === 'pending_received' && <Button size="sm" disabled>Requested you</Button>}
+              {u.relation === 'pending_received' && <Button size="sm" disabled>Requested</Button>}
               {u.relation === 'none' && user && user.id !== u._id && (
                 <Button size="sm" onClick={() => handleSend(u._id)} disabled={sendingId === u._id}>
                   {sendingId === u._id ? 'Sending...' : 'Add friend'}

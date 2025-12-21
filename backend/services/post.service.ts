@@ -103,7 +103,7 @@ export const PostService = {
 
 
     async getPostById(postId: string) {
-        console.log("Fetching post by ID:", postId);
+
         const post = await PostModel.findById(postId)
             .populate('authorId', 'name username profilePicture')
             .populate({
@@ -112,6 +112,7 @@ export const PostService = {
             })
             .lean();
         if (!post) throw new Error("Post not found");
+        console.log("Fetching post by ID:", postId, post.createdAt);
         return post;
     }
 };

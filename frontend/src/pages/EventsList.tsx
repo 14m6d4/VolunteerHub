@@ -26,7 +26,7 @@ import { useAuth } from '@/context/AuthContext';
 import { formatEventDate } from '@/utils/formatDate';
 
 export const EventsList = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [filters, setFilters] = useState<EventFilters>({
     searchQuery: '',
@@ -102,8 +102,10 @@ export const EventsList = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!authLoading) {
+      fetchData();
+    }
+  }, [authLoading, !!user]); // Re-fetch only when auth settles or user changes
 
   // Get all unique tags from events
   const allTags = useMemo(() => {
@@ -198,10 +200,16 @@ export const EventsList = () => {
     setFilters(prev => ({ ...prev, selectedTags: [] }));
   };
 
-  if (loading) {
+  // Show loading while auth or data is fetching
+  if (loading || authLoading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-7xl flex items-center justify-center min-h-[50vh]">
-        <div className="animate-pulse">Loading events...</div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <div className="animate-pulse text-muted-foreground">
+            {authLoading ? "Initializing session..." : "Fetching events..."}
+          </div>
+        </div>
       </div>
     );
   }

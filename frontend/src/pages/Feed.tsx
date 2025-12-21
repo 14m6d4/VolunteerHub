@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FeedPostCard, TrendingEventCard, EventShortcuts, FriendSuggestions } from '@/components/feed';
 import { useAuth } from '@/context/AuthContext';
 import { getFeed, likePost } from '@/services/feed.service';
-import { getMyRegistrations } from '@/services/event.service';
+import { getMyRegistrations, getEvents } from '@/services/event.service';
 import { getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
 import { createComment, deletePost, deleteComment } from '@/services/post.service';
 import type { FeedPostWithUser, TrendingEvent, FriendSuggestion, EventShortcut } from '@/types/feed';
@@ -47,7 +47,7 @@ export default function FeedPage() {
               type: 'post',
               data: {
                 id: p._id,
-                userId: p.authorId._id,
+                userId: p.authorId?._id || 'deleted',
                 content: p.content,
                 imageUrl: p.image,
                 timestamp: new Date(p.createdAt),
@@ -57,15 +57,15 @@ export default function FeedPage() {
                 eventTitle: p.eventId?.title || 'Unknown Event',
                 eventImage: p.eventId?.image || '',
                 author: {
-                  id: p.authorId._id,
-                  name: p.authorId.name,
-                  username: p.authorId.username,
-                  avatarUrl: p.authorId.profilePicture,
-                  role: p.authorId.role
+                  id: p.authorId?._id || 'deleted',
+                  name: p.authorId?.name || 'Deleted User',
+                  username: p.authorId?.username || 'deleted',
+                  avatarUrl: p.authorId?.profilePicture,
+                  role: p.authorId?.role || 'volunteer'
                 },
-                comments: (p.comments || []).map((c: any) => {
-                  if (!c.authorId) return null;
-                  return {
+                comments: (p.comments || [])
+                  .filter((c: any) => c.authorId)
+                  .map((c: any) => ({
                     id: c._id,
                     userId: c.authorId._id,
                     content: c.content,
@@ -75,10 +75,9 @@ export default function FeedPage() {
                       name: c.authorId.name,
                       username: c.authorId.username,
                       avatarUrl: c.authorId.profilePicture,
-                      role: 'volunteer'
+                      role: c.authorId.role || 'volunteer'
                     }
-                  };
-                }).filter((c: any) => c !== null),
+                  })),
                 commentCount: p.commentCount || 0
               }
             };
@@ -129,16 +128,26 @@ export default function FeedPage() {
       }
       setShortcutsLoading(true);
       try {
-        const myRegRes = await getMyRegistrations();
-        const myRegs = myRegRes.data || myRegRes || [];
-        const myEventsList: EventShortcut[] = myRegs
-          .filter((r: any) => r.eventId && typeof r.eventId !== 'string')
-          .map((r: any) => ({
-            id: r.eventId._id || r.eventId.id,
-            title: r.eventId.title,
-            image: r.eventId.image
-          }));
-        setJoinedEvents(myEventsList);
+        if (user.role === 'manager') {
+          const managedRes = await getEvents({ managerId: user.id, status: 'all' });
+          const managedEvents = managedRes.items || [];
+          setJoinedEvents(managedEvents.map((e: any) => ({
+            id: e._id || e.id,
+            title: e.title,
+            image: e.image
+          })));
+        } else {
+          const myRegRes = await getMyRegistrations();
+          const myRegs = myRegRes.data || myRegRes || [];
+          const myEventsList: EventShortcut[] = myRegs
+            .filter((r: any) => r.eventId && typeof r.eventId !== 'string')
+            .map((r: any) => ({
+              id: r.eventId._id || r.eventId.id,
+              title: r.eventId.title,
+              image: r.eventId.image
+            }));
+          setJoinedEvents(myEventsList);
+        }
       } catch (err) {
         console.error("Failed to load shortcuts", err);
       } finally {

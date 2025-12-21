@@ -7,6 +7,7 @@ export async function getEvents(filters?: {
     startFrom?: string;
     page?: number;
     limit?: number;
+    managerId?: string;
 }) {
     return apiFetch("/events", {
         query: filters,
