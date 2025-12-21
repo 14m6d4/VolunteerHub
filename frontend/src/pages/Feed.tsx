@@ -23,50 +23,21 @@ export default function FeedPage() {
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [joinedEvents, setJoinedEvents] = useState<EventShortcut[]>([]);
   const [friendSuggestions, setFriendSuggestions] = useState<FriendSuggestion[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [shortcutsLoading, setShortcutsLoading] = useState(true);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
 
   // Fetch Data
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
+    async function loadFeed() {
+      setFeedLoading(true);
       try {
-        const promises: Promise<any>[] = [getFeed({ limit: 20 }), getEvents({ status: 'approved' })];
-
-        if (user) {
-          promises.push(getMyRegistrations());
-          promises.push(getFriendSuggestions());
-        }
-
-        const results = await Promise.all(promises);
-        const feedRes = results[0];
-        const eventsRes = results[1];
-        const myRegRes = user ? results[2] : { data: [] };
-        const suggestionsRes = user ? results[3] : { data: [] };
-
-        // Process Events for Shortcuts (Joined Events)
-        const allEvents = eventsRes.items || [];
-        const myRegs = myRegRes.data || myRegRes || [];
-
-        // Extract Joined Events List (Shortcuts)
-        const myEventsList: EventShortcut[] = [];
-        myRegs.forEach((r: any) => {
-          const eId = typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id;
-          const eventDetails = allEvents.find((e: any) => (e._id || e.id) === eId) || r.eventId;
-          if (eventDetails && typeof eventDetails !== 'string') {
-            myEventsList.push({
-              id: eventDetails._id || eventDetails.id,
-              title: eventDetails.title,
-              image: eventDetails.image
-            });
-          }
-        });
-        setJoinedEvents(myEventsList);
-
-        // Process Mixed Feed from Backend
+        const feedRes = await getFeed({ limit: 20 });
         const apiFeed = feedRes.data || feedRes || [];
         const mappedFeed: FeedItem[] = apiFeed.map((item: any) => {
           if (item.type === 'post') {
-            if (!user) return null; // Guests shouldn't see posts
+            if (!user) return null;
             const p = item.data;
             return {
               type: 'post',
@@ -110,19 +81,11 @@ export default function FeedPage() {
             if (e.bestFeature && e.bestFeature.count > 0) {
               const { type, count, days } = e.bestFeature;
               const timeStr = `${days} days`;
-
               switch (type) {
-                case 'rapid_growth':
-                  reason = `${count} members joined in ${timeStr}`;
-                  break;
-                case 'active_community':
-                  reason = `${count} new posts in ${timeStr}`;
-                  break;
-                case 'hot_discussion':
-                  reason = `${count} new comments in ${timeStr}`;
-                  break;
-                default:
-                  reason = 'Trending now in your community';
+                case 'rapid_growth': reason = `${count} members joined in ${timeStr}`; break;
+                case 'active_community': reason = `${count} new posts in ${timeStr}`; break;
+                case 'hot_discussion': reason = `${count} new comments in ${timeStr}`; break;
+                default: reason = 'Trending now in your community';
               }
             }
             return {
@@ -143,10 +106,47 @@ export default function FeedPage() {
           }
           return null;
         }).filter((item: FeedItem | null) => item !== null) as FeedItem[];
-
         setFeedItems(mappedFeed);
+      } catch (err) {
+        console.error("Failed to load feed", err);
+        toast.error("Failed to load feed data");
+      } finally {
+        setFeedLoading(false);
+      }
+    }
 
-        // Process Suggestions
+    async function loadShortcuts() {
+      if (!user) {
+        setShortcutsLoading(false);
+        return;
+      }
+      setShortcutsLoading(true);
+      try {
+        const myRegRes = await getMyRegistrations();
+        const myRegs = myRegRes.data || myRegRes || [];
+        const myEventsList: EventShortcut[] = myRegs
+          .filter((r: any) => r.eventId && typeof r.eventId !== 'string')
+          .map((r: any) => ({
+            id: r.eventId._id || r.eventId.id,
+            title: r.eventId.title,
+            image: r.eventId.image
+          }));
+        setJoinedEvents(myEventsList);
+      } catch (err) {
+        console.error("Failed to load shortcuts", err);
+      } finally {
+        setShortcutsLoading(false);
+      }
+    }
+
+    async function loadSuggestions() {
+      if (!user) {
+        setSuggestionsLoading(false);
+        return;
+      }
+      setSuggestionsLoading(true);
+      try {
+        const suggestionsRes = await getFriendSuggestions();
         const rawSuggestions = suggestionsRes.data || suggestionsRes || [];
         const suggestions: FriendSuggestion[] = rawSuggestions.map((u: any) => ({
           id: u._id,
@@ -156,15 +156,16 @@ export default function FeedPage() {
           mutualFriends: u.mutualFriends || 0
         }));
         setFriendSuggestions(suggestions);
-
       } catch (err) {
-        console.error("Failed to load feed", err);
-        toast.error("Failed to load feed data");
+        console.error("Failed to load suggestions", err);
       } finally {
-        setLoading(false);
+        setSuggestionsLoading(false);
       }
     }
-    loadData();
+
+    loadFeed();
+    loadShortcuts();
+    loadSuggestions();
   }, [user]);
 
   // Handle liking
@@ -248,7 +249,8 @@ export default function FeedPage() {
     }
   };
 
-  if (loading) return <div className="flex justify-center p-10">Loading feed...</div>;
+  // Removed: if (loading) return <div className="flex justify-center p-10">Loading feed...</div>;
+  // Page layout will render immediately, and each component will handle its own empty/loading state
 
   return (
     <div className="min-h-screen bg-background">
@@ -257,7 +259,13 @@ export default function FeedPage() {
           {/* Left Sidebar - Event Shortcuts */}
           <aside className="hidden lg:block lg:col-span-3">
             <div className="sticky top-20">
-              {user && <EventShortcuts events={joinedEvents} />}
+              {user && (
+                shortcutsLoading ? (
+                  <div className="p-4 border rounded-lg animate-pulse bg-muted/20">Loading shortcuts...</div>
+                ) : (
+                  <EventShortcuts events={joinedEvents.slice(0, 5)} />
+                )
+              )}
             </div>
           </aside>
 
@@ -274,41 +282,49 @@ export default function FeedPage() {
             </div>
 
             {/* Feed Items (Mixed) */}
-            {feedItems.map((item, index) => {
-              if (item.type === 'post') {
-                if (!user) return null;
-                return (
-                  <FeedPostCard
-                    key={`post-${item.data.id}`}
-                    post={item.data}
-                    comments={item.data.comments}
-                    currentUserId={user.id}
-                    currentUser={{
-                      id: user.id,
-                      name: user.name,
-                      avatarUrl: user.profilePicture || ''
-                    }}
-                    onLike={handleLike}
-                    onAddComment={handleAddComment}
-                    isDetailOpen={postId === item.data.id}
-                    onDetailOpenChange={(open) => {
-                      if (!open) {
-                        navigate('/feed');
-                      }
-                    }}
-                  />
-                );
-              } else {
-                return (
-                  <TrendingEventCard
-                    key={`trending-${item.data.id}-${index}`}
-                    event={item.data}
-                  />
-                );
-              }
-            })}
+            {feedLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-64 border rounded-lg animate-pulse bg-muted/10" />
+                ))}
+              </div>
+            ) : (
+              feedItems.map((item, index) => {
+                if (item.type === 'post') {
+                  if (!user) return null;
+                  return (
+                    <FeedPostCard
+                      key={`post-${item.data.id}`}
+                      post={item.data}
+                      comments={item.data.comments}
+                      currentUserId={user.id}
+                      currentUser={{
+                        id: user.id,
+                        name: user.name,
+                        avatarUrl: user.profilePicture || ''
+                      }}
+                      onLike={handleLike}
+                      onAddComment={handleAddComment}
+                      isDetailOpen={postId === item.data.id}
+                      onDetailOpenChange={(open) => {
+                        if (!open) {
+                          navigate('/feed');
+                        }
+                      }}
+                    />
+                  );
+                } else {
+                  return (
+                    <TrendingEventCard
+                      key={`trending-${item.data.id}-${index}`}
+                      event={item.data}
+                    />
+                  );
+                }
+              })
+            )}
 
-            {feedItems.length === 0 && (
+            {!feedLoading && feedItems.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
                 <p className="text-lg font-medium">No activity yet</p>
                 <p className="text-sm">Join some events to see activity in your feed!</p>
@@ -319,7 +335,13 @@ export default function FeedPage() {
           {/* Right Sidebar - Friend Suggestions */}
           <aside className="hidden lg:block lg:col-span-3">
             <div className="sticky top-20">
-              {user && <FriendSuggestions suggestions={friendSuggestions} onAddFriend={handleSendFriendRequest} />}
+              {user && (
+                suggestionsLoading ? (
+                  <div className="p-4 border rounded-lg animate-pulse bg-muted/20">Loading suggestions...</div>
+                ) : (
+                  <FriendSuggestions suggestions={friendSuggestions.slice(0, 5)} onAddFriend={handleSendFriendRequest} />
+                )
+              )}
             </div>
           </aside>
         </div>
