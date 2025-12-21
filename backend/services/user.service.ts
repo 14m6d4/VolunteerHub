@@ -64,8 +64,52 @@ export async function updateProfileWithPasswordCheck(
     validUpdates.profilePicture = undefined;
   }
 
+  // Handle password change - need to use save() to trigger password hashing hook
+  if (validUpdates.password) {
+    const newPassword = validUpdates.password;
+    delete validUpdates.password; // Remove from bulk update
+
+    try {
+      // Update other fields first using findByIdAndUpdate
+      if (Object.keys(validUpdates).length > 0) {
+        await UserModel.findByIdAndUpdate(
+          userId,
+          { $set: validUpdates },
+          { new: true, runValidators: true }
+        );
+      }
+
+      // Then update password using save() to trigger hashing
+      const userForPassword = await UserModel.findById(userId).select('+passwordHash');
+      if (!userForPassword) {
+        throw new AppError('User not found after update', 500);
+      }
+
+      userForPassword.passwordHash = newPassword;
+      await userForPassword.save();
+
+      // Return final updated user
+      const updatedUser = await UserModel.findById(userId)
+        .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt')
+        .exec();
+
+      if (!updatedUser) {
+        throw new AppError('User not found after password update', 500);
+      }
+
+      return updatedUser as IUser;
+
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      console.error('Database error during password update:', error);
+      throw new AppError('Failed to update password', 500);
+    }
+  }
+
   try {
-    // 4. Perform the update operation
+    // 4. Perform the update operation (no password field)
     const updatedUser = await UserModel.findByIdAndUpdate(
       userId,
       { $set: validUpdates },
@@ -349,7 +393,10 @@ export const listFriendsService = async (userId: string) => {
 export const getRelationsForTargets = async (userId: string, targets: string[]) => {
   // fetch user's friends
   const user = await UserModel.findById(userId).select('friends').lean();
-  const friendSet = new Set((user && (user as any).friends) || []);
+  // Convert ObjectIds to strings for comparison
+  const friendSet = new Set(
+    ((user && (user as any).friends) || []).map((id: any) => id.toString())
+  );
 
   // fetch pending requests where user is sender or receiver
   const pending = await FriendRequestModel.find({
