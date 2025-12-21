@@ -36,6 +36,7 @@ import QueryProvider from "./providers/QueryProvider"
 import { AuthProvider } from "@/context/AuthContext"
 import SettingsPage from "./pages/Settings";
 import ProfilePage from "./pages/Profile";
+import AboutPage from "./pages/About";
 
 function HomePage() {
   const [searchParams] = useSearchParams()
@@ -92,6 +93,7 @@ function AppContent() {
           <Route path="*" element={<Error404 />} />
           <Route path="/u/:username/settings" element={<SettingsPage />} />
           <Route path="/u/:username" element={<ProfilePage />} />
+          <Route path="/about" element={<AboutPage />} />
         </Route>
 
         {/* New Admin Dashboard with Sidebar Layout */}
