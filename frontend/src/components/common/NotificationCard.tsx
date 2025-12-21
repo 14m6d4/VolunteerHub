@@ -26,7 +26,7 @@ export function NotificationCard({ notification, onMarkRead, userRole }: Notific
         // Post-related notifications - redirect to post
         if (type === 'post_liked' || type === 'post_commented') {
             if (data?.postId && data?.eventId) {
-                navigate(`/events/${data.eventId}?postId=${data.postId}`);
+                navigate(`/events/${data.eventId}/posts/${data.postId}`);
             }
             return;
         }
