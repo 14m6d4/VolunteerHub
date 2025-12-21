@@ -426,16 +426,36 @@ const seed = async () => {
         console.log("Creating Notifications...");
         const notifications: any[] = [];
 
+        // Helper to get user name
+        const getUserName = (id: mongoose.Types.ObjectId) => {
+            const u = users.find(u => u._id.equals(id));
+            return u ? u.name : "Unknown User";
+        };
+
+        const getUserUsername = (id: mongoose.Types.ObjectId) => {
+            const u = users.find(u => u._id.equals(id));
+            return u ? u.username : "unknown";
+        };
+
         // Friend Request Notifications
         for (const req of Array.from(uniqueRequests.values())) {
+            const senderName = getUserName(req.sender);
+            const senderUsername = getUserUsername(req.sender);
+            const receiverName = getUserName(req.receiver);
+
             // "Sender sent request to Receiver" -> Notify Receiver
             if (req.status === 'pending') {
                 notifications.push({
                     user: req.receiver,
                     actor: req.sender,
                     type: NotificationType.FRIEND_REQUEST_RECEIVED,
-                    title: "New Friend Request",
-                    body: "sent you a friend request.", // Actor name will be prepended by UI usually, or we can fetch name
+                    title: `New Friend Request from ${senderName}`,
+                    body: `${senderName} sent you a friend request.`,
+                    data: {
+                        senderName,
+                        username: senderUsername,
+                        requestId: req._id
+                    },
                     isRead: Math.random() > 0.7,
                     createdAt: req.createdAt,
                     updatedAt: req.createdAt
@@ -446,24 +466,82 @@ const seed = async () => {
                     actor: req.receiver, // Receiver accepted
                     type: NotificationType.FRIEND_REQUEST_ACCEPTED,
                     title: "Friend Request Accepted",
-                    body: "accepted your friend request.",
+                    body: `${receiverName} accepted your friend request.`,
+                    data: {
+                        username: getUserUsername(req.receiver),
+                        actorName: receiverName
+                    },
                     isRead: Math.random() > 0.5,
-                    createdAt: new Date(req.createdAt.getTime() + 1000 * 60 * 60), // Accepted 1h later
+                    createdAt: new Date(req.createdAt.getTime() + 1000 * 60 * 60),
                     updatedAt: new Date(req.createdAt.getTime() + 1000 * 60 * 60)
                 });
             }
         }
 
-        // Event Notifications (simulated)
+        // Event Join Notifications (Notify Managers)
+        for (const reg of registrations) {
+            if (reg.status === RegistrationStatus.APPROVED && Math.random() > 0.7) {
+                const event = events.find(e => e._id.equals(reg.eventId));
+                const volunteerName = getUserName(reg.volunteerId);
+
+                if (event) {
+                    notifications.push({
+                        user: event.managerId,
+                        actor: reg.volunteerId,
+                        type: NotificationType.EVENT_JOINED,
+                        title: "New Event Participant",
+                        body: `${volunteerName} joined your event "${event.title}".`,
+                        data: {
+                            eventId: event._id,
+                            eventName: event.title,
+                            actorName: volunteerName
+                        },
+                        isRead: Math.random() > 0.6,
+                        createdAt: reg.createdAt,
+                        updatedAt: reg.createdAt
+                    });
+                }
+            }
+        }
+
+        // Comment Notifications (Notify Post Authors)
+        for (const comment of comments) {
+            if (Math.random() > 0.5) {
+                const post = posts.find(p => p._id.equals(comment.postId));
+                if (post && !post.authorId.equals(comment.authorId)) { // Don't notify self
+                    const commenterName = getUserName(comment.authorId);
+                    notifications.push({
+                        user: post.authorId,
+                        actor: comment.authorId,
+                        type: NotificationType.POST_COMMENTED,
+                        title: "New Comment on your Post",
+                        body: `${commenterName} commented on your post.`,
+                        data: {
+                            postId: post._id,
+                            eventId: post.eventId,
+                            actorName: commenterName
+                        },
+                        isRead: Math.random() > 0.4,
+                        createdAt: comment.createdAt,
+                        updatedAt: comment.createdAt
+                    });
+                }
+            }
+        }
+
+        // Event Reminders (simulated)
         for (let i = 0; i < 50; i++) {
             const user = getRandomElement(volunteerIds);
             const event = getRandomElement(events);
             notifications.push({
                 user: user,
                 type: NotificationType.EVENT_REMINDER,
-                title: "Event Reminder",
+                title: `Reminder: ${event.title}`,
                 body: `Don't forget about upcoming event: ${event.title}`,
-                data: { eventId: event._id },
+                data: {
+                    eventId: event._id,
+                    eventName: event.title
+                },
                 isRead: Math.random() > 0.8,
                 createdAt: getRandomDate(twoYearsAgo, new Date()),
                 updatedAt: new Date()
