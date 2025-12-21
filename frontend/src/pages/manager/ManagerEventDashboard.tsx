@@ -226,7 +226,7 @@ export const ManagerEventDashboard = () => {
           const user: User = {
             id: reg.volunteerId._id || reg.volunteerId.id,
             name: reg.volunteerId.name,
-            username: reg.volunteerId.name, // Fallback if no username
+            username: reg.volunteerId.username || reg.volunteerId.name,
             email: reg.volunteerId.email
           };
 
