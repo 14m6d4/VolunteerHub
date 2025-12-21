@@ -45,7 +45,7 @@ export function NotificationCard({ notification, onMarkRead, userRole }: Notific
         // Report resolution notifications - redirect to post
         if (type === 'report_resolved' || type === 'report_rejected') {
             if (data?.postId && data?.eventId) {
-                navigate(`/events/${data.eventId}?postId=${data.postId}`);
+                navigate(`/events/${data.eventId}/posts/${data.postId}`);
             }
             return;
         }
