@@ -1,4 +1,3 @@
-// backend/models/Report.model.ts
 import mongoose, { Schema, Document, type ObjectId } from 'mongoose';
 
 export enum ReportTargetType {

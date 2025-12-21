@@ -1,4 +1,3 @@
-// backend/services/feed.service.ts
 import { PostModel } from "../models/Post.model.ts";
 import { FeedType } from "../models/Feed.model.ts";
 import { RegistrationModel } from "../models/Registration.model.ts";
