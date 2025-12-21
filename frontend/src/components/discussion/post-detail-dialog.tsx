@@ -132,14 +132,14 @@ export function PostDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 gap-0">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-4 pb-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <Avatar className="h-10 w-10">
               <AvatarImage src={displayPost.author.avatarUrl} alt={displayPost.author.name} />
               <AvatarFallback>{getInitials(displayPost.author.name)}</AvatarFallback>
             </Avatar>
-            <div>
+            <div className="flex-1 min-w-0">
               <DialogTitle
                 className="text-base font-semibold cursor-pointer hover:underline"
                 onClick={(e) => {
@@ -158,10 +158,10 @@ export function PostDetailDialog({
 
         <Separator />
 
-        <ScrollArea className="max-h-[60vh]">
-          <div className="p-4 space-y-4">
+        <ScrollArea className="max-h-[60vh] w-full">
+          <div className="p-4 space-y-4 w-full">
             {/* Post Content */}
-            <p className="text-sm whitespace-pre-wrap">{displayPost.content}</p>
+            <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] w-full" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{displayPost.content}</p>
 
             {displayPost.imageUrl && (
               <div className="rounded-lg overflow-hidden">
@@ -213,7 +213,7 @@ export function PostDetailDialog({
                           {getInitials(comment.author.name)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 bg-muted/50 rounded-lg px-3 py-2">
+                      <div className="flex-1 min-w-0 bg-muted/50 rounded-lg px-3 py-2">
                         <div className="flex items-center gap-2">
                           <span
                             className="text-sm font-semibold cursor-pointer hover:underline"
@@ -228,7 +228,7 @@ export function PostDetailDialog({
                             {formatRelativeTime(comment.timestamp)}
                           </span>
                         </div>
-                        <p className="text-sm text-foreground">{comment.content}</p>
+                        <p className="text-sm text-foreground break-words [overflow-wrap:anywhere]" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{comment.content}</p>
                       </div>
                     </div>
                   ))}

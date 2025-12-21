@@ -84,7 +84,7 @@ export function CommentSection({
               {getInitials(comment.author.name)}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 bg-muted/50 rounded-lg px-3 py-2">
+          <div className="flex-1 min-w-0 bg-muted/50 rounded-lg px-3 py-2">
             <div className="flex items-center gap-2">
               <span
                 className="text-xs font-semibold cursor-pointer hover:underline"
@@ -99,7 +99,7 @@ export function CommentSection({
                 {formatRelativeTime(comment.timestamp)}
               </span>
             </div>
-            <p className="text-sm text-foreground">{comment.content}</p>
+            <p className="text-sm text-foreground break-words [overflow-wrap:anywhere]" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{comment.content}</p>
           </div>
         </div>
       ))}

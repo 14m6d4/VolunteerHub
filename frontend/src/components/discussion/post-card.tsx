@@ -107,8 +107,8 @@ export function PostCard({
         </CardHeader>
 
         {/* Body */}
-        <CardContent className="pb-3 pt-0">
-          <p className="text-sm whitespace-pre-wrap">{post.content}</p>
+        <CardContent className="pb-3 pt-0 overflow-hidden">
+          <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{post.content}</p>
           {post.imageUrl && (
             <div className="rounded-lg overflow-hidden mt-3">
               <img

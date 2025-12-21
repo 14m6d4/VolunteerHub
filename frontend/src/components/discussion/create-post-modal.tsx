@@ -112,7 +112,8 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
             placeholder="What's on your mind?"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="min-h-[150px] resize-none border-0 focus-visible:ring-0 text-base p-0"
+            className="min-h-[150px] resize-none border-0 focus-visible:ring-0 text-base p-0 break-words"
+            style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
           />
 
           {/* Image Preview */}
