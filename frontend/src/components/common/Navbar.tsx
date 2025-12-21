@@ -593,7 +593,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                         <UserIcon className="mr-3 h-4 w-4" />
                         <span>Account</span>
                       </DropdownMenuItem>
-                      
+
                       <DropdownMenuItem className="cursor-pointer">
                         <MessageSquareIcon className="mr-3 h-4 w-4" />
                         <span>Feedback</span>
