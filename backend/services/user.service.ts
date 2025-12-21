@@ -47,6 +47,14 @@ export async function updateProfileWithPasswordCheck(
     throw new AppError('No update fields provided', 400); // Bad Request
   }
 
+  // 4. Check username uniqueness if username is being changed
+  if (updateData.username && updateData.username !== user.username) {
+    const existingUser = await UserModel.findOne({ username: updateData.username });
+    if (existingUser) {
+      throw new AppError('Username already taken', 400);
+    }
+  }
+
   // Sanitize updateData and coerce types where necessary
   const validUpdates: any = { ...updateData };
 
