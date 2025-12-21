@@ -27,7 +27,7 @@ router.patch(
 );
 
 // Search users
-router.get('/search/query', authMiddleware, searchUsers as any);
+router.get('/search/query', searchUsers as any);
 
 // Friendship endpoints
 router.get('/friends', authMiddleware, listFriends as any);

@@ -5,6 +5,7 @@ import { RegistrationModel } from "../models/Registration.model.ts";
 import { EventModel } from "../models/Event.model.ts";
 import UserModel from "../models/User.model.ts";
 import { CommentModel } from "../models/Comment.model.ts";
+import { ObjectId } from "mongoose";
 
 function calculateScore(feed, data, user, friendCount = 0) {
     const now = Date.now();
@@ -43,7 +44,7 @@ function calculateScore(feed, data, user, friendCount = 0) {
     const socialScore = Math.min(30, friendCount * 5);
 
     const totalScore = recencyScore + engagementScore + typeBonus + socialScore + velocityScore;
-    console.log(`Feed Item: ${feed.type}, Total Score: ${totalScore}, Velocity: ${velocityScore}`);
+    // console.log(`Feed Item: ${feed.type}, Total Score: ${totalScore}, Velocity: ${velocityScore}`);
     return totalScore;
 }
 
@@ -169,9 +170,11 @@ export const FeedService = {
 
 
             const allEventPosts = await PostModel.find({
-                eventId: { $in: eventIds }
+                eventId: { $in: eventIds },
+                createdAt: { $gte: cutoff }
             }).select('eventId createdAt').lean();
 
+            // console.log(allEventPosts, cutoff);
             const eventPostIds = allEventPosts.map(p => p._id);
             const recentCommentsAgg = await CommentModel.find({
                 postId: { $in: eventPostIds },
@@ -181,6 +184,7 @@ export const FeedService = {
             const eventsWithVelocity = events.map((e: any) => {
                 const eIdStr = e._id.toString();
                 const postsForEvent = allEventPosts.filter(p => p.eventId?.toString() === eIdStr);
+                // console.log(postsForEvent);
                 const postCount = postsForEvent.length;
                 const friendCount = friendCountMap.get(eIdStr) || 0;
 
@@ -195,14 +199,14 @@ export const FeedService = {
                         features.push({ type: 'rapid_growth', count: members, days, score: (members / days) * 12 });
                     }
 
-                    const recentPosts = postsForEvent.filter(p => p.createdAt >= windowCutoff).length;
+                    const recentPosts = postsForEvent.filter(p => new Date(p.createdAt).getTime() >= windowCutoff.getTime()).length;
                     if (recentPosts > 0) {
                         features.push({ type: 'active_community', count: recentPosts, days, score: (recentPosts / days) * 20 });
                     }
 
                     const ePostIds = new Set(postsForEvent.map(p => p._id.toString()));
                     const comments = recentCommentsAgg.filter(c =>
-                        ePostIds.has(c.postId.toString()) && c.createdAt >= windowCutoff
+                        ePostIds.has(c.postId.toString()) && new Date(c.createdAt).getTime() >= windowCutoff.getTime()
                     ).length;
                     if (comments > 0) {
                         features.push({ type: 'hot_discussion', count: comments, days, score: (comments / days) * 12 });

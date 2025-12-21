@@ -16,7 +16,7 @@ export default function FriendsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get('tab') as 'friends' | 'requests' | 'sent' | 'search' || 'friends';
+  const currentTab = searchParams.get('tab') as 'friends' | 'requests' | 'sent' | 'search' || (user ? 'friends' : 'search');
 
   // Helper to update URL when tab changes
   const setTab = (val: string) => {
@@ -82,7 +82,7 @@ export default function FriendsPage() {
           // Batch get relations (only when we have ids)
           const ids = users.map((u: any) => u._id || u.id).filter(Boolean);
           let rel: Record<string, string> = {};
-          if (ids.length > 0) {
+          if (user && ids.length > 0) {
             try {
               rel = (await getRelations(ids)).data || {};
             } catch (e) {
@@ -183,14 +183,16 @@ export default function FriendsPage() {
 
   return (
     <div className="container mx-auto py-10 px-4 max-w-4xl">
-      <h1 className="text-2xl mb-4">Users</h1>
+      <h1 className="text-2xl mb-4">{user ? 'Friends' : 'Search Users'}</h1>
       <Tabs value={currentTab} onValueChange={(v) => setTab(v)}>
-        <TabsList>
-          <TabsTrigger value="friends">Friends</TabsTrigger>
-          <TabsTrigger value="requests">Requests</TabsTrigger>
-          <TabsTrigger value="sent">Sent</TabsTrigger>
-          <TabsTrigger value="search">Search</TabsTrigger>
-        </TabsList>
+        {user && (
+          <TabsList>
+            <TabsTrigger value="friends">Friends</TabsTrigger>
+            <TabsTrigger value="requests">Requests</TabsTrigger>
+            <TabsTrigger value="sent">Sent</TabsTrigger>
+            <TabsTrigger value="search">Search</TabsTrigger>
+          </TabsList>
+        )}
 
         <TabsContent value="friends">
           <div className="space-y-3">
@@ -317,7 +319,7 @@ export default function FriendsPage() {
                   {u.relation === 'friends' && <Button size="sm" disabled>Friends</Button>}
                   {u.relation === 'pending_sent' && <Button size="sm" disabled>Pending</Button>}
                   {u.relation === 'pending_received' && <Button size="sm" disabled>Requested you</Button>}
-                  {u.relation === 'none' && user && user.id !== u._id && (
+                  {(!u.relation || u.relation === 'none') && user && user.id !== u._id && (
                     <Button
                       size="sm"
                       onClick={(e) => {

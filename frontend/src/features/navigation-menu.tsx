@@ -31,7 +31,7 @@ export default function NavBar() {
     // Default/Guest links
     if (!user) {
       return [
-        { href: "/", label: "Home" },
+        { href: "/feed", label: "Home" },
         { href: "/events", label: "Events" }, // Public events
         { href: "/users", label: "Users" }, // Public users?
         { href: "/about", label: "About" },
