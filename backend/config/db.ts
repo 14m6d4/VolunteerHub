@@ -5,14 +5,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 if (!process.env.MONGO_URI) {
-  console.error("MONGO_URI hasn't been defined.");
-  process.exit(1);
+    console.error("MONGO_URI hasn't been defined.");
+    process.exit(1);
 }
 
 const options = {
-    ssl: true, 
-    serverSelectionTimeoutMS: 5000, 
-    socketTimeoutMS: 45000, 
+    // ssl: true, // Comment this line if using mongodb localhost
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
 };
 
 const MONGO_URI: string = process.env.MONGO_URI;
@@ -26,7 +26,7 @@ const seedAdminUser = async (): Promise<void> => {
         const ADMIN_EMAIL = '23021521@vnu.edu.vn';
         const ADMIN_PASSWORD = '11111111';
         const BIRTHDATE = new Date('1990-01-01');
-        
+
         const adminExists = await User.findOne({ role: UserRole.Admin });
 
         if (adminExists) {
@@ -101,16 +101,16 @@ const seedAdminUser = async (): Promise<void> => {
 };
 
 export const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(MONGO_URI, options);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-    await seedAdminUser();
-  } catch (err) {
-    if (err instanceof Error) {        
-        console.error(`Error: ${err.message}`);
-        process.exit(1);
+    try {
+        const conn = await mongoose.connect(MONGO_URI, options);
+        console.log(`MongoDB Connected: ${conn.connection.host}`);
+        await seedAdminUser();
+    } catch (err) {
+        if (err instanceof Error) {
+            console.error(`Error: ${err.message}`);
+            process.exit(1);
+        }
     }
-  }
 };
 
 export const disconnectDB = async () => {

@@ -70,6 +70,7 @@ interface EventReportsDialogProps {
   onOpenChange: (open: boolean) => void;
   eventId: string;
   eventTitle: string;
+  onReportAction?: () => void;
 }
 
 export function EventReportsDialog({
@@ -77,6 +78,7 @@ export function EventReportsDialog({
   onOpenChange,
   eventId,
   eventTitle,
+  onReportAction,
 }: EventReportsDialogProps) {
   const navigate = useNavigate();
   const [reports, setReports] = useState<EventReport[]>([]);
@@ -165,6 +167,7 @@ export function EventReportsDialog({
       });
       fetchReports();
       toast.success('Report resolved successfully');
+      onReportAction?.();
     } catch (error) {
       toast.error('Failed to resolve report');
     }
@@ -183,6 +186,7 @@ export function EventReportsDialog({
       });
       fetchReports();
       toast.success('Report rejected successfully');
+      onReportAction?.();
     } catch (error) {
       toast.error('Failed to reject report');
     }

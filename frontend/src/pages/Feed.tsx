@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getFeed, likePost } from '@/services/feed.service';
 import { getEvents, getMyRegistrations } from '@/services/event.service';
 import { getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
-import { createComment } from '@/services/post.service';
+import { createComment, deletePost, deleteComment } from '@/services/post.service';
 import type { FeedPostWithUser, TrendingEvent, FriendSuggestion, EventShortcut } from '@/types/feed';
 import { toast } from 'sonner';
 
@@ -18,6 +18,7 @@ type FeedItem =
 
 export default function FeedPage() {
   const { user } = useAuth();
+  // State now holds mixed items directly
   const { postId } = useParams();
   const navigate = useNavigate();
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
@@ -155,7 +156,8 @@ export default function FeedPage() {
           avatarUrl: u.profilePicture,
           mutualFriends: u.mutualFriends || 0
         }));
-        setFriendSuggestions(suggestions);
+        setFriendSuggestions(suggestions.slice(0, 5));
+
       } catch (err) {
         console.error("Failed to load suggestions", err);
       } finally {
@@ -239,6 +241,45 @@ export default function FeedPage() {
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    try {
+      await deletePost(postId);
+      setFeedItems(prev => prev.filter(item => !(item.type === 'post' && item.data.id === postId)));
+      toast.success("Post deleted successfully");
+      // If we're viewing this post detail, navigate back
+      if (postId === postId) {
+        navigate('/feed');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete post");
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await deleteComment(commentId);
+      // Update feedItems by removing the deleted comment from the post
+      setFeedItems(prev => prev.map(item => {
+        if (item.type === 'post') {
+          return {
+            ...item,
+            data: {
+              ...item.data,
+              comments: item.data.comments.filter(c => c.id !== commentId),
+              commentCount: Math.max(0, item.data.commentCount - 1)
+            }
+          };
+        }
+        return item;
+      }));
+      toast.success("Comment deleted successfully");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete comment");
+    }
+  };
+
   const handleSendFriendRequest = async (userId: string) => {
     try {
       await sendFriendRequest(userId);
@@ -311,6 +352,8 @@ export default function FeedPage() {
                           navigate('/feed');
                         }
                       }}
+                    onDeletePost={handleDeletePost}
+                    onDeleteComment={handleDeleteComment}
                     />
                   );
                 } else {

@@ -26,6 +26,7 @@ export interface Event {
   requests?: User[];
   members?: User[];
   managerId?: string | { _id: string; name: string; email: string };
+  pendingReportsCount?: number;
 }
 
 export interface EventFilters {

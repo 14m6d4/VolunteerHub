@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { useEffect, useState, useRef } from "react"
 import { NavigationMenu, NavigationMenuItem, NavigationMenuList } from "@/components/ui/navigation-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { FileSlidersIcon } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -370,7 +371,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
         )}
       >
         <div className="flex h-16 w-full items-center justify-between gap-4">
-          {/* Left side */}
+          {/* Left side - Logo */}
           <div className="flex items-center gap-2">
             {/* Mobile menu trigger */}
             {isMobile && (
@@ -408,45 +409,47 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                 </PopoverContent>
               </Popover>
             )}
-            {/* Main nav */}
-            <div className="flex items-center gap-6">
-              <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleNavigation(logoHref)
-                }}
-                className="flex items-center space-x-2 text-primary hover:text-primary/90 focus:outline-none focus:text-primary active:text-primary transition-colors cursor-pointer"
-              >
-                <div className="text-2xl">{logo}</div>
-                <span className="hidden font-bold text-xl sm:inline-block">VolunteerHub</span>
-              </button>
-              {/* Navigation menu */}
-              {!isMobile && (
-                <NavigationMenu className="flex">
-                  <NavigationMenuList className="gap-1">
-                    {navigationLinks.map((link, index) => (
-                      <NavigationMenuItem key={index}>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            handleNavigation(link.href)
-                          }}
-                          className={cn(
-                            "group inline-flex h-9 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 cursor-pointer no-underline",
-                            link.active
-                              ? "bg-accent text-accent-foreground"
-                              : "text-foreground/80 hover:text-foreground",
-                          )}
-                        >
-                          {link.label}
-                        </button>
-                      </NavigationMenuItem>
-                    ))}
-                  </NavigationMenuList>
-                </NavigationMenu>
-              )}
-            </div>
+            {/* Logo */}
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                handleNavigation(logoHref)
+              }}
+              className="flex items-center space-x-2 text-primary hover:text-primary/90 focus:outline-none focus:text-primary active:text-primary transition-colors cursor-pointer"
+            >
+              <div className="text-2xl">{logo}</div>
+              <span className="hidden font-bold text-xl sm:inline-block">VolunteerHub</span>
+            </button>
           </div>
+
+          {/* Center - Navigation menu */}
+          {!isMobile && (
+            <div className="absolute left-1/2 -translate-x-1/2">
+              <NavigationMenu className="flex">
+                <NavigationMenuList className="gap-1">
+                  {navigationLinks.map((link, index) => (
+                    <NavigationMenuItem key={index}>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleNavigation(link.href)
+                        }}
+                        className={cn(
+                          "group inline-flex h-9 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 cursor-pointer no-underline",
+                          link.active
+                            ? "bg-accent text-accent-foreground"
+                            : "text-foreground/80 hover:text-foreground",
+                        )}
+                      >
+                        {link.label}
+                      </button>
+                    </NavigationMenuItem>
+                  ))}
+                </NavigationMenuList>
+              </NavigationMenu>
+            </div>
+          )}
+
           {/* Right side */}
           <div className="flex items-center gap-3">
             {user ? (
@@ -581,7 +584,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                     <div className="p-2">
                       {user.role === 'admin' && (
                         <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/manage")}>
-                          <SettingsIcon className="mr-3 h-4 w-4" />
+                          <FileSlidersIcon className="mr-3 h-4 w-4" />
                           <span>Manage</span>
                         </DropdownMenuItem>
                       )}
@@ -590,19 +593,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                         <UserIcon className="mr-3 h-4 w-4" />
                         <span>Account</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/pastes")}>
-                        <FileTextIcon className="mr-3 h-4 w-4" />
-                        <span>Pastes</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/gallery")}>
-                        <ImageIcon className="mr-3 h-4 w-4" />
-                        <span>Gallery</span>
-                      </DropdownMenuItem>
-                    </div>
-
-                    <DropdownMenuSeparator />
-
-                    <div className="p-2">
+                      
                       <DropdownMenuItem className="cursor-pointer">
                         <MessageSquareIcon className="mr-3 h-4 w-4" />
                         <span>Feedback</span>

@@ -20,6 +20,7 @@ interface ManagerEventCardProps {
   onMarkCompleted: (event: Event) => void;
   onEdit: (event: Event) => void;
   onDelete: (event: Event) => void;
+  onReportAction?: (event: Event) => void;
 }
 
 export const ManagerEventCard = ({
@@ -29,6 +30,7 @@ export const ManagerEventCard = ({
   onMarkCompleted,
   onEdit,
   onDelete,
+  onReportAction,
 }: ManagerEventCardProps) => {
   const [reportsDialogOpen, setReportsDialogOpen] = useState(false);
 
@@ -61,6 +63,7 @@ export const ManagerEventCard = ({
 
   return (
     <>
+
       <Card className="flex flex-col h-full hover:shadow-lg transition-shadow bg-card" onClick={onClick}>
         <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-muted">
           {event.image ? (
@@ -146,11 +149,21 @@ export const ManagerEventCard = ({
               ))}
             </div>
           )}
-          {event.requests && event.requests.length > 0 && (
-            <div className="pt-2 border-t">
-              <Badge variant="outline" className="bg-yellow-50">
-                {event.requests.length} Pending Request{event.requests.length > 1 ? 's' : ''}
-              </Badge>
+
+          {/* Pending Badges Row */}
+          {((event.requests && event.requests.length > 0) || (event.pendingReportsCount !== undefined && event.pendingReportsCount > 0)) && (
+            <div className="pt-2 border-t flex flex-wrap gap-2">
+              {event.requests && event.requests.length > 0 && (
+                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                  {event.requests.length} Pending Request{event.requests.length > 1 ? 's' : ''}
+                </Badge>
+              )}
+
+              {event.pendingReportsCount !== undefined && event.pendingReportsCount > 0 && (
+                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                  {event.pendingReportsCount} Pending Report{event.pendingReportsCount > 1 ? 's' : ''}
+                </Badge>
+              )}
             </div>
           )}
         </CardContent>
@@ -161,6 +174,7 @@ export const ManagerEventCard = ({
         onOpenChange={setReportsDialogOpen}
         eventId={event.id}
         eventTitle={event.title}
+        onReportAction={() => onReportAction?.(event)}
       />
     </>
   );

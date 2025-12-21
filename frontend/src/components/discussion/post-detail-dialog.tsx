@@ -8,12 +8,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Heart, Send, Loader2 } from 'lucide-react';
+import { Heart, Send, Loader2, Trash2 } from 'lucide-react';
 import type { PostWithUser, CommentWithUser } from '@/types/discussion';
 import { formatRelativeTime } from '@/utils/formatDate';
 import { getPostById, getComments } from '@/services/post.service';
@@ -29,6 +39,7 @@ interface PostDetailDialogProps {
   onLike: () => void;
   isLiked: boolean;
   likeCount: number;
+  onDeleteComment?: (commentId: string) => void;
 }
 
 export function PostDetailDialog({
@@ -41,12 +52,15 @@ export function PostDetailDialog({
   onLike,
   isLiked: initialIsLiked,
   likeCount: initialLikeCount,
+  onDeleteComment,
 }: PostDetailDialogProps) {
   const navigate = useNavigate();
   const [newComment, setNewComment] = useState('');
   const [fetchedPost, setFetchedPost] = useState<PostWithUser | null>(null);
   const [fetchedComments, setFetchedComments] = useState<CommentWithUser[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null);
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
 
   // Use fetched data if available, otherwise props (optimistic/initial)
   const displayPost = fetchedPost || initialPost;
@@ -71,7 +85,7 @@ export function PostDetailDialog({
           timestamp: new Date(postData.createdAt),
           likes: postData.likes.length,
           likedByMe: postData.likes.some((l: any) => (l._id || l) === currentUser.id),
-          commentCount: commentsData?.length || 0,
+          comments: [],
           author: {
             id: postData.authorId._id,
             name: postData.authorId.name,
@@ -121,6 +135,15 @@ export function PostDetailDialog({
     }
   };
 
+  const handleDeleteComment = () => {
+    if (onDeleteComment && deleteCommentId) {
+      onDeleteComment(deleteCommentId);
+      // Also remove from local fetched comments
+      setFetchedComments(prev => prev.filter(c => c.id !== deleteCommentId));
+      setDeleteCommentId(null);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -132,14 +155,14 @@ export function PostDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 gap-0">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-4 pb-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <Avatar className="h-10 w-10">
               <AvatarImage src={displayPost.author.avatarUrl} alt={displayPost.author.name} />
               <AvatarFallback>{getInitials(displayPost.author.name)}</AvatarFallback>
             </Avatar>
-            <div>
+            <div className="flex-1 min-w-0">
               <DialogTitle
                 className="text-base font-semibold cursor-pointer hover:underline"
                 onClick={(e) => {
@@ -158,10 +181,10 @@ export function PostDetailDialog({
 
         <Separator />
 
-        <ScrollArea className="max-h-[60vh]">
-          <div className="p-4 space-y-4">
+        <ScrollArea className="max-h-[60vh] w-full">
+          <div className="p-4 space-y-4 w-full">
             {/* Post Content */}
-            <p className="text-sm whitespace-pre-wrap">{displayPost.content}</p>
+            <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] w-full" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{displayPost.content}</p>
 
             {displayPost.imageUrl && (
               <div className="rounded-lg overflow-hidden">
@@ -203,7 +226,12 @@ export function PostDetailDialog({
               ) : (
                 <div className="space-y-3">
                   {displayComments.map((comment) => (
-                    <div key={comment.id} className="flex items-start gap-2">
+                    <div
+                      key={comment.id}
+                      className="flex items-start gap-2 group"
+                      onMouseEnter={() => setHoveredCommentId(comment.id)}
+                      onMouseLeave={() => setHoveredCommentId(null)}
+                    >
                       <Avatar className="h-8 w-8">
                         <AvatarImage
                           src={comment.author.avatarUrl}
@@ -213,7 +241,7 @@ export function PostDetailDialog({
                           {getInitials(comment.author.name)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 bg-muted/50 rounded-lg px-3 py-2">
+                      <div className="flex-1 min-w-0 bg-muted/50 rounded-lg px-3 py-2 relative">
                         <div className="flex items-center gap-2">
                           <span
                             className="text-sm font-semibold cursor-pointer hover:underline"
@@ -227,8 +255,18 @@ export function PostDetailDialog({
                           <span className="text-xs text-muted-foreground">
                             {formatRelativeTime(comment.timestamp)}
                           </span>
+                          {currentUser.id === comment.author.id && onDeleteComment && hoveredCommentId === comment.id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 ml-auto text-muted-foreground hover:text-destructive"
+                              onClick={() => setDeleteCommentId(comment.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
                         </div>
-                        <p className="text-sm text-foreground">{comment.content}</p>
+                        <p className="text-sm text-foreground break-words [overflow-wrap:anywhere]" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{comment.content}</p>
                       </div>
                     </div>
                   ))}
@@ -261,6 +299,27 @@ export function PostDetailDialog({
           </div>
         </form>
       </DialogContent>
+
+      {/* Delete Comment Confirmation Dialog */}
+      <AlertDialog open={deleteCommentId !== null} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Comment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this comment? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteComment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
