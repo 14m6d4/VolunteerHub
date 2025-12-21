@@ -663,3 +663,25 @@ export const cancelFriendRequestService = async (userId: string, requestId: stri
   await FriendRequestModel.findByIdAndDelete(requestId);
   return { message: 'Friend request cancelled successfully' };
 };
+
+// Reject a friend request (receiver declines incoming request)
+export const rejectFriendRequestService = async (userId: string, requestId: string) => {
+  const request = await FriendRequestModel.findById(requestId);
+
+  if (!request) {
+    throw new AppError('Friend request not found', 404);
+  }
+
+  // Only receiver can reject a request sent to them
+  if (request.receiver.toString() !== userId) {
+    throw new AppError('Unauthorized to reject this request', 403);
+  }
+
+  // Only pending requests can be rejected
+  if (request.status !== FriendRequestStatus.Pending) {
+    throw new AppError('Can only reject pending requests', 400);
+  }
+
+  await FriendRequestModel.findByIdAndDelete(requestId);
+  return { message: 'Friend request rejected successfully' };
+};
