@@ -140,21 +140,72 @@ const seed = async () => {
         console.log("Creating Events...");
         // Re-calculate these date ranges or reuse logic? Reusing twoYearsAgo/oneYearFuture from earlier def is fine if consistent.
 
-        const eventImages = [
-            "https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?auto=format&fit=crop&q=80&w=1000",
-            "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=1000",
-            "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=1000",
-            "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&q=80&w=1000",
-            "https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&q=80&w=1000",
-            "https://www.ymca.org/sites/default/files/inline-images/GettyImages-2151854352.jpg",
-            "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&q=80&w=1000"
-        ];
+        // const eventImages = [
+        //     "https://images.unsplash.com/photo-1618477461853-cf6ed80faba5?auto=format&fit=crop&q=80&w=1000",
+        //     "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=1000",
+        //     "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=1000",
+        //     "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&q=80&w=1000",
+        //     "https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&q=80&w=1000",
+        //     "https://www.ymca.org/sites/default/files/inline-images/GettyImages-2151854352.jpg",
+        //     "https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&fit=crop&q=80&w=1000"
+        // ];
+
+        const eventImages = Array.from({ length: 100 }, (_, i) =>
+            `https://picsum.photos/600/300?random=${i + 1}`
+        );
 
         const eventTitles = [
             "Beach Cleanup", "Charity Run", "Food Drive", "Tech Workshop", "Animal Shelter Help",
             "Tree Planting", "Senior Home Visit", "Art Class for Kids", "Coding Bootcamp", "Recycling Drive",
             "Disaster Relief Training", "Fundraising Gala", "Community Garden", "Book Drive", "Mentorship Session"
         ];
+
+        const commentPool = [
+            "This event was genuinely well organized, from the registration process to the overall flow of activities. I especially appreciated how clear the instructions were and how helpful the staff was throughout the day.",
+
+            "I joined this event without many expectations, but it turned out to be a surprisingly engaging experience. The discussions were meaningful and the atmosphere felt welcoming and inclusive.",
+
+            "What stood out to me the most was the level of interaction between participants. It didn’t feel passive at all; everyone was encouraged to contribute and share their own perspectives.",
+
+            "Overall, this event delivered exactly what it promised. The schedule was well planned, there were no major delays, and the content stayed relevant from start to finish.",
+
+            "I think the organizers did a solid job creating an environment where people could both learn and connect. It felt productive without being overwhelming.",
+
+            "Some parts of the event could still be improved, but the core idea was strong and the execution was mostly smooth. I would consider joining similar events in the future.",
+
+            "This was a refreshing change compared to other events I have attended recently. The focus on quality over quantity really made a difference.",
+
+            "I liked how the event balanced structured sessions with open discussions. It gave participants enough freedom while still maintaining a clear direction.",
+
+            "From a participant’s perspective, the communication before and during the event was clear and timely. That alone made the experience much better.",
+
+            "The event successfully brought together people with similar interests, which made networking feel natural instead of forced.",
+
+            "I appreciated how thoughtfully the event was structured, especially the way each session flowed into the next without feeling rushed or disconnected.",
+
+            "The speakers were clearly knowledgeable and did a good job explaining complex ideas in a way that was easy to follow, even for participants who were new to the topic.",
+
+            "What I enjoyed most was the sense of community during the event. It didn’t feel like people were just there to consume content; there was real engagement and exchange.",
+
+            "This event struck a nice balance between being informative and enjoyable. It managed to stay focused while still leaving room for casual interaction.",
+
+            "I found the pacing of the event to be comfortable, with enough breaks to reflect on the content and connect with other attendees without losing momentum.",
+
+            "The overall atmosphere felt professional yet relaxed, which made it easier to ask questions and participate without feeling pressured.",
+
+            "Compared to similar events I have attended, this one stood out for its attention to detail and the consistency of quality across all sessions.",
+
+            "It was clear that a lot of planning went into this event, and that effort showed in the smooth coordination and clear communication throughout the day.",
+
+            "I left the event feeling that my time was well spent, which is not something I can say about every event I attend.",
+
+            "While there is always room for improvement, this event delivered strong value and set a good standard for future editions."
+        ];
+
+        function getRandomComment() {
+            return commentPool[Math.floor(Math.random() * commentPool.length)];
+        }
+
 
         const events: any[] = [];
         const eventIds: mongoose.Types.ObjectId[] = [];
@@ -169,7 +220,7 @@ const seed = async () => {
 
             events.push({
                 _id: id,
-                title: `ONGOING EVENT ${k + 1}: ${getRandomElement(eventTitles)}`,
+                title: `${getRandomElement(eventTitles)} ${k + 1}`,
                 description: "This event is currently happening! Join us.",
                 location: `Active Location ${k + 1}`,
                 startAt: new Date(now.getTime() - 24 * 60 * 60 * 1000), // Started yesterday
@@ -196,7 +247,7 @@ const seed = async () => {
 
             events.push({
                 _id: id,
-                title: `FUTURE EVENT ${k + 1}: ${getRandomElement(eventTitles)}`,
+                title: `${getRandomElement(eventTitles)} ${k + 1}`,
                 description: "This event is coming soon! Sign up now.",
                 location: `Future Location ${k + 1}`,
                 startAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), // Starts in 7 days
@@ -336,7 +387,8 @@ const seed = async () => {
                     _id: postId,
                     eventId: event._id,
                     authorId: authorId,
-                    content: `This is a comment about the event. Random ID: ${getRandomInt(1000, 9999)}`,
+                    content: getRandomComment(),
+                    image: Math.random() > 0.5 ? getRandomElement(eventImages) : undefined,
                     pinned: Math.random() > 0.95,
                     createdAt: getRandomDate(event.createdAt, new Date())
                 });
