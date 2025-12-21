@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { EventCard } from '@/components/event/event-card';
+import { ManagerEventCard } from '@/components/event/manager-event-card';
 import { formatDate } from '@/utils/formatDate';
 import { toast } from 'sonner';
 import type { PublicUserProfile, UserRole } from '@/types/user';
@@ -59,6 +60,7 @@ import {
 interface UserStats {
   eventsJoined: number;
   eventsOrganized: number;
+  activeEvents?: number; // For managers only
   friends: number;
 }
 
@@ -184,13 +186,24 @@ export default function ProfilePage() {
           const statsRes = await getUserStats(username);
           const statsData = statsRes.data || statsRes;
 
-          // Update stats based on role
+          // Update stats based on role and profile being viewed
           if (statsData.stats) {
-            setStats({
-              eventsJoined: statsData.stats.activeEvents || 0,
-              eventsOrganized: statsData.stats.completedEvents || statsData.stats.eventsOrganized || 0,
-              friends: statsData.stats.friends || 0
-            });
+            // For managers, activeEvents is separate from eventsJoined
+            if (profileData.role === 'manager') {
+              setStats({
+                eventsJoined: 0, // Managers don't join events
+                eventsOrganized: statsData.stats.eventsOrganized || 0,
+                activeEvents: statsData.stats.activeEvents || 0,
+                friends: statsData.stats.friends || 0
+              });
+            } else {
+              setStats({
+                eventsJoined: statsData.stats.activeEvents || 0,
+                eventsOrganized: statsData.stats.completedEvents || 0,
+                activeEvents: undefined,
+                friends: statsData.stats.friends || 0
+              });
+            }
           }
         } catch (statsErr: any) {
           // Handle 403 - admin profile
@@ -225,7 +238,12 @@ export default function ProfilePage() {
               isPast: e.endAt && new Date(e.endAt) < new Date(),
               status: e.endAt && new Date(e.endAt) < new Date() ? 'past' : 'joined',
               tags: e.tags || [],
-              description: e.description
+              description: e.description,
+              // Add managerStatus for ManagerEventCard
+              managerStatus: e.status === 'pending' ? 'pending'
+                : e.status === 'approved' ? 'active'
+                  : e.status === 'finished' ? 'completed'
+                    : 'active'
             }));
 
             setEvents(userEvents);
@@ -551,8 +569,14 @@ export default function ProfilePage() {
                   <CalendarDays className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.eventsJoined}</p>
-                  <p className="text-sm text-muted-foreground">Active Events</p>
+                  <p className="text-2xl font-bold">
+                    {profile?.role === 'manager' && stats.activeEvents !== undefined
+                      ? stats.activeEvents
+                      : stats.eventsJoined}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {profile?.role === 'manager' ? 'Active Events' : 'Events Joined'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -632,11 +656,23 @@ export default function ProfilePage() {
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {paginatedEvents.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      onClick={() => navigate(`/events/${event.id}`)}
-                    />
+                    isOwnProfile && profile?.role === 'manager' ? (
+                      <ManagerEventCard
+                        key={event.id}
+                        event={event}
+                        onClick={() => navigate(`/events/${event.id}`)}
+                        onManageMembers={() => { }}
+                        onMarkCompleted={() => { }}
+                        onEdit={() => { }}
+                        onDelete={() => { }}
+                      />
+                    ) : (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        onClick={() => navigate(`/events/${event.id}`)}
+                      />
+                    )
                   ))}
                 </div>
 

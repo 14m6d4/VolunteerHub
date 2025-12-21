@@ -383,21 +383,16 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
         };
       }
     } else if (user.role === UserRole.Manager) {
-      // For managers: Count active events and organized events (completed only)
+      // For managers: Count active events (approved status) and organized events (finished status)
       const { EventModel, EventStatus } = await import('../models/Event.model.ts');
 
-      // Count active events managed by this user
+      // Count active events: only approved status
       const activeEvents = await EventModel.countDocuments({
         managerId: userId,
-        status: EventStatus.APPROVED,
-        startAt: { $lte: now },
-        $or: [
-          { endAt: { $gte: now } },
-          { endAt: null }
-        ]
+        status: EventStatus.APPROVED
       });
 
-      // Count events organized (completed events only)
+      // Count events organized (finished events only)
       const eventsOrganized = await EventModel.countDocuments({
         managerId: userId,
         status: EventStatus.FINISHED
