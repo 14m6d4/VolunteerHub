@@ -17,6 +17,18 @@ router.post("/event", authMiddleware, async (req, res) => {
     }
 });
 
+// Báo cáo người dùng
+router.post("/user", authMiddleware, async (req, res) => {
+    const { targetId, reason, description } = req.body;
+    const user = (req as AuthenticatedRequest).user;
+    try {
+        const report = await ReportService.reportUser(user._id.toString(), targetId, reason, description);
+        res.status(201).json(report);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
 // Báo cáo bài viết
 router.post("/post", authMiddleware, async (req, res) => {
     const { postId, reason, description } = req.body;
@@ -29,33 +41,7 @@ router.post("/post", authMiddleware, async (req, res) => {
     }
 });
 
-// Lấy danh sách báo cáo theo target
-router.get("/:targetType/:targetId", async (req, res) => {
-    const { targetType, targetId } = req.params;
-    const reportType = targetType === 'event' ? ReportTargetType.Event : ReportTargetType.Post;
-
-    try {
-        const reports = await ReportService.getReportsByTarget(targetId, reportType);
-        res.json(reports);
-    } catch (error: any) {
-        res.status(400).json({ message: error.message });
-    }
-});
-
-// Cập nhật trạng thái của báo cáo (resolved/rejected)
-router.patch("/:reportId", async (req, res) => {
-    const { reportId } = req.params;
-    const { status } = req.body;
-
-    try {
-        const updatedReport = await ReportService.updateReportStatus(reportId, status);
-        res.json(updatedReport);
-    } catch (error) {
-        res.status(400).json({ message: error.message });
-    }
-});
-
-// Admin/Manager: Lấy danh sách báo cáo
+// Admin/Manager: Lấy danh sách báo cáo (MUST be before /:targetType/:targetId)
 router.get("/admin/all", authMiddleware, async (req, res) => {
     try {
         const user = (req as AuthenticatedRequest).user;
@@ -67,16 +53,23 @@ router.get("/admin/all", authMiddleware, async (req, res) => {
 
         if (user.role === 'admin') {
             const filter: any = { targetType: { $in: [ReportTargetType.User, ReportTargetType.Event] } };
-            if (status) filter.status = status;
+
+            // Only add status filter if it's not 'all'
+            if (status && status !== 'all') {
+                filter.status = status;
+            }
+
             // Admin can optionally filter by type if provided in query, but restricted to User/Event
-            if (type && (type === ReportTargetType.User || type === ReportTargetType.Event)) {
+            // Only add type filter if it's not 'all'
+            if (type && type !== 'all' && (type === ReportTargetType.User || type === ReportTargetType.Event)) {
                 filter.targetType = type;
             }
+
             reports = await ReportService.getAllReports(filter);
         } else if (user.role === 'manager') {
             reports = await ReportService.getReportsForManager(user._id.toString());
             // Client-side filtering for status if needed, or we could add it to service method
-            if (status) {
+            if (status && status !== 'all') {
                 reports = reports.filter((r: any) => r.status === status);
             }
         } else {
@@ -103,6 +96,32 @@ router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
         res.json(reports);
     } catch (error: any) {
         console.error("[ReportRoutes] Error fetching event reports:", error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// Lấy danh sách báo cáo theo target (MUST be after specific routes)
+router.get("/:targetType/:targetId", async (req, res) => {
+    const { targetType, targetId } = req.params;
+    const reportType = targetType === 'event' ? ReportTargetType.Event : ReportTargetType.Post;
+
+    try {
+        const reports = await ReportService.getReportsByTarget(targetId, reportType);
+        res.json(reports);
+    } catch (error: any) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// Cập nhật trạng thái của báo cáo (resolved/rejected)
+router.patch("/:reportId", async (req, res) => {
+    const { reportId } = req.params;
+    const { status } = req.body;
+
+    try {
+        const updatedReport = await ReportService.updateReportStatus(reportId, status);
+        res.json(updatedReport);
+    } catch (error) {
         res.status(400).json({ message: error.message });
     }
 });
