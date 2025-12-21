@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getPublicProfile, getFriends, sendFriendRequest, getRelations, removeFriend, getUserStats } from '@/services/user.service';
+import { getPublicProfile, getFriends, sendFriendRequest, getRelations, removeFriend, getUserStats, getUserEventsList, getUserFriendsList } from '@/services/user.service';
 import { getMyRegistrations, getEvents } from '@/services/event.service';
 import { reportUser } from '@/services/report.service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { EventCard } from '@/components/event/event-card';
+import { ManagerEventCard } from '@/components/event/manager-event-card';
 import { formatDate } from '@/utils/formatDate';
 import { toast } from 'sonner';
 import type { PublicUserProfile, UserRole } from '@/types/user';
@@ -59,6 +60,7 @@ import {
 interface UserStats {
   eventsJoined: number;
   eventsOrganized: number;
+  activeEvents?: number; // For managers only
   friends: number;
 }
 
@@ -184,13 +186,24 @@ export default function ProfilePage() {
           const statsRes = await getUserStats(username);
           const statsData = statsRes.data || statsRes;
 
-          // Update stats based on role
+          // Update stats based on role and profile being viewed
           if (statsData.stats) {
-            setStats({
-              eventsJoined: statsData.stats.activeEvents || 0,
-              eventsOrganized: statsData.stats.completedEvents || statsData.stats.eventsOrganized || 0,
-              friends: 0 // Will be updated below if viewing own profile
-            });
+            // For managers, activeEvents is separate from eventsJoined
+            if (profileData.role === 'manager') {
+              setStats({
+                eventsJoined: 0, // Managers don't join events
+                eventsOrganized: statsData.stats.eventsOrganized || 0,
+                activeEvents: statsData.stats.activeEvents || 0,
+                friends: statsData.stats.friends || 0
+              });
+            } else {
+              setStats({
+                eventsJoined: statsData.stats.activeEvents || 0,
+                eventsOrganized: statsData.stats.completedEvents || 0,
+                activeEvents: undefined,
+                friends: statsData.stats.friends || 0
+              });
+            }
           }
         } catch (statsErr: any) {
           // Handle 403 - admin profile
@@ -202,47 +215,48 @@ export default function ProfilePage() {
           console.error('Failed to fetch stats:', statsErr);
         }
 
-        // If viewing own profile, fetch additional data
-        if (isOwnProfile && currentUser) {
-          const [regsRes, eventsRes, friendsRes] = await Promise.all([
-            getMyRegistrations(),
-            getEvents({ status: 'approved' }),
-            getFriends()
-          ]);
+        // Fetch events and friends for the viewed user (public data)
+        if (username) {
+          try {
+            const [eventsRes, friendsRes] = await Promise.all([
+              getUserEventsList(username),
+              getUserFriendsList(username)
+            ]);
 
-          const myRegs = regsRes.data || regsRes || [];
-          const allEvents = eventsRes.items || [];
-          const friendsList = friendsRes.data || friendsRes || [];
+            const eventsData = eventsRes.data || eventsRes || [];
+            const friendsData = friendsRes.data || friendsRes || [];
 
-          // Map registrations to events
-          const myEventIds = new Set(myRegs.map((r: any) =>
-            typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id
-          ));
-
-          const userEvents: Event[] = allEvents
-            .filter((e: any) => myEventIds.has(e._id || e.id))
-            .map((e: any) => ({
+            // Transform events data
+            const userEvents: Event[] = eventsData.map((e: any) => ({
               id: e._id || e.id,
               title: e.title,
               image: e.image,
               date: new Date(e.startAt).toLocaleDateString(),
               location: e.location,
               membersCount: e.currentMembers || 0,
-              isJoined: true,
-              isPast: new Date(e.endAt) < new Date(),
-              status: new Date(e.endAt) < new Date() ? 'past' : 'joined',
+              isJoined: isOwnProfile,
+              isPast: e.endAt && new Date(e.endAt) < new Date(),
+              status: e.endAt && new Date(e.endAt) < new Date() ? 'past' : 'joined',
               tags: e.tags || [],
-              description: e.description
+              description: e.description,
+              // Add managerStatus for ManagerEventCard
+              managerStatus: e.status === 'pending' ? 'pending'
+                : e.status === 'approved' ? 'active'
+                  : e.status === 'finished' ? 'completed'
+                    : 'active'
             }));
 
-          setEvents(userEvents);
-          setFriends(friendsList);
+            setEvents(userEvents);
+            setFriends(friendsData);
+          } catch (err) {
+            console.error('Failed to fetch events/friends:', err);
+          }
+        }
 
-          // Update friends count
-          setStats(prev => ({ ...prev, friends: friendsList.length }));
+        // Set relation between current user and viewed profile
+        if (isOwnProfile) {
           setRelation('self');
         } else if (currentUser && profileData) {
-          // Viewing someone else's profile - get relation
           const userId = profileData._id || profileData.id;
           console.log('[Profile] Fetching relation for userId:', userId);
           if (userId) {
@@ -555,8 +569,14 @@ export default function ProfilePage() {
                   <CalendarDays className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.eventsJoined}</p>
-                  <p className="text-sm text-muted-foreground">Active Events</p>
+                  <p className="text-2xl font-bold">
+                    {profile?.role === 'manager' && stats.activeEvents !== undefined
+                      ? stats.activeEvents
+                      : stats.eventsJoined}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {profile?.role === 'manager' ? 'Active Events' : 'Events Joined'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -636,11 +656,23 @@ export default function ProfilePage() {
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {paginatedEvents.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      onClick={() => navigate(`/events/${event.id}`)}
-                    />
+                    isOwnProfile && profile?.role === 'manager' ? (
+                      <ManagerEventCard
+                        key={event.id}
+                        event={event}
+                        onClick={() => navigate(`/events/${event.id}`)}
+                        onManageMembers={() => { }}
+                        onMarkCompleted={() => { }}
+                        onEdit={() => { }}
+                        onDelete={() => { }}
+                      />
+                    ) : (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        onClick={() => navigate(`/events/${event.id}`)}
+                      />
+                    )
                   ))}
                 </div>
 

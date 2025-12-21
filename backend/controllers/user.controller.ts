@@ -383,21 +383,16 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
         };
       }
     } else if (user.role === UserRole.Manager) {
-      // For managers: Count active events and organized events (completed only)
+      // For managers: Count active events (approved status) and organized events (finished status)
       const { EventModel, EventStatus } = await import('../models/Event.model.ts');
 
-      // Count active events managed by this user
+      // Count active events: only approved status
       const activeEvents = await EventModel.countDocuments({
         managerId: userId,
-        status: EventStatus.APPROVED,
-        startAt: { $lte: now },
-        $or: [
-          { endAt: { $gte: now } },
-          { endAt: null }
-        ]
+        status: EventStatus.APPROVED
       });
 
-      // Count events organized (completed events only)
+      // Count events organized (finished events only)
       const eventsOrganized = await EventModel.countDocuments({
         managerId: userId,
         status: EventStatus.FINISHED
@@ -409,12 +404,113 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
       };
     }
 
+    // Get friends count for all users
+    const userWithFriends = await UserModel.findById(userId).select('friends').lean();
+    const friendsCount = (userWithFriends && (userWithFriends as any).friends) ? (userWithFriends as any).friends.length : 0;
+
+    stats.friends = friendsCount;
+
     return res.status(200).json({
       status: 'success',
       data: {
         role: user.role,
         stats
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Get user's events by username (public)
+export async function getUserEvents(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const { username } = req.params;
+    if (!username) throw new AppError('Username parameter required', 400);
+
+    // Find the user
+    const user = await UserModel.findOne({ username: username as string, isActive: true })
+      .select('_id role')
+      .lean();
+
+    if (!user) {
+      throw new AppError('User not found or deactivated', 404);
+    }
+
+    // Block admin profile access
+    if (user.role === UserRole.Admin) {
+      throw new AppError('Access to admin profiles is forbidden', 403);
+    }
+
+    const userId = user._id.toString();
+    const { EventModel } = await import('../models/Event.model.ts');
+    const { RegistrationModel, RegistrationStatus } = await import('../models/Registration.model.ts');
+
+    let events: any[] = [];
+
+    if (user.role === UserRole.Volunteer) {
+      // Get approved registrations for volunteer
+      const registrations = await RegistrationModel.find({
+        volunteerId: userId,
+        status: RegistrationStatus.APPROVED
+      }).select('eventId').lean();
+
+      const eventIds = registrations.map(r => r.eventId);
+
+      if (eventIds.length > 0) {
+        events = await EventModel.find({
+          _id: { $in: eventIds }
+        })
+          .select('_id title image startAt endAt location currentMembers tags description status')
+          .lean();
+      }
+    } else if (user.role === UserRole.Manager) {
+      // Get events organized by manager
+      events = await EventModel.find({
+        managerId: userId
+      })
+        .select('_id title image startAt endAt location currentMembers tags description status')
+        .lean();
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: events
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Get user's friends by username (public)
+export async function getUserFriendsList(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const { username } = req.params;
+    if (!username) throw new AppError('Username parameter required', 400);
+
+    // Find the user
+    const user = await UserModel.findOne({ username: username as string, isActive: true })
+      .select('_id role friends')
+      .populate({
+        path: 'friends',
+        select: 'username name profilePicture role'
+      })
+      .lean();
+
+    if (!user) {
+      throw new AppError('User not found or deactivated', 404);
+    }
+
+    // Block admin profile access
+    if (user.role === UserRole.Admin) {
+      throw new AppError('Access to admin profiles is forbidden', 403);
+    }
+
+    const friends = (user as any).friends || [];
+
+    return res.status(200).json({
+      status: 'success',
+      data: friends
     });
   } catch (error) {
     next(error);
