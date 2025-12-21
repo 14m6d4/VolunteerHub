@@ -496,7 +496,7 @@ export const ManagerEventDashboard = () => {
           <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
             <TabsTrigger value="active">Active Events ({activeEvents.length})</TabsTrigger>
             <TabsTrigger value="pending">Pending ({pendingEvents.length})</TabsTrigger>
-            <TabsTrigger value="completed">Completed ({completedEvents.length})</TabsTrigger>
+            <TabsTrigger value="completed">Past Events ({completedEvents.length})</TabsTrigger>
           </TabsList>
 
           {/* Active Events Tab */}

@@ -25,7 +25,7 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
   const getStatusBadge = () => {
     switch (event.status) {
       case 'joined':
-        return <Badge className="bg-green-500 hover:bg-green-600">Joined</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>;
       case 'past':
         return <Badge variant="secondary">Completed</Badge>;
       case 'pending':
@@ -85,56 +85,56 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
           </div>
         </div>
 
-      <CardContent className="p-4 space-y-3">
-        <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem]">
-          {event.title}
-        </h3>
+        <CardContent className="p-4 space-y-3">
+          <h3 className="font-semibold text-lg line-clamp-2 min-h-[3.5rem]">
+            {event.title}
+          </h3>
 
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-4 w-4" />
-            <span>{event.date}</span>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4" />
+              <span>{event.date}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Users className="h-4 w-4" />
+              <span>{event.membersCount}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Users className="h-4 w-4" />
-            <span>{event.membersCount}</span>
+
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <MapPin className="h-4 w-4" />
+            <span className="line-clamp-1">{event.location}</span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <MapPin className="h-4 w-4" />
-          <span className="line-clamp-1">{event.location}</span>
-        </div>
+          {event.tags && event.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {event.tags.map((tag) => (
+                <Badge key={tag} variant="outline" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
 
-        {event.tags && event.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {event.tags.map((tag) => (
-              <Badge key={tag} variant="outline" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
+          {canLeave && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="w-full mt-2"
+              onClick={handleLeaveClick}
+            >
+              Leave Event
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
-        {canLeave && (
-          <Button
-            variant="destructive"
-            size="sm"
-            className="w-full mt-2"
-            onClick={handleLeaveClick}
-          >
-            Leave Event
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-
-    <ReportEventDialog
-      open={reportDialogOpen}
-      onOpenChange={setReportDialogOpen}
-      eventId={event.id}
-      eventTitle={event.title}
-    />
-  </>
+      <ReportEventDialog
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        eventId={event.id}
+        eventTitle={event.title}
+      />
+    </>
   );
 };
