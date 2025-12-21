@@ -13,6 +13,9 @@ interface SearchPostsProps {
   currentUser: { id: string; name: string; avatarUrl: string };
   onLike: (postId: string) => void;
   onAddComment: (postId: string, content: string) => void;
+  onViewDetail?: (postId: string) => void;
+  onDeletePost?: (postId: string) => void;
+  onDeleteComment?: (commentId: string) => void;
 }
 
 export function SearchPosts({
@@ -22,6 +25,9 @@ export function SearchPosts({
   currentUser,
   onLike,
   onAddComment,
+  onViewDetail,
+  onDeletePost,
+  onDeleteComment,
 }: SearchPostsProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -68,6 +74,9 @@ export function SearchPosts({
                   currentUser={currentUser}
                   onLike={onLike}
                   onAddComment={onAddComment}
+                  onViewDetail={onViewDetail ? () => onViewDetail(post.id) : undefined}
+                  onDeletePost={onDeletePost}
+                  onDeleteComment={onDeleteComment}
                 />
               ))}
             </div>

@@ -5,7 +5,17 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Send, Trash2 } from 'lucide-react';
 import type { CommentWithUser } from '@/types/discussion';
 import { formatRelativeTime } from '@/utils/formatDate';
 
@@ -23,6 +33,7 @@ interface CommentSectionProps {
   onViewAllComments?: () => void;
   viewAllCommentsUrl?: string;
   onAddComment: (content: string) => void;
+  onDeleteComment?: (commentId: string) => void;
 }
 
 export function CommentSection({
@@ -33,15 +44,25 @@ export function CommentSection({
   onViewAllComments,
   viewAllCommentsUrl,
   onAddComment,
+  onDeleteComment,
 }: CommentSectionProps) {
   const navigate = useNavigate();
   const [newComment, setNewComment] = useState('');
+  const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null);
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newComment.trim()) {
       onAddComment(newComment.trim());
       setNewComment('');
+    }
+  };
+
+  const handleDeleteComment = () => {
+    if (onDeleteComment && deleteCommentId) {
+      onDeleteComment(deleteCommentId);
+      setDeleteCommentId(null);
     }
   };
 
@@ -77,14 +98,19 @@ export function CommentSection({
 
       {/* Comment Previews */}
       {comments.map((comment) => (
-        <div key={comment.id} className="flex items-start gap-2">
+        <div
+          key={comment.id}
+          className="flex items-start gap-2 group"
+          onMouseEnter={() => setHoveredCommentId(comment.id)}
+          onMouseLeave={() => setHoveredCommentId(null)}
+        >
           <Avatar className="h-7 w-7">
             <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} />
             <AvatarFallback className="text-xs">
               {getInitials(comment.author.name)}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0 bg-muted/50 rounded-lg px-3 py-2">
+          <div className="flex-1 min-w-0 bg-muted/50 rounded-lg px-3 py-2 relative">
             <div className="flex items-center gap-2">
               <span
                 className="text-xs font-semibold cursor-pointer hover:underline"
@@ -98,6 +124,16 @@ export function CommentSection({
               <span className="text-xs text-muted-foreground">
                 {formatRelativeTime(comment.timestamp)}
               </span>
+              {currentUser.id === comment.author.id && onDeleteComment && hoveredCommentId === comment.id && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 ml-auto text-muted-foreground hover:text-destructive"
+                  onClick={() => setDeleteCommentId(comment.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
             </div>
             <p className="text-sm text-foreground break-words [overflow-wrap:anywhere]" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{comment.content}</p>
           </div>
@@ -124,6 +160,27 @@ export function CommentSection({
           </Button>
         </div>
       </form>
+
+      {/* Delete Comment Confirmation Dialog */}
+      <AlertDialog open={deleteCommentId !== null} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Comment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this comment? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteComment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

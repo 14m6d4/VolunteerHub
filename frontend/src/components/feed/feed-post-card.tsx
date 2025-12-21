@@ -6,7 +6,17 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Heart, MessageCircle, Flag } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Heart, MessageCircle, Flag, Trash2 } from 'lucide-react';
 import type { CommentWithUser } from '@/types/discussion';
 import type { FeedPostWithUser } from '@/types/feed';
 import { CommentSection } from '@/components/discussion/comment-section';
@@ -23,6 +33,8 @@ interface FeedPostCardProps {
   onAddComment: (postId: string, content: string) => void;
   isDetailOpen?: boolean;
   onDetailOpenChange?: (open: boolean) => void;
+  onDeletePost?: (postId: string) => void;
+  onDeleteComment?: (commentId: string) => void;
 }
 
 export function FeedPostCard({
@@ -34,8 +46,11 @@ export function FeedPostCard({
   onAddComment,
   isDetailOpen = false,
   onDetailOpenChange,
+  onDeletePost,
+  onDeleteComment,
 }: FeedPostCardProps) {
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [localShowDetailDialog, setLocalShowDetailDialog] = useState(false);
 
   // Use controlled state if provided, otherwise use local state
@@ -47,8 +62,13 @@ export function FeedPostCard({
   const handleLike = () => {
     onLike(post.id);
   };
-  // ...
 
+  const handleDeletePost = () => {
+    if (onDeletePost) {
+      onDeletePost(post.id);
+      setShowDeleteDialog(false);
+    }
+  };
 
   const isLiked = post.likedByMe || false;
   const likeCount = post.likes;
@@ -108,14 +128,26 @@ export function FeedPostCard({
               </div>
             </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
-              onClick={() => setShowReportDialog(true)}
-            >
-              <Flag className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {currentUserId === post.author.id && onDeletePost && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                onClick={() => setShowReportDialog(true)}
+              >
+                <Flag className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
 
@@ -163,6 +195,7 @@ export function FeedPostCard({
             currentUser={currentUser}
             viewAllCommentsUrl={`/feed/events/${post.eventId}/posts/${post.id}`}
             onAddComment={(content: string) => onAddComment(post.id, content)}
+            onDeleteComment={onDeleteComment}
           />
         </CardFooter>
       </Card>
@@ -172,8 +205,6 @@ export function FeedPostCard({
         open={showReportDialog}
         onOpenChange={setShowReportDialog}
         postId={post.id}
-        reporterId={currentUserId}
-        eventId={post.eventId}
       />
 
       {/* Post Detail Dialog */}
@@ -188,7 +219,29 @@ export function FeedPostCard({
         onLike={() => handleLike()}
         isLiked={isLiked}
         likeCount={likeCount}
+        onDeleteComment={onDeleteComment}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePost}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
