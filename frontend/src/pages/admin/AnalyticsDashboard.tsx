@@ -31,7 +31,6 @@ import {
 import { useEffect, useState } from 'react';
 import { getAnalytics } from '@/services/admin.service';
 
-// Chart configurations
 const userGrowthConfig: ChartConfig = {
   users: {
     label: 'Total Users',
@@ -320,11 +319,10 @@ export default function AnalyticsDashboard() {
                   labelLine={false}
                 >
                   {data.eventsByStatus.map((entry, index) => {
-                    // Assign specific colors for each status
                     const statusColors: Record<string, string> = {
-                      'Active': '#22c55e', // Green for active events
-                      'Completed': '#3b82f6', // Blue for completed events
-                      'Pending': '#f59e0b', // Orange for pending events
+                      'Active': '#22c55e',
+                      'Completed': '#3b82f6',
+                      'Pending': '#f59e0b',
                     };
                     const color = statusColors[entry.name] || COLORS[index % COLORS.length];
 

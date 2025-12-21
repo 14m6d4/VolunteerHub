@@ -34,7 +34,6 @@ export default function useNotifications(): UseNotificationsReturn {
 
   useEffect(() => {
     const onToken = () => {
-      // refetch unread count when token set
       unreadQuery.refetch();
     };
     window.addEventListener('authTokenChanged', onToken);
@@ -43,9 +42,7 @@ export default function useNotifications(): UseNotificationsReturn {
 
   const openPanel = useCallback(async () => {
     setOpen(true);
-    // fetch list when opening
     await listQuery.refetch();
-    // mark unread count refetch
     await unreadQuery.refetch();
   }, [listQuery, unreadQuery]);
 

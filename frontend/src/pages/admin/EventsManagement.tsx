@@ -44,10 +44,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-// ... (rest of imports)
-
-// ... (inside component return)
-
 
 import {
   Tooltip,
@@ -72,7 +68,6 @@ interface BackendEvent {
 }
 
 export default function EventsManagement() {
-  // State
   const [events, setEvents] = useState<BackendEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,7 +77,6 @@ export default function EventsManagement() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Dialog states
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -97,7 +91,6 @@ export default function EventsManagement() {
       const params = new URLSearchParams();
       if (searchQuery) params.append('q', searchQuery);
       if (statusFilter !== 'all') params.append('status', statusFilter);
-      // Backend handles 'all' for admin to show everything
       if (statusFilter === 'all') params.append('status', 'all');
 
       params.append('page', currentPage.toString());
@@ -152,8 +145,6 @@ export default function EventsManagement() {
   const handleReject = async () => {
     if (eventToReject) {
       try {
-        // Rejecting a pending event usually means deleting it or cancelling it.
-        // If it's pending, we can delete it.
         await apiFetch(`/events/${eventToReject._id}`, { method: 'DELETE' });
         toast.success(`Event "${eventToReject.title}" rejected and removed`);
         setEventToReject(null);
@@ -180,7 +171,6 @@ export default function EventsManagement() {
   };
 
   const handleBulkDelete = async () => {
-    // Loop for now as bulk delete API missing
     for (const id of selectedRows) {
       await apiFetch(`/events/${id}`, { method: 'DELETE' });
     }
@@ -191,7 +181,6 @@ export default function EventsManagement() {
   };
 
   const handleExport = (format: 'csv' | 'json') => {
-    // Export current view for simplicity
     const dataToExport = events.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
 
     if (format === 'csv') {

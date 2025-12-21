@@ -9,11 +9,9 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams()
 
   useEffect(() => {
-    // If accessToken in URL (from Google OAuth redirect), store it and fetch profile
     const accessToken = searchParams.get('accessToken')
     if (accessToken) {
       authService.setAuthToken(accessToken)
-      // Redirect to feed so useAuth hook can fetch profile
       window.location.href = '/feed'
     }
   }, [searchParams])

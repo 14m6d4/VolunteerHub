@@ -11,7 +11,7 @@ export interface User {
   username: string;
   name?: string;
   email: string;
-  birthdate: string; // ISO string
+  birthdate: string;
   role: UserRole;
   profilePicture?: string;
   notificationsEnabled: boolean;
@@ -36,7 +36,7 @@ export type UpdateProfilePayload = {
 export interface PublicUserProfile {
   username: string;
   name?: string;
-  birthdate: string; // ISO string, sẽ format lại ở UI
+  birthdate: string;
   profilePicture?: string;
   role: UserRole;
   createdAt: string;

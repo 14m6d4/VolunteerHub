@@ -71,10 +71,6 @@ export const ManagerEventDashboard = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      // Fetch all events for the manager
-      // Assuming getEvents returns events specific to the user or we filter them
-      // For now, fetching all events and assuming backend filters or we filter client side if needed
-      // Ideally backend endpoint /events?manager=me or similar
       const response = await getEvents();
       const fetchedEvents = (response.items || []).map((event: any) => ({
         ...event,
@@ -85,8 +81,6 @@ export const ManagerEventDashboard = () => {
         membersCount: event.currentMembers || 0
       }));
 
-      // In a real app we might only show events created by this manager
-      // fetching events
       setEvents(fetchedEvents);
     } catch (error) {
       console.error("Failed to fetch events:", error);
@@ -100,7 +94,6 @@ export const ManagerEventDashboard = () => {
     fetchEvents();
   }, []);
 
-  // Get all unique tags from events
   const allTags = useMemo(() => {
     const predefinedTags = [
       "Education", "Environment", "Health", "Community", "Technology",
@@ -115,7 +108,6 @@ export const ManagerEventDashboard = () => {
     return Array.from(tags).sort();
   }, [events]);
 
-  // Filter and sort events
   const processedEvents = useMemo(() => {
     let filtered = events.filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(filters.searchQuery.toLowerCase());
@@ -135,13 +127,7 @@ export const ManagerEventDashboard = () => {
     return filtered;
   }, [events, filters]);
 
-  // Categorize events
-  // Assuming 'managerStatus' comes from backend, or we derive it
-  // If backend doesn't provide managerStatus, we default to 'active' or derive from date
   const activeEvents = processedEvents.filter(event => !event.isPast && event.managerStatus !== 'completed' && event.managerStatus !== 'pending');
-  // Pending events might be those waiting for admin approval (if that workflow exists)
-  // Or if we treat 'available' as active. 
-  // Let's rely on event.managerStatus if present, otherwise default logic
   const pendingEvents = processedEvents.filter(event => event.managerStatus === 'pending');
   const completedEvents = processedEvents.filter(event => event.managerStatus === 'completed' || (event.isPast && event.managerStatus !== 'active'));
 
@@ -162,16 +148,13 @@ export const ManagerEventDashboard = () => {
 
       if (isMultipart) {
         const formData = new FormData();
-        // Append all fields to FormData
         Object.keys(eventData).forEach(key => {
           if (key === 'imageFile') {
             formData.append('image', eventData.imageFile!);
           } else if (key === 'tags') {
-            // Handle array for tags
             const tags = eventData.tags || [];
             tags.forEach(tag => formData.append('tags', tag));
           } else if (key === 'image' || key === 'date') {
-            // Skip the preview URL image string and the legacy formatted date string
           } else {
             const value = (eventData as any)[key];
             if (value !== undefined && value !== null) {
@@ -181,26 +164,23 @@ export const ManagerEventDashboard = () => {
         });
         dataToSend = formData;
       } else {
-        // If not multipart, we still verify we don't send 'date' if backend strict mode complains
         const { date, ...rest } = eventData as any;
         dataToSend = rest;
       }
 
       if (selectedEvent) {
-        // Edit existing event
         await updateEvent(selectedEvent.id, dataToSend);
         toast.success('Event Updated', {
           description: 'Event has been updated successfully.',
         });
       } else {
-        // Create new event
         await createEvent(dataToSend);
         toast.success('Event Created', {
           description: 'Event has been created successfully.',
         });
       }
       setCreateEditModalOpen(false);
-      fetchEvents(); // Refresh list
+      fetchEvents();
     } catch (error) {
       console.error("Failed to save event:", error);
       toast.error("Failed to save event");
@@ -209,10 +189,9 @@ export const ManagerEventDashboard = () => {
 
   const handleManageMembers = async (event: Event) => {
     setSelectedEvent(event);
-    setManageMembersModalOpen(true); // Open modal immediately
+    setManageMembersModalOpen(true);
 
     try {
-      // Fetch registrations for this event to populate members/requests
       const registrationsData = await getEventRegistrations(event.id);
       const registrations = registrationsData.data || registrationsData || [];
 
@@ -240,7 +219,6 @@ export const ManagerEventDashboard = () => {
 
       setRegistrationMap(newRegistrationMap);
 
-      // Update selected event with fetched members for the modal to display
       setSelectedEvent(prev => prev ? {
         ...prev,
         members,
@@ -260,17 +238,14 @@ export const ManagerEventDashboard = () => {
       await kickMember(regId);
       toast.success('Member Removed');
 
-      // Update local state
       if (selectedEvent) {
         handleManageMembers(selectedEvent); // Refresh modal data
 
-        // Update dashboard list state
         setEvents(prev => prev.map(ev => {
           if (ev.id === selectedEvent.id) {
             return {
               ...ev,
               membersCount: Math.max(0, ev.membersCount - 1),
-              // We don't track full members list in dashboard view usually, so just count
             };
           }
           return ev;
@@ -454,7 +429,6 @@ export const ManagerEventDashboard = () => {
   };
 
   const handleReportAction = (event: Event) => {
-    // Decrement pending reports count when a report is resolved/rejected
     setEvents(prev => prev.map(ev => {
       if (ev.id === event.id) {
         return {
@@ -574,7 +548,6 @@ export const ManagerEventDashboard = () => {
           <div className="animate-pulse text-muted-foreground">Loading dashboard...</div>
         </div>
       ) : (
-        /* Tabs Section */
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="grid w-full max-w-2xl grid-cols-3 mb-6">
             <TabsTrigger value="active">Active Events ({activeEvents.length})</TabsTrigger>

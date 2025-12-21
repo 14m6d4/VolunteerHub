@@ -8,7 +8,6 @@ export default function PasswordResetPage() {
   const [email, setEmail] = useState<string | null>(null)
   const [otp, setOtp] = useState<string | null>(null)
 
-  // Send OTP to email; only advance when API confirms
   const handleSendOtp = async (emailInput: string) => {
     try {
       const res = await fetch("/api/auth/forgot-password", {
@@ -27,7 +26,6 @@ export default function PasswordResetPage() {
     }
   }
 
-  // Verify OTP with backend; only advance when API confirms
   const handleVerifyOtp = async (otpInput: string) => {
     if (!email) {
       alert("Email is missing. Please restart the flow.")

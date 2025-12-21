@@ -40,7 +40,7 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
   const canLeave = showLeaveButton && onLeave && !event.isPast;
 
   const handleLeaveClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card onClick from firing
+    e.stopPropagation();
     if (onLeave) {
       onLeave(event);
     }

@@ -52,11 +52,10 @@ export const ManagerEventCard = ({
     action();
   };
 
-  // Helper to fix malformed URLs
   const getImageUrl = (url?: string) => {
     if (!url) return undefined;
     if (url.startsWith('//uploads')) {
-      return `http://localhost:5000${url.substring(1)}`; // Removes one slash: /uploads/...
+      return `http://localhost:5000${url.substring(1)}`;
     }
     return url;
   };

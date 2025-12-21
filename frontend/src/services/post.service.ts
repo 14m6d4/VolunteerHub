@@ -33,9 +33,7 @@ export async function getPostById(postId: string) {
 }
 
 // comment
-// comment
 export async function createComment(postId: string, data: any) {
-    // Backend: router.post("/post/:postId", ...)
     return apiFetch(`/comments/post/${postId}`, {
         method: "POST",
         body: JSON.stringify(data),

@@ -26,7 +26,6 @@ export function EventHeader({ event }: EventHeaderProps) {
       .slice(0, 2);
   };
 
-  // Show top 3 members for avatar stack
   const displayMembers = (event.members || []).slice(0, 3);
   const remainingCount = Math.max(0, (event.members || []).length - 3);
 

@@ -32,7 +32,7 @@ export interface Post {
 export interface DiscussionEvent {
   id: string;
   title: string;
-  bannerImage?: string; // Support both mock and real
+  bannerImage?: string;
   image?: string;
   location: string;
   date: Date | string;
@@ -43,7 +43,6 @@ export interface DiscussionEvent {
   members?: DiscussionUser[];
 }
 
-// Helper type to combine post with user data
 export interface PostWithUser extends Post {
   author: DiscussionUser;
 }

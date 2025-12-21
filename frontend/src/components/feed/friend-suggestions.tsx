@@ -38,8 +38,6 @@ export function FriendSuggestions({ suggestions, onAddFriend }: FriendSuggestion
       toast.success(`Friend request sent to ${suggestion.name}`);
     } catch (error) {
       console.error(error);
-      // Toast is likely handled by parent or interceptor, but safe to show generic error if needed
-      // toast.error("Failed to send request");
     } finally {
       setLoadingIds(prev => {
         const next = new Set(prev);

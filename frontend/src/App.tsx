@@ -1,6 +1,5 @@
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import "./App.css"
-// Theme CSS files are now loaded dynamically by theme-provider
 import { BrowserRouter, Routes, Route, Outlet, Navigate } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import LoginPage from "@/pages/auth/Login"
@@ -37,21 +36,17 @@ import SettingsPage from "./pages/Settings";
 import ProfilePage from "./pages/Profile";
 import AboutPage from "./pages/About";
 
-// Wrapper component for Landing Page - shows LandingPage for unauthenticated users
 function HomeRoute() {
   const { user, loading } = useAuth();
   
-  // Show nothing while checking auth status
   if (loading) {
     return null;
   }
   
-  // If authenticated, redirect to feed
   if (user) {
     return <Navigate to="/feed" replace />;
   }
   
-  // If not authenticated, show landing page
   return <LandingPage />;
 }
 
@@ -72,7 +67,6 @@ function AppContent() {
           }
         >
           <Route path="/" element={<HomeRoute />} />
-          {/* Thêm các route chính khác cần footer vào đây */}
           <Route path="/feed" element={<FeedPage />} />
           <Route path="/feed/events/:eventId/posts/:postId" element={<FeedPage />} />
           <Route path="/events" element={<EventsList />} />

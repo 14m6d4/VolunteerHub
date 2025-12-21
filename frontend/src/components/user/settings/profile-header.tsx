@@ -45,19 +45,15 @@ export function ProfileHeader({ avatarPreview, onAvatarChange }: ProfileHeaderPr
     const file = event.target.files?.[0]
     if (!file) return
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file')
       return
     }
 
-    // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Image must be less than 5MB')
       return
     }
-
-    // Create preview URL and pass to parent
     const reader = new FileReader()
     reader.onloadend = () => {
       onAvatarChange(file, reader.result as string)

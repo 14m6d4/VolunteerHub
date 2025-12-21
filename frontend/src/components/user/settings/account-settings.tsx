@@ -37,16 +37,13 @@ export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsPr
 
     setLoading(true)
     try {
-      // Prepare update data
       const updateData: any = {
         name: fullname,
         username: username,
         currentPassword
       }
 
-      // Add avatar if file is provided
       if (avatarFile) {
-        // Convert file to data URL
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader()
           reader.onloadend = () => resolve(reader.result as string)
@@ -57,19 +54,15 @@ export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsPr
 
       const response = await updateProfile(updateData)
 
-      // Update localStorage with new user data
       if (response.user) {
         localStorage.setItem('user', JSON.stringify(response.user))
-        // Trigger storage event to update AuthContext
         window.dispatchEvent(new Event('storage'))
       }
 
       toast.success('Profile updated')
       setCurrentPassword('')
       onAvatarSaved?.()
-      // Just stay on the page, no need to navigate
     } catch (err: any) {
-      // Try multiple paths to get the error message
       const errorMessage = err.response?.data?.message || err.message || 'Update failed'
       toast.error(errorMessage)
     } finally {

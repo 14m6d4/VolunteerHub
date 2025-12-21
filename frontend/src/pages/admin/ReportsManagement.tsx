@@ -54,7 +54,6 @@ import { mockReports } from '@/data/admin-mock';
 import type { MockReport } from '@/data/admin-mock';
 
 export default function ReportsManagement() {
-  // State
   const [reports, setReports] = useState<(MockReport & { targetDetails?: any })[]>([]);
   const [loading, setLoading] = useState(true);
   const [useMockData, setUseMockData] = useState(false);
@@ -64,14 +63,12 @@ export default function ReportsManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // Dialog states
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [reportToReject, setReportToReject] = useState<MockReport | null>(null);
   const [reportToResolve, setReportToResolve] = useState<MockReport | null>(null);
 
-  // Fetch reports from API or use mock data
   const fetchReports = async () => {
     setLoading(true);
     try {
@@ -81,7 +78,6 @@ export default function ReportsManagement() {
       }
       const data = await apiFetch(`/report/admin/all${qs}`);
 
-      // Transform API data to match our interface
       const transformedData: MockReport[] = (data || []).map((report: any) => ({
         id: report._id,
         reporter: {
@@ -94,7 +90,7 @@ export default function ReportsManagement() {
         targetType: report.targetType,
         targetId: report.targetId,
         targetUsername: report.targetType === 'user' ? report.targetId : undefined,
-        targetDetails: report.targetDetails, // Include target details from backend
+        targetDetails: report.targetDetails,
         reason: report.reason,
         description: report.description,
         status: report.status,
@@ -116,11 +112,9 @@ export default function ReportsManagement() {
     fetchReports();
   }, [statusFilter]);
 
-  // Filtering logic
   const filteredReports = useMemo(() => {
     let result = [...reports];
 
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(report =>
@@ -130,12 +124,10 @@ export default function ReportsManagement() {
       );
     }
 
-    // Apply type filter
     if (typeFilter !== 'all') {
       result = result.filter(report => report.targetType === typeFilter);
     }
 
-    // Apply status filter (for mock data, since API handles it)
     if (useMockData && statusFilter !== 'all') {
       result = result.filter(report => report.status === statusFilter);
     }
@@ -143,14 +135,12 @@ export default function ReportsManagement() {
     return result;
   }, [reports, searchQuery, typeFilter, statusFilter, useMockData]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredReports.length / rowsPerPage);
   const paginatedReports = filteredReports.slice(
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
 
-  // Handlers
   const handleResolve = async () => {
     if (!reportToResolve) return;
 

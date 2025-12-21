@@ -42,7 +42,6 @@ export const EventsList = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // Fetch all approved and finished events and user's registrations in parallel
       const [eventsResponse, registrationsResponse] = await Promise.all([
         getEvents({ status: 'approved,finished' }),
         user ? getMyRegistrations() : Promise.resolve({ data: [] })
@@ -51,25 +50,21 @@ export const EventsList = () => {
       const backendEvents = eventsResponse.items || [];
       const registrations = registrationsResponse?.data || registrationsResponse?.items || [];
 
-      // Map registrations to a Map for O(1) lookup with status
       const registrationMap = new Map(registrations.map((r: any) => {
         const eventId = typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id;
-        return [eventId, r.status]; // status should be 'pending', 'approved', 'completed', etc.
+        return [eventId, r.status];
       }));
 
       const mappedEvents: Event[] = backendEvents.map((be: any) => {
         const eventId = be._id || be.id;
         const registrationStatus = registrationMap.get(eventId);
 
-        // Treat both pending, approved and completed as "joined"
-        // But distinguish them via the status field
         const isApproved = registrationStatus === 'approved';
         const isPending = registrationStatus === 'pending';
         const isCompleted = registrationStatus === 'completed';
         const isJoined = isApproved || isPending || isCompleted;
 
         const eventDate = new Date(be.startAt || be.date);
-        // Event is past if date is past OR status is finished OR user completed it
         const isPast = eventDate < new Date() || be.status === 'finished' || isCompleted;
 
         let status: Event['status'] = 'available';
@@ -105,9 +100,8 @@ export const EventsList = () => {
     if (!authLoading) {
       fetchData();
     }
-  }, [authLoading, !!user]); // Re-fetch only when auth settles or user changes
+  }, [authLoading, !!user]);
 
-  // Get all unique tags from events
   const allTags = useMemo(() => {
     const tags = new Set<string>();
     events.forEach(event => {
@@ -180,7 +174,7 @@ export const EventsList = () => {
         description: `Your request to join "${event.title}" has been sent for approval.`,
       });
       setModalOpen(false);
-      fetchData(); // Refresh list to update status
+      fetchData();
     } catch (error) {
       console.error('Failed to join event:', error);
       toast.error('Failed to join event.');
@@ -200,7 +194,6 @@ export const EventsList = () => {
     setFilters(prev => ({ ...prev, selectedTags: [] }));
   };
 
-  // Show loading while auth or data is fetching
   if (loading || authLoading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-7xl flex items-center justify-center min-h-[50vh]">

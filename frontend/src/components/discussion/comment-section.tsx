@@ -77,7 +77,6 @@ export function CommentSection({
 
   return (
     <div className="w-full space-y-3">
-      {/* View All Comments Button */}
       {hasMoreComments && (
         viewAllCommentsUrl ? (
           <Link
@@ -140,7 +139,6 @@ export function CommentSection({
         </div>
       ))}
 
-      {/* Add Comment Input */}
       <form onSubmit={handleSubmit} className="flex items-center gap-2 pt-2">
         <Avatar className="h-7 w-7">
           <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
@@ -161,7 +159,6 @@ export function CommentSection({
         </div>
       </form>
 
-      {/* Delete Comment Confirmation Dialog */}
       <AlertDialog open={deleteCommentId !== null} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -20,7 +20,6 @@ export function EventAbout({ event }: EventAboutProps) {
           <CardTitle>Event Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Date */}
           <div className="flex items-start gap-3">
             <Calendar className="h-5 w-5 text-primary mt-0.5" />
             <div>
@@ -29,7 +28,6 @@ export function EventAbout({ event }: EventAboutProps) {
             </div>
           </div>
 
-          {/* Time */}
           <div className="flex items-start gap-3">
             <Clock className="h-5 w-5 text-primary mt-0.5" />
             <div>
@@ -38,7 +36,6 @@ export function EventAbout({ event }: EventAboutProps) {
             </div>
           </div>
 
-          {/* Location */}
           <div className="flex items-start gap-3">
             <MapPin className="h-5 w-5 text-primary mt-0.5" />
             <div>
@@ -49,7 +46,6 @@ export function EventAbout({ event }: EventAboutProps) {
 
           <Separator />
 
-          {/* Created At */}
           <div className="flex items-start gap-3">
             <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>

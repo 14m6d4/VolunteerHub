@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Search, Ban, CheckCircle } from "lucide-react";
-import { toast } from "sonner"; // Assuming sonner is used, or alert
+import { toast } from "sonner";
 
 interface User {
-    _id: string; // Or id depending on backend
+    _id: string;
     username: string;
     name?: string;
     profilePicture?: string;

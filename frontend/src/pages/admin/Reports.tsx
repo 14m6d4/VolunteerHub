@@ -24,7 +24,6 @@ export default function AdminReportsPage() {
     const fetchReports = async () => {
         setLoading(true);
         try {
-            // Build query string
             let qs = "";
             if (filterStatus && filterStatus !== "all") {
                 qs = `?status=${filterStatus}`;
@@ -49,7 +48,6 @@ export default function AdminReportsPage() {
                 method: 'PATCH',
                 body: JSON.stringify({ status })
             });
-            // Refresh list
             fetchReports();
         } catch (error) {
             alert("Failed to update status");
@@ -124,7 +122,6 @@ export default function AdminReportsPage() {
                                                     <Link to={`/u/${encodeURIComponent(report.targetId)}`} className="text-xs text-blue-500 hover:underline">
                                                         View Target ID: {report.targetId.substring(0, 8)}...
                                                     </Link>
-                                                    {/* Note: Ideally we populate target too, but for mixed types we might just link by ID or fetch details separately */}
                                                 </div>
                                             )}
                                         </TableCell>

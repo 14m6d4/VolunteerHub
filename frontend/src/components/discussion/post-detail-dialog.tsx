@@ -62,10 +62,8 @@ export function PostDetailDialog({
   const [hoveredCommentId, setHoveredCommentId] = useState<string | null>(null);
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
 
-  // Use fetched data if available, otherwise props (optimistic/initial)
   const displayPost = fetchedPost || initialPost;
   const displayLikeCount = fetchedPost ? fetchedPost.likes : initialLikeCount;
-  // Fallback to initialIsLiked if fetchedPost.likedByMe is undefined
   const displayIsLiked = fetchedPost && typeof fetchedPost.likedByMe !== 'undefined' ? fetchedPost.likedByMe : initialIsLiked;
   const displayComments = loading ? initialComments : (fetchedComments.length > 0 ? fetchedComments : initialComments);
 
@@ -96,8 +94,6 @@ export function PostDetailDialog({
         };
         setFetchedPost(mappedPost);
 
-        // Map backend comments to frontend CommentWithUser
-        // Assuming commentsData is array of backend comments
         const mappedComments: CommentWithUser[] = Array.isArray(commentsData) ? commentsData.map((c: any) => ({
           id: c._id,
           userId: c.authorId._id || c.authorId, // Fallback
@@ -118,10 +114,6 @@ export function PostDetailDialog({
         setLoading(false);
       });
     } else {
-      // Reset when closed or id changes (if controlled externally)
-      // Actually if open is false, we don't necessarily need to clear, but it's cleaner.
-      // If we want to keep cache, we might need more complex logic.
-      // For "refresh on open", this is fine.
       setFetchedPost(null);
       setFetchedComments([]);
     }
@@ -138,7 +130,6 @@ export function PostDetailDialog({
   const handleDeleteComment = () => {
     if (onDeleteComment && deleteCommentId) {
       onDeleteComment(deleteCommentId);
-      // Also remove from local fetched comments
       setFetchedComments(prev => prev.filter(c => c.id !== deleteCommentId));
       setDeleteCommentId(null);
     }
