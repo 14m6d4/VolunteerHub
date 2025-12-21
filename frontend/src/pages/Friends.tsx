@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,25 +8,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import useAuth from '@/hooks/useAuth';
-import { 
-  acceptFriendRequest, 
-  getFriendRequests as apiGetRequests, 
-  sendFriendRequest, 
-  getRelations, 
-  getSentFriendRequests, 
+import {
+  acceptFriendRequest,
+  getFriendRequests as apiGetRequests,
+  sendFriendRequest,
+  getRelations,
+  getSentFriendRequests,
   cancelFriendRequest,
   rejectFriendRequest,
-  searchUsers as apiSearchUsers 
+  searchUsers as apiSearchUsers
 } from '@/services/user.service';
-import { useSearchParams } from 'react-router-dom';
-import { 
-  Users, 
-  UserPlus, 
-  Send, 
-  Search, 
-  Check, 
-  X, 
-  Loader2, 
+import {
+  Users,
+  UserPlus,
+  Send,
+  Search,
+  Check,
+  X,
+  Loader2,
   UserX,
   Clock,
   Heart
@@ -53,7 +52,7 @@ export default function FriendsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get('tab') as 'friends' | 'requests' | 'sent' | 'search' || 'friends';
+  const currentTab = searchParams.get('tab') as 'friends' | 'requests' | 'sent' | 'search' || (user ? 'friends' : 'search');
 
   const setTab = (val: string) => {
     setSearchParams({ tab: val });
@@ -139,7 +138,7 @@ export default function FriendsPage() {
           const users = res.data || res || [];
           const ids = users.map((u: User) => u._id || u.id).filter(Boolean);
           let rel: Record<string, string> = {};
-          if (ids.length > 0) {
+          if (user && ids.length > 0) {
             try {
               rel = (await getRelations(ids)).data || {};
             } catch (e) {
@@ -193,14 +192,6 @@ export default function FriendsPage() {
         setResults(prev => prev.map((u) => ({ ...u, relation: (u._id === (sender._id || sender.id) ? 'friends' : u.relation) })));
       }
 
-      try {
-        const friendsRes = await (await import('@/services/user.service')).getFriends();
-        const list = friendsRes.data || friendsRes || [];
-        setFriends(list);
-      } catch (err) {
-        console.warn('Failed to refresh friends after accept', err);
-      }
-
       toast.success('Friend request accepted');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Unable to accept');
@@ -223,10 +214,12 @@ export default function FriendsPage() {
   };
 
   const handleUnfriend = async (friendId: string) => {
+    if (!window.confirm('Are you sure you want to remove this friend?')) return;
     try {
       const { removeFriend } = await import('@/services/user.service');
       await removeFriend(friendId);
       setFriends(prev => prev.filter((f) => (f._id || f.id || f.username) !== friendId));
+      setResults(prev => prev.map(u => (u._id === friendId || u.id === friendId) ? { ...u, relation: 'none' } : u));
       toast.success('Friend removed');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Unable to remove friend');
@@ -251,46 +244,17 @@ export default function FriendsPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold tracking-tight mb-2 flex items-center gap-3">
-          <Users className="h-10 w-10 text-primary" />
-          Connect with Volunteers
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          Build your volunteer network and collaborate on meaningful projects
-        </p>
-      </div>
-
-      <Tabs value={currentTab} onValueChange={(v) => setTab(v)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
-          <TabsTrigger value="friends" className="flex items-center gap-2 py-3">
-            <Heart className="h-4 w-4" />
-            <span className="hidden sm:inline">Friends</span>
-            {friends.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{friends.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="requests" className="flex items-center gap-2 py-3">
-            <UserPlus className="h-4 w-4" />
-            <span className="hidden sm:inline">Requests</span>
-            {requests.length > 0 && (
-              <Badge variant="destructive" className="ml-1">{requests.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="sent" className="flex items-center gap-2 py-3">
-            <Send className="h-4 w-4" />
-            <span className="hidden sm:inline">Sent</span>
-            {sentRequests.length > 0 && (
-              <Badge variant="outline" className="ml-1">{sentRequests.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="search" className="flex items-center gap-2 py-3">
-            <Search className="h-4 w-4" />
-            <span className="hidden sm:inline">Search</span>
-          </TabsTrigger>
-        </TabsList>
+    <div className="container mx-auto py-10 px-4 max-w-4xl">
+      <h1 className="text-2xl mb-4 font-bold">{user ? 'Network' : 'Search Volunteers'}</h1>
+      <Tabs value={currentTab} onValueChange={(v) => setTab(v)}>
+        {user && (
+          <TabsList className="mb-6">
+            <TabsTrigger value="friends">Friends</TabsTrigger>
+            <TabsTrigger value="requests">Requests {requests.length > 0 && <Badge variant="secondary" className="ml-2 bg-primary/20">{requests.length}</Badge>}</TabsTrigger>
+            <TabsTrigger value="sent">Sent</TabsTrigger>
+            <TabsTrigger value="search">Search</TabsTrigger>
+          </TabsList>
+        )}
 
         {/* Friends Tab */}
         <TabsContent value="friends" className="space-y-4">
@@ -334,7 +298,7 @@ export default function FriendsPage() {
                   {friends.map((f) => (
                     <div
                       key={f._id || f.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors group cursor-pointer"
                       onClick={() => handleUserClick(f.username)}
                     >
                       <div className="flex items-center gap-3 flex-1">
@@ -630,24 +594,24 @@ export default function FriendsPage() {
                       </div>
                       <div onClick={(e) => e.stopPropagation()}>
                         {u.relation === 'friends' && (
-                          <Badge variant="secondary" className="gap-1">
+                          <Badge variant="secondary" className="gap-1 flex items-center">
                             <Check className="h-3 w-3" />
                             Friends
                           </Badge>
                         )}
                         {u.relation === 'pending_sent' && (
-                          <Badge variant="outline" className="gap-1">
+                          <Badge variant="outline" className="gap-1 flex items-center">
                             <Clock className="h-3 w-3" />
                             Pending
                           </Badge>
                         )}
                         {u.relation === 'pending_received' && (
-                          <Badge variant="outline" className="gap-1">
+                          <Badge variant="outline" className="gap-1 flex items-center">
                             <UserPlus className="h-3 w-3" />
-                            Requested
+                            Requested you
                           </Badge>
                         )}
-                        {u.relation === 'none' && user && user.id !== u._id && (
+                        {(!u.relation || u.relation === 'none') && user && user._id !== u._id && (
                           <Button
                             size="sm"
                             onClick={() => handleSend(u._id)}
