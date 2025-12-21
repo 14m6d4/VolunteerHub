@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getPublicProfile, getFriends, sendFriendRequest, getRelations, removeFriend, getUserStats } from '@/services/user.service';
+import { getPublicProfile, getFriends, sendFriendRequest, getRelations, removeFriend, getUserStats, getUserEventsList, getUserFriendsList } from '@/services/user.service';
 import { getMyRegistrations, getEvents } from '@/services/event.service';
 import { reportUser } from '@/services/report.service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -189,7 +189,7 @@ export default function ProfilePage() {
             setStats({
               eventsJoined: statsData.stats.activeEvents || 0,
               eventsOrganized: statsData.stats.completedEvents || statsData.stats.eventsOrganized || 0,
-              friends: 0 // Will be updated below if viewing own profile
+              friends: statsData.stats.friends || 0
             });
           }
         } catch (statsErr: any) {
@@ -202,47 +202,43 @@ export default function ProfilePage() {
           console.error('Failed to fetch stats:', statsErr);
         }
 
-        // If viewing own profile, fetch additional data
-        if (isOwnProfile && currentUser) {
-          const [regsRes, eventsRes, friendsRes] = await Promise.all([
-            getMyRegistrations(),
-            getEvents({ status: 'approved' }),
-            getFriends()
-          ]);
+        // Fetch events and friends for the viewed user (public data)
+        if (username) {
+          try {
+            const [eventsRes, friendsRes] = await Promise.all([
+              getUserEventsList(username),
+              getUserFriendsList(username)
+            ]);
 
-          const myRegs = regsRes.data || regsRes || [];
-          const allEvents = eventsRes.items || [];
-          const friendsList = friendsRes.data || friendsRes || [];
+            const eventsData = eventsRes.data || eventsRes || [];
+            const friendsData = friendsRes.data || friendsRes || [];
 
-          // Map registrations to events
-          const myEventIds = new Set(myRegs.map((r: any) =>
-            typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id
-          ));
-
-          const userEvents: Event[] = allEvents
-            .filter((e: any) => myEventIds.has(e._id || e.id))
-            .map((e: any) => ({
+            // Transform events data
+            const userEvents: Event[] = eventsData.map((e: any) => ({
               id: e._id || e.id,
               title: e.title,
               image: e.image,
               date: new Date(e.startAt).toLocaleDateString(),
               location: e.location,
               membersCount: e.currentMembers || 0,
-              isJoined: true,
-              isPast: new Date(e.endAt) < new Date(),
-              status: new Date(e.endAt) < new Date() ? 'past' : 'joined',
+              isJoined: isOwnProfile,
+              isPast: e.endAt && new Date(e.endAt) < new Date(),
+              status: e.endAt && new Date(e.endAt) < new Date() ? 'past' : 'joined',
               tags: e.tags || [],
               description: e.description
             }));
 
-          setEvents(userEvents);
-          setFriends(friendsList);
+            setEvents(userEvents);
+            setFriends(friendsData);
+          } catch (err) {
+            console.error('Failed to fetch events/friends:', err);
+          }
+        }
 
-          // Update friends count
-          setStats(prev => ({ ...prev, friends: friendsList.length }));
+        // Set relation between current user and viewed profile
+        if (isOwnProfile) {
           setRelation('self');
         } else if (currentUser && profileData) {
-          // Viewing someone else's profile - get relation
           const userId = profileData._id || profileData.id;
           console.log('[Profile] Fetching relation for userId:', userId);
           if (userId) {

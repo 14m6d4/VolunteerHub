@@ -1,6 +1,6 @@
 // backend/routes/user.routes.ts
 import { Router } from 'express';
-import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, addFriend, reportUser, sendFriendRequest, acceptFriendRequest, listFriendRequests, listFriends, friendRelations, unfriendUser, adminSearchUsersController, getBannedUsersController, createUserController, deleteUserController, updateUserController, getFriendSuggestions, getUserStats } from '../controllers/user.controller.ts';
+import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, addFriend, reportUser, sendFriendRequest, acceptFriendRequest, listFriendRequests, listFriends, friendRelations, unfriendUser, adminSearchUsersController, getBannedUsersController, createUserController, deleteUserController, updateUserController, getFriendSuggestions, getUserStats, getUserEvents, getUserFriendsList } from '../controllers/user.controller.ts';
 import { authMiddleware } from '../middlewares/auth.middleware.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
@@ -53,8 +53,10 @@ router.post('/admin/create', authMiddleware, createUserController as any);
 router.put('/admin/:id', authMiddleware, updateUserController as any);
 router.delete('/admin/:id', authMiddleware, deleteUserController as any);
 
-// NEW: Get user statistics by username
+// NEW: Get user statistics by username (must be before /:username)
 router.get('/:username/stats', getUserStats as any);
+router.get('/:username/events', getUserEvents as any);
+router.get('/:username/friends', getUserFriendsList as any);
 
 // NEW: Lấy thông tin công khai theo username (catch-all, keep last)
 router.get('/:username', getPublicProfile as any);
