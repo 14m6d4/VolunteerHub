@@ -60,7 +60,7 @@ export function MembersList({ members, managerId }: MembersListProps) {
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src={member.avatar} alt={member.name} />
+                    <AvatarImage src={member.avatarUrl} alt={member.name} />
                     <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">

@@ -104,7 +104,7 @@ export const RegistrationService = {
     async getRegistrationsForEvent(eventId: string, filters: any = {}) {
         const query: any = { eventId };
         if (filters.status) query.status = filters.status;
-        const items = await RegistrationModel.find(query).populate("volunteerId", "name email");
+        const items = await RegistrationModel.find(query).populate("volunteerId", "name email profilePicture");
         console.log("Fetched registrations for event", eventId, "Count:", items.length);
         return items;
     },

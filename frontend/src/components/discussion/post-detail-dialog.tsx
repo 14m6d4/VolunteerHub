@@ -73,7 +73,7 @@ export function PostDetailDialog({
           author: {
             id: postData.authorId._id,
             name: postData.authorId.name,
-            avatarUrl: postData.authorId.image,
+            avatarUrl: postData.authorId.profilePicture || postData.authorId.image,
             role: postData.authorId.role || 'volunteer'
           }
         };
@@ -89,7 +89,7 @@ export function PostDetailDialog({
           author: {
             id: c.authorId._id,
             name: c.authorId.name,
-            avatarUrl: c.authorId.profilePicture || c.authorId.image, // Check this field from backend
+            avatarUrl: c.authorId.profilePicture || c.authorId.image,
             role: c.authorId.role || 'volunteer'
           }
         })) : [];

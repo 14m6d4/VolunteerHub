@@ -87,7 +87,7 @@ export default function DiscussionPage() {
         author: {
           id: c.authorId?._id || 'unknown',
           name: c.authorId?.name || 'Unknown',
-          avatar: c.authorId?.profilePicture,
+          avatarUrl: c.authorId?.profilePicture,
           role: 'volunteer'
         }
       }));
@@ -115,7 +115,7 @@ export default function DiscussionPage() {
             name: r.volunteerId.name,
             username: r.volunteerId.name,
             email: r.volunteerId.email,
-            avatar: r.volunteerId.image,
+            avatarUrl: r.volunteerId.profilePicture,
             role: 'volunteer',
             joinDate: r.createdAt
           }));
@@ -143,7 +143,7 @@ export default function DiscussionPage() {
           author: {
             id: p.authorId?._id || 'unknown',
             name: p.authorId?.name || 'Unknown',
-            avatar: p.authorId?.image,
+            avatarUrl: p.authorId?.profilePicture || p.authorId?.image,
             role: p.authorId?.role || 'volunteer'
           },
           comments: []
@@ -196,7 +196,7 @@ export default function DiscussionPage() {
         author: {
           id: p.authorId?._id || 'unknown',
           name: p.authorId?.name || 'Unknown',
-          avatar: p.authorId?.image,
+          avatarUrl: p.authorId?.profilePicture || p.authorId?.image,
           role: p.authorId?.role || 'volunteer'
         },
         comments: []
