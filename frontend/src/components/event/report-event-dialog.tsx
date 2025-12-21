@@ -55,7 +55,7 @@ export function ReportEventDialog({
 
     setIsSubmitting(true);
     try {
-      await apiFetch('/report/report/event', {
+      await apiFetch('/report/event', {
         method: 'POST',
         body: JSON.stringify({
           reporterId: user?.id,

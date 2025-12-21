@@ -45,7 +45,7 @@ export default function AdminReportsPage() {
 
     const handleResolve = async (id: string, status: 'resolved' | 'rejected') => {
         try {
-            await apiFetch(`/report/report/${id}`, {
+            await apiFetch(`/report/${id}`, {
                 method: 'PATCH',
                 body: JSON.stringify({ status })
             });
