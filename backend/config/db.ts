@@ -10,17 +10,12 @@ if (!process.env.MONGO_URI) {
 }
 
 const options = {
-    // ssl: true, // Comment this line if using mongodb localhost
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
 };
 
 const MONGO_URI: string = process.env.MONGO_URI;
 
-/**
- * @function seedAdminUser
- * @description Checks if a default Admin user exists and creates one if not.
- */
 const seedAdminUser = async (): Promise<void> => {
     try {
         const ADMIN_EMAIL = '23021521@vnu.edu.vn';

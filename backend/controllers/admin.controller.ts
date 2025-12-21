@@ -5,25 +5,14 @@ import { RegistrationModel, RegistrationStatus } from '../models/Registration.mo
 import { ReportModel } from '../models/Report.model.ts';
 import { PostModel } from '../models/Post.model.ts';
 
-/**
- * Get analytics statistics for admin dashboard
- * GET /api/admin/analytics
- */
 export async function getAnalytics(req: Request, res: Response) {
     try {
         const now = new Date();
 
-        // ============ STATISTICS ============
-
-        // Calculate Total Users
         const totalUsers = await User.countDocuments();
 
-        // Calculate Total Events
         const totalEvents = await EventModel.countDocuments();
 
-        // Calculate Active Volunteers
-        // Active volunteers are those who have approved registrations for ongoing events
-        // Ongoing events: status = "approved" AND current time is between startAt and endAt
         const ongoingEvents = await EventModel.find({
             status: EventStatus.APPROVED,
             startAt: { $lte: now },
@@ -35,7 +24,6 @@ export async function getAnalytics(req: Request, res: Response) {
 
         const ongoingEventIds = ongoingEvents.map(event => event._id);
 
-        // Count distinct volunteers with approved registrations for ongoing events
         let activeVolunteers = 0;
         if (ongoingEventIds.length > 0) {
             const distinctVolunteers = await RegistrationModel.distinct('volunteerId', {
@@ -45,21 +33,16 @@ export async function getAnalytics(req: Request, res: Response) {
             activeVolunteers = distinctVolunteers.length;
         }
 
-        // Calculate Completed Events
         const completedEvents = await EventModel.countDocuments({
             status: EventStatus.FINISHED
         });
 
-        // Calculate Pending Reports
         const pendingReports = await ReportModel.countDocuments({
             status: 'pending'
         });
 
-        // Calculate Total Posts
         const totalPosts = await PostModel.countDocuments();
 
-        // ============ USER GROWTH CHART ============
-        // Get monthly user registrations for the last 12 months
         const userGrowth = [];
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -85,7 +68,6 @@ export async function getAnalytics(req: Request, res: Response) {
             });
         }
 
-        // ============ EVENTS PER MONTH CHART ============
         const eventsPerMonth = [];
 
         for (let i = 11; i >= 0; i--) {
@@ -110,7 +92,6 @@ export async function getAnalytics(req: Request, res: Response) {
             });
         }
 
-        // ============ EVENTS BY STATUS CHART ============
         const activeEventsCount = await EventModel.countDocuments({ status: EventStatus.APPROVED });
         const completedEventsCount = await EventModel.countDocuments({ status: EventStatus.FINISHED });
         const pendingEventsCount = await EventModel.countDocuments({ status: EventStatus.PENDING });
@@ -120,9 +101,6 @@ export async function getAnalytics(req: Request, res: Response) {
             { name: 'Completed', value: completedEventsCount },
             { name: 'Pending', value: pendingEventsCount }
         ];
-
-        // ============ VOLUNTEER PARTICIPATION CHART ============
-        // Monthly count of approved registrations for the last 12 months
         const volunteerParticipation = [];
 
         for (let i = 11; i >= 0; i--) {
