@@ -78,8 +78,8 @@ export function LoginForm({
 
     try {
       await login({ email, password })
-      // redirect to homepage after login
-      window.location.href = '/'
+      // redirect to feed page after login
+      window.location.href = '/feed'
     } catch (err: any) {
       // Parse error message: support plain text, JSON ({message, errors}), or HTML
       const raw = err?.message || String(err) || 'Login failed'

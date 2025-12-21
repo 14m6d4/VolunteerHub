@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatEventDate } from '@/utils/formatDate';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -77,13 +78,7 @@ export const ManagerEventDashboard = () => {
       const response = await getEvents();
       const fetchedEvents = (response.items || []).map((event: any) => ({
         ...event,
-        date: new Date(event.startAt).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: 'numeric',
-        }),
+        date: formatEventDate(event.startAt),
         managerStatus: event.status === 'pending' ? 'pending'
           : event.status === 'approved' ? 'active'
             : 'completed',

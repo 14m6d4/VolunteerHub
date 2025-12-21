@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { EventCard } from '@/components/event/event-card';
 import { ManagerEventCard } from '@/components/event/manager-event-card';
-import { formatDate } from '@/utils/formatDate';
+import { formatDate, formatEventDate } from '@/utils/formatDate';
 import { toast } from 'sonner';
 import type { PublicUserProfile, UserRole } from '@/types/user';
 import type { Event } from '@/types/event';
@@ -231,7 +231,7 @@ export default function ProfilePage() {
               id: e._id || e.id,
               title: e.title,
               image: e.image,
-              date: new Date(e.startAt).toLocaleDateString(),
+              date: formatEventDate(e.startAt),
               location: e.location,
               membersCount: e.currentMembers || 0,
               isJoined: isOwnProfile,
