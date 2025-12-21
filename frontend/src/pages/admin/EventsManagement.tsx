@@ -43,6 +43,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+
+// ... (rest of imports)
+
+// ... (inside component return)
+
+
 import {
   Tooltip,
   TooltipContent,
@@ -268,7 +274,6 @@ export default function EventsManagement() {
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
             <SelectItem value="finished">Finished</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
           </SelectContent>
         </Select>
       </div>
