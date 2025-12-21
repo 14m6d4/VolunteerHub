@@ -623,3 +623,32 @@ export const getFriendSuggestionsService = async (userId: string, limit: number 
     }
   ]);
 };
+
+// Get outgoing/sent friend requests (pending requests sent by user)
+export const listOutgoingFriendRequestsService = async (userId: string) => {
+  return await FriendRequestModel.find({ sender: userId, status: FriendRequestStatus.Pending })
+    .populate('receiver', 'username name profilePicture')
+    .lean();
+};
+
+// Cancel a friend request (delete pending request sent by user)
+export const cancelFriendRequestService = async (userId: string, requestId: string) => {
+  const request = await FriendRequestModel.findById(requestId);
+
+  if (!request) {
+    throw new AppError('Friend request not found', 404);
+  }
+
+  // Only sender can cancel their own request
+  if (request.sender.toString() !== userId) {
+    throw new AppError('Unauthorized to cancel this request', 403);
+  }
+
+  // Only pending requests can be cancelled
+  if (request.status !== FriendRequestStatus.Pending) {
+    throw new AppError('Can only cancel pending requests', 400);
+  }
+
+  await FriendRequestModel.findByIdAndDelete(requestId);
+  return { message: 'Friend request cancelled successfully' };
+};

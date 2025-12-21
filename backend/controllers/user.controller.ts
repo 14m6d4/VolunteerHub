@@ -157,6 +157,29 @@ export async function listFriends(req: AuthenticatedRequest, res: Response, next
   }
 }
 
+// Get sent friend requests
+export async function listSentFriendRequests(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const requests = await userService.listOutgoingFriendRequestsService(userId);
+    return res.status(200).json({ status: 'success', data: requests });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Cancel a friend request
+export async function cancelFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const { requestId } = req.body as { requestId: string };
+    const result = await userService.cancelFriendRequestService(userId, requestId);
+    return res.status(200).json({ status: 'success', message: result.message });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function friendRelations(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user._id.toString();
