@@ -196,12 +196,12 @@ export const FeedService = {
                         r.eventId.toString() === eIdStr && r.createdAt >= windowCutoff
                     ).length;
                     if (members > 0) {
-                        features.push({ type: 'rapid_growth', count: members, days, score: (members / days) * 12 });
+                        features.push({ type: 'rapid_growth', count: members, days, score: (members / days) * 4 });
                     }
 
                     const recentPosts = postsForEvent.filter(p => new Date(p.createdAt).getTime() >= windowCutoff.getTime()).length;
                     if (recentPosts > 0) {
-                        features.push({ type: 'active_community', count: recentPosts, days, score: (recentPosts / days) * 20 });
+                        features.push({ type: 'active_community', count: recentPosts, days, score: (recentPosts / days) * 40 });
                     }
 
                     const ePostIds = new Set(postsForEvent.map(p => p._id.toString()));
@@ -209,7 +209,7 @@ export const FeedService = {
                         ePostIds.has(c.postId.toString()) && new Date(c.createdAt).getTime() >= windowCutoff.getTime()
                     ).length;
                     if (comments > 0) {
-                        features.push({ type: 'hot_discussion', count: comments, days, score: (comments / days) * 12 });
+                        features.push({ type: 'hot_discussion', count: comments, days, score: (comments / days) * 36 });
                     }
                 }
 
