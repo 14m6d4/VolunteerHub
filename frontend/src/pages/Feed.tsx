@@ -62,7 +62,7 @@ export default function FeedPage() {
             });
           }
         });
-        setJoinedEvents(myEventsList);
+        setJoinedEvents(myEventsList.slice(0, 5));
 
         // Process Mixed Feed from Backend
         const apiFeed = feedRes.data || feedRes || [];
@@ -153,7 +153,7 @@ export default function FeedPage() {
           avatarUrl: u.profilePicture,
           mutualFriends: u.mutualFriends || 0
         }));
-        setFriendSuggestions(suggestions);
+        setFriendSuggestions(suggestions.slice(0, 5));
 
       } catch (err) {
         console.error("Failed to load feed", err);

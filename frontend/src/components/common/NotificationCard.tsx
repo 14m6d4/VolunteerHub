@@ -52,7 +52,7 @@ export function NotificationCard({ notification, onMarkRead, userRole }: Notific
 
         // Friend request notifications
         if (type === 'friend_request_received') {
-            navigate('/u?tab=requests');
+            navigate('/users?tab=requests');
             return;
         }
 
