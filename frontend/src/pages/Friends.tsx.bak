@@ -73,6 +73,29 @@ export default function FriendsPage() {
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [loadingSent, setLoadingSent] = useState(false);
 
+export default function FriendsPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get('tab') as 'friends' | 'requests' | 'sent' | 'search' || 'friends';
+
+  // Helper to update URL when tab changes
+  const setTab = (val: string) => {
+    setSearchParams({ tab: val });
+  };
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [sentRequests, setSentRequests] = useState<any[]>([]);
+  const [friends, setFriends] = useState<any[]>([]);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const [loadingFriends, setLoadingFriends] = useState(false);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [loadingSent, setLoadingSent] = useState(false);
+
   // Fetch friend requests
   useEffect(() => {
     (async () => {
