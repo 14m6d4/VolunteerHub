@@ -1,7 +1,7 @@
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import "./App.css"
 // Theme CSS files are now loaded dynamically by theme-provider
-import { BrowserRouter, Routes, Route, Outlet, useSearchParams, Navigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import LoginPage from "@/pages/auth/Login"
 import BannedPage from "@/pages/auth/Banned"
@@ -23,6 +23,7 @@ import { EventsList } from "@/pages/EventsList";
 import { ManagerEventDashboard } from "@/pages/manager/ManagerEventDashboard";
 import DiscussionPage from "@/pages/discussion/Discussion";
 import FeedPage from "@/pages/Feed";
+import LandingPage from "@/pages/LandingPage";
 import Error404 from "./components/errors/404"
 import Error500 from "./components/errors/500"
 import Error503 from "./components/errors/503"
@@ -30,37 +31,28 @@ import Error403 from "./components/errors/403"
 import Error401 from "./components/errors/401"
 import Footer from "@/components/common/Footer"
 import NavBar from "@/features/navigation-menu"
-import { useEffect } from "react"
-import * as authService from "@/services/auth.service"
 import QueryProvider from "./providers/QueryProvider"
-import { AuthProvider } from "@/context/AuthContext"
+import { AuthProvider, useAuth } from "@/context/AuthContext"
 import SettingsPage from "./pages/Settings";
 import ProfilePage from "./pages/Profile";
 import AboutPage from "./pages/About";
 
-function HomePage() {
-  const [searchParams] = useSearchParams()
-
-  useEffect(() => {
-    // If accessToken in URL (from Google OAuth redirect), store it
-    const accessToken = searchParams.get('accessToken')
-    if (accessToken) {
-      // eslint-disable-next-line no-console
-      console.log('[HomePage] Captured accessToken from URL:', accessToken.substring(0, 20) + '...');
-      authService.setAuthToken(accessToken)
-      // Clean URL by redirecting without params
-      window.history.replaceState({}, document.title, '/')
-    } else {
-      // eslint-disable-next-line no-console
-      console.log('[HomePage] No accessToken in URL params');
-    }
-  }, [searchParams])
-
-  return (
-    <header className="w-full flex justify-end p-4">
-      {/* ModeToggle moved to NavBar */}
-    </header>
-  )
+// Wrapper component for Landing Page - shows LandingPage for unauthenticated users
+function HomeRoute() {
+  const { user, loading } = useAuth();
+  
+  // Show nothing while checking auth status
+  if (loading) {
+    return null;
+  }
+  
+  // If authenticated, redirect to feed
+  if (user) {
+    return <Navigate to="/feed" replace />;
+  }
+  
+  // If not authenticated, show landing page
+  return <LandingPage />;
 }
 
 function AppContent() {
@@ -79,7 +71,7 @@ function AppContent() {
             </>
           }
         >
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<HomeRoute />} />
           {/* Thêm các route chính khác cần footer vào đây */}
           <Route path="/feed" element={<FeedPage />} />
           <Route path="/feed/events/:eventId/posts/:postId" element={<FeedPage />} />
