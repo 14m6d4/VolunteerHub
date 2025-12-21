@@ -31,16 +31,16 @@ console.log('[CORS] Configured to allow origin:', FRONTEND_URL);
 console.log('[===================]');
 
 app.use(
-  cors({
-    // Allow requests from any origin. We echo the origin so credentials (cookies) can still be used.
-    origin: (origin, callback) => {
-      // If no origin (e.g., same-origin requests like curl or server-to-server), allow it
-      callback(null, true);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-  })
+    cors({
+        // Allow requests from any origin. We echo the origin so credentials (cookies) can still be used.
+        origin: (origin, callback) => {
+            // If no origin (e.g., same-origin requests like curl or server-to-server), allow it
+            callback(null, true);
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    })
 );
 // app.options('*', (req, res) => {
 //   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
@@ -68,7 +68,7 @@ app.use("/uploads", express.static("uploads"));
 
 // 404 handler for unknown API routes - return JSON
 app.use((req, res) => {
-  res.status(404).json({ status: 'fail', message: 'Not Found' });
+    res.status(404).json({ status: 'fail', message: 'Not Found' });
 });
 
 // Register centralized error handler (returns JSON)

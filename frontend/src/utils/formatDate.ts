@@ -6,11 +6,12 @@
  */
 export function formatRelativeTime(date: Date | string): string {
   const now = new Date();
+
   const diffMs = now.getTime() - new Date(date).getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
+  // console.log(now, date, diffMs, diffMins, diffHours, diffDays);
   if (diffMins < 1) {
     return 'Just now';
   }
