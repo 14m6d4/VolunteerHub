@@ -1,11 +1,13 @@
 // frontend/src/components/feed/trending-event-card.tsx
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, MapPin, Users, TrendingUp, Sparkles } from 'lucide-react';
 import { EventDetailModal } from '@/components/event/event-detail';
+import { useAuth } from '@/context/AuthContext';
 import type { TrendingEvent } from '@/types/feed';
 import { toEventType } from '@/data/feed-mock';
 import { registerEvent } from '@/services/event.service';
@@ -16,10 +18,16 @@ interface TrendingEventCardProps {
 }
 
 export function TrendingEventCard({ event }: TrendingEventCardProps) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [showDetail, setShowDetail] = useState(false);
 
   const handleApply = async () => {
     try {
+      if (!user) {
+        navigate('/login');
+        return;
+      }
       await registerEvent(event.id);
       toast.success('Successfully registered for event!');
       setShowDetail(false);

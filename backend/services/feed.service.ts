@@ -59,6 +59,9 @@ export const FeedService = {
             let joinedEventIds: any[] = [];
             let userFriendsIds: any[] = [];
 
+            let posts: any[] = [];
+            let events: any[] = [];
+
             if (user) {
                 // Fetch user's friends
                 const userData = await UserModel.findById(user._id).select('friends').lean();
@@ -71,28 +74,31 @@ export const FeedService = {
                 joinedEventIds = joinedRegs.map(r => r.eventId);
 
                 postQuery = { eventId: { $in: joinedEventIds } };
-
                 eventQuery._id = { $nin: joinedEventIds };
+
+                const postsPromise = PostModel.find(postQuery)
+                    .sort({ createdAt: -1 })
+                    .limit(limit)
+                    .skip(skip)
+                    .populate("authorId", "username name profilePicture role")
+                    .populate("eventId", "title image")
+                    .lean();
+
+                const eventsPromise = EventModel.find(eventQuery)
+                    .sort({ currentMembers: -1, createdAt: -1 })
+                    .limit(5)
+                    .lean();
+
+                [posts, events] = await Promise.all([postsPromise, eventsPromise]);
             } else {
-                postQuery = { isPublic: true };
-                eventQuery.isPublic = true;
+                // Guest mode: Only trending events, no posts
+                events = await EventModel.find(eventQuery)
+                    .sort({ currentMembers: -1, createdAt: -1 })
+                    .limit(5)
+                    .lean();
             }
 
-            const postsPromise = PostModel.find(postQuery)
-                .sort({ createdAt: -1 })
-                .limit(limit)
-                .skip(skip)
-                .populate("authorId", "username name profilePicture role")
-                .populate("eventId", "title image")
-                .lean();
-            const eventsPromise = EventModel.find(eventQuery)
-                .sort({ currentMembers: -1, createdAt: -1 })
-                .limit(5)
-                .lean();
-
-            const [posts, events] = await Promise.all([postsPromise, eventsPromise]);
-
-            const WINDOWS = [1, 2, 3, 5, 7];
+            const WINDOWS = [1, 2, 3];
             const nowTime = Date.now();
 
             // Helper function to count friends in an event

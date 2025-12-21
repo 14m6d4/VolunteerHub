@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FeedPostCard, TrendingEventCard, EventShortcuts, FriendSuggestions } from '@/components/feed';
 import { useAuth } from '@/context/AuthContext';
-import { getFeed, likePost, createPost } from '@/services/feed.service';
+import { getFeed, likePost } from '@/services/feed.service';
 import { getEvents, getMyRegistrations } from '@/services/event.service';
-import { searchUsers, getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
+import { getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
 import { createComment } from '@/services/post.service';
 import type { FeedPostWithUser, TrendingEvent, FriendSuggestion, EventShortcut } from '@/types/feed';
 import { toast } from 'sonner';
@@ -18,8 +18,7 @@ type FeedItem =
 
 export default function FeedPage() {
   const { user } = useAuth();
-  // State now holds mixed items directly
-  const { eventId, postId } = useParams();
+  const { postId } = useParams();
   const navigate = useNavigate();
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [joinedEvents, setJoinedEvents] = useState<EventShortcut[]>([]);
@@ -29,27 +28,26 @@ export default function FeedPage() {
   // Fetch Data
   useEffect(() => {
     async function loadData() {
-      if (!user) return;
       setLoading(true);
       try {
-        const [feedRes, eventsRes, myRegRes, suggestionsRes] = await Promise.all([
-          getFeed({ limit: 20 }),
-          getEvents({ status: 'approved' }), // Fetch all events for shortcut lookup details
-          getMyRegistrations(),
-          getFriendSuggestions()
-        ]);
+        const promises: Promise<any>[] = [getFeed({ limit: 20 }), getEvents({ status: 'approved' })];
+
+        if (user) {
+          promises.push(getMyRegistrations());
+          promises.push(getFriendSuggestions());
+        }
+
+        const results = await Promise.all(promises);
+        const feedRes = results[0];
+        const eventsRes = results[1];
+        const myRegRes = user ? results[2] : { data: [] };
+        const suggestionsRes = user ? results[3] : { data: [] };
 
         // Process Events for Shortcuts (Joined Events)
         const allEvents = eventsRes.items || [];
         const myRegs = myRegRes.data || myRegRes || [];
 
-        // Extract joined event IDs
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const myEventIds = new Set(myRegs.map((r: any) =>
-          typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id
-        ));
-
-        // Create Joined Events List (Shortcuts)
+        // Extract Joined Events List (Shortcuts)
         const myEventsList: EventShortcut[] = [];
         myRegs.forEach((r: any) => {
           const eId = typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id;
@@ -68,6 +66,7 @@ export default function FeedPage() {
         const apiFeed = feedRes.data || feedRes || [];
         const mappedFeed: FeedItem[] = apiFeed.map((item: any) => {
           if (item.type === 'post') {
+            if (!user) return null; // Guests shouldn't see posts
             const p = item.data;
             return {
               type: 'post',
@@ -78,7 +77,7 @@ export default function FeedPage() {
                 imageUrl: p.image,
                 timestamp: new Date(p.createdAt),
                 likes: p.likes?.length || 0,
-                likedByMe: p.likes?.includes(user.id),
+                likedByMe: user ? p.likes?.includes(user.id) : false,
                 eventId: p.eventId?._id,
                 eventTitle: p.eventId?.title || 'Unknown Event',
                 eventImage: p.eventId?.image || '',
@@ -147,7 +146,7 @@ export default function FeedPage() {
 
         setFeedItems(mappedFeed);
 
-        // Process Suggestions - using new API result
+        // Process Suggestions
         const rawSuggestions = suggestionsRes.data || suggestionsRes || [];
         const suggestions: FriendSuggestion[] = rawSuggestions.map((u: any) => ({
           id: u._id,
@@ -170,9 +169,12 @@ export default function FeedPage() {
 
   // Handle liking
   const handleLike = async (postId: string) => {
+    if (!user) {
+      toast.error("Please login to like posts");
+      return;
+    }
     try {
       await likePost(postId);
-      // Optimistic update on mixed feed items
       setFeedItems((prev) =>
         prev.map((item) => {
           if (item.type === 'post' && item.data.id === postId) {
@@ -197,7 +199,10 @@ export default function FeedPage() {
 
   // Handle adding comment
   const handleAddComment = async (postId: string, content: string) => {
-    if (!user) return;
+    if (!user) {
+      toast.error("Please login to comment");
+      return;
+    }
     try {
       const res = await createComment(postId, { content });
       const newComment = {
@@ -236,15 +241,13 @@ export default function FeedPage() {
   const handleSendFriendRequest = async (userId: string) => {
     try {
       await sendFriendRequest(userId);
-      // Toast is handled in FriendSuggestions component or simple success here
     } catch (e) {
       console.error(e);
       toast.error("Failed to send friend request");
-      throw e; // Propagate to component to handle loading state
+      throw e;
     }
   };
 
-  if (!user) return <div>Please login</div>;
   if (loading) return <div className="flex justify-center p-10">Loading feed...</div>;
 
   return (
@@ -254,7 +257,7 @@ export default function FeedPage() {
           {/* Left Sidebar - Event Shortcuts */}
           <aside className="hidden lg:block lg:col-span-3">
             <div className="sticky top-20">
-              <EventShortcuts events={joinedEvents} />
+              {user && <EventShortcuts events={joinedEvents} />}
             </div>
           </aside>
 
@@ -262,20 +265,23 @@ export default function FeedPage() {
           <main className="lg:col-span-6 space-y-4">
             {/* Welcome Header */}
             <div className="mb-6">
-              <h1 className="text-2xl font-bold">Welcome back, {user.name?.split(' ')[0] || user.username}! 👋</h1>
+              <h1 className="text-2xl font-bold">
+                {user ? `Welcome back, ${user.name?.split(' ')[0] || user.username}! 👋` : 'Explore Volunteering Opportunities 🌍'}
+              </h1>
               <p className="text-muted-foreground text-sm mt-1">
-                See what's happening in your volunteer community
+                {user ? "See what's happening in your volunteer community" : "Find and join impactful events in your area"}
               </p>
             </div>
 
             {/* Feed Items (Mixed) */}
             {feedItems.map((item, index) => {
               if (item.type === 'post') {
+                if (!user) return null;
                 return (
                   <FeedPostCard
                     key={`post-${item.data.id}`}
                     post={item.data}
-                    comments={item.data.comments} // Pass pre-fetched comments
+                    comments={item.data.comments}
                     currentUserId={user.id}
                     currentUser={{
                       id: user.id,
@@ -313,7 +319,7 @@ export default function FeedPage() {
           {/* Right Sidebar - Friend Suggestions */}
           <aside className="hidden lg:block lg:col-span-3">
             <div className="sticky top-20">
-              <FriendSuggestions suggestions={friendSuggestions} onAddFriend={handleSendFriendRequest} />
+              {user && <FriendSuggestions suggestions={friendSuggestions} onAddFriend={handleSendFriendRequest} />}
             </div>
           </aside>
         </div>
