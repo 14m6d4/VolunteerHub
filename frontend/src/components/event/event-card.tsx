@@ -106,21 +106,24 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
             <span className="line-clamp-1">{event.location}</span>
           </div>
 
-          {event.tags && event.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {event.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
+          {/* Fixed height tags area - fits up to 2 rows of tags */}
+          <div className="min-h-[3.25rem]">
+            {event.tags && event.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {event.tags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
 
           {canLeave && (
             <Button
               variant="destructive"
               size="sm"
-              className="w-full mt-2"
+              className="w-full"
               onClick={handleLeaveClick}
             >
               Leave Event

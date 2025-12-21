@@ -90,6 +90,8 @@ function AppContent() {
           <Route path="/users" element={<FriendsPage />} />
           <Route path="/search" element={<SearchUsersPage />} />
           <Route path="*" element={<Error404 />} />
+          <Route path="403" element={<Error403 />} />
+          <Route path="401" element={<Error401 />} />
           <Route path="/u/:username/settings" element={<SettingsPage />} />
           <Route path="/u/:username" element={<ProfilePage />} />
         </Route>
@@ -126,8 +128,6 @@ function AppContent() {
           <Route path="/password_reset" element={<PasswordResetPage />} />
           <Route path="500" element={<Error500 />} />
           <Route path="503" element={<Error503 />} />
-          <Route path="403" element={<Error403 />} />
-          <Route path="401" element={<Error401 />} />
         </Route>
       </Routes>
     </div>
