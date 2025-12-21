@@ -287,7 +287,7 @@ const defaultNavigationLinks = [
   { href: "/feed", label: "Feed" },
   { href: "/events", label: "Dash" },
   // { href: "/search", label: "Search" },
-  { href: "/u", label: "Users" },
+  { href: "/users", label: "Users" },
   { href: "/about", label: "About" },
 ]
 
@@ -580,22 +580,10 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                     {/* Menu items */}
                     <div className="p-2">
                       {user.role === 'admin' && (
-                        <DropdownMenuSub>
-                          <DropdownMenuSubTrigger className="cursor-pointer">
-                            <SettingsIcon className="mr-3 h-4 w-4" />
-                            <span>Manage</span>
-                          </DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent>
-                            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/admin/reports")}>
-                              <span className="mr-2 h-4 w-4 flex items-center justify-center">🚩</span>
-                              <span>Reports</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/admin/users")}>
-                              <UserIcon className="mr-3 h-4 w-4" />
-                              <span>Users</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
+                        <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/manage")}>
+                          <SettingsIcon className="mr-3 h-4 w-4" />
+                          <span>Manage</span>
+                        </DropdownMenuItem>
                       )}
 
                       <DropdownMenuItem className="cursor-pointer" onClick={() => { if (user?.username) { navigate(`/u/${user.username}`); } else { navigate('/settings'); } }}>

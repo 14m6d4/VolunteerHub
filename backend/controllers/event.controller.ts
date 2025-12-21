@@ -97,7 +97,7 @@ export const EventController = {
             const filters = {
                 q: req.query.q as string | undefined,
                 tag: req.query.tag as string | undefined,
-                status,
+                status: status === 'all' ? undefined : status, // Don't filter if status is 'all'
                 startFrom: req.query.startFrom as string | undefined,
                 includeDrafts: req.query.includeDrafts === "true",
                 managerId: req.query.managerId as string | undefined,
