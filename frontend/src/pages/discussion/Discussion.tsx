@@ -18,7 +18,7 @@ import {
 } from '@/components/discussion';
 import { getEventById, getEventPosts, getEventRegistrations } from '@/services/event.service';
 import { createPost, likePost } from '@/services/feed.service';
-import { createComment, getComments } from '@/services/post.service';
+import { createComment, getComments, deletePost, deleteComment } from '@/services/post.service';
 import type { PostWithUser, CommentWithUser } from '@/types/discussion';
 import type { Event } from '@/types/event';
 
@@ -57,7 +57,6 @@ export default function DiscussionPage() {
           timestamp: new Date(),
           likes: 0,
           likedByMe: false,
-          commentCount: 0,
           comments: [],
           author: {
             id: 'loading',
@@ -240,6 +239,39 @@ export default function DiscussionPage() {
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    try {
+      await deletePost(postId);
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      toast.success("Post deleted successfully");
+      // If we're viewing this post detail, navigate back
+      if (postId === selectedPost?.id) {
+        navigate(`/events/${eventId}`);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete post");
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await deleteComment(commentId);
+      // Update commentsMap by removing the deleted comment
+      setCommentsMap(prev => {
+        const newMap = { ...prev };
+        Object.keys(newMap).forEach(postId => {
+          newMap[postId] = newMap[postId].filter(c => c.id !== commentId);
+        });
+        return newMap;
+      });
+      toast.success("Comment deleted successfully");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete comment");
+    }
+  };
+
   const handleViewDetail = (postId: string) => {
     navigate(`/events/${eventId}/posts/${postId}`);
   };
@@ -298,6 +330,8 @@ export default function DiscussionPage() {
                     onLike={handleLike}
                     onAddComment={handleAddComment}
                     onViewDetail={() => handleViewDetail(post.id)}
+                    onDeletePost={handleDeletePost}
+                    onDeleteComment={handleDeleteComment}
                   />
                 ))}
 
@@ -328,6 +362,8 @@ export default function DiscussionPage() {
                     onLike={handleLike}
                     onAddComment={handleAddComment}
                     onViewDetail={() => handleViewDetail(post.id)}
+                    onDeletePost={handleDeletePost}
+                    onDeleteComment={handleDeleteComment}
                   />
                 ))}
 
@@ -357,6 +393,8 @@ export default function DiscussionPage() {
                 onLike={handleLike}
                 onAddComment={handleAddComment}
                 onViewDetail={handleViewDetail}
+                onDeletePost={handleDeletePost}
+                onDeleteComment={handleDeleteComment}
               />
             </TabsContent>
           </Tabs>
