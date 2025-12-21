@@ -41,6 +41,8 @@ export default function FeedPage() {
           if (item.type === 'post') {
             if (!user) return null;
             const p = item.data;
+            if (!p.authorId) return null; // Skip posts with deleted authors
+
             return {
               type: 'post',
               data: {
@@ -61,19 +63,22 @@ export default function FeedPage() {
                   avatarUrl: p.authorId.profilePicture,
                   role: p.authorId.role
                 },
-                comments: (p.comments || []).map((c: any) => ({
-                  id: c._id,
-                  userId: c.authorId._id,
-                  content: c.content,
-                  timestamp: new Date(c.createdAt),
-                  author: {
-                    id: c.authorId._id,
-                    name: c.authorId.name,
-                    username: c.authorId.username,
-                    avatarUrl: c.authorId.profilePicture,
-                    role: 'volunteer'
-                  }
-                })),
+                comments: (p.comments || []).map((c: any) => {
+                  if (!c.authorId) return null;
+                  return {
+                    id: c._id,
+                    userId: c.authorId._id,
+                    content: c.content,
+                    timestamp: new Date(c.createdAt),
+                    author: {
+                      id: c.authorId._id,
+                      name: c.authorId.name,
+                      username: c.authorId.username,
+                      avatarUrl: c.authorId.profilePicture,
+                      role: 'volunteer'
+                    }
+                  };
+                }).filter((c: any) => c !== null),
                 commentCount: p.commentCount || 0
               }
             };
