@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { useEffect, useState, useRef } from "react"
 import { NavigationMenu, NavigationMenuItem, NavigationMenuList } from "@/components/ui/navigation-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useLocation } from "react-router-dom"
 import { FileSlidersIcon } from "lucide-react"
 import {
   DropdownMenu,
@@ -64,7 +65,7 @@ type Navbar01Props = {
 
 // Simple logo component for the navbar - now using imported image
 const Logo = (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
-  return <img src={logoImage || "/placeholder.svg"} alt="Gizmo Logo" className="h-8 w-8" {...props} />
+  return <img src={logoImage || "/placeholder.svg"} alt="Gizmo Logo" className="h-10 w-10" {...props} />
 }
 
 // Hamburger icon component
@@ -320,8 +321,17 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
     ref,
   ) => {
     const navigate = useNavigate()
+    const location = useLocation()
     const [isMobile, setIsMobile] = useState(false)
     const containerRef = useRef<HTMLElement | null>(null)
+
+    // Check if a link is active based on current path
+    const isLinkActive = (href: string) => {
+      if (href === '/') {
+        return location.pathname === '/';
+      }
+      return location.pathname.startsWith(href);
+    }
 
     useEffect(() => {
       const checkWidth = () => {
@@ -397,7 +407,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                             }}
                             className={cn(
                               "flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer no-underline",
-                              link.active ? "bg-accent text-accent-foreground" : "text-foreground/80",
+                              (link.active || isLinkActive(link.href)) ? "bg-accent text-accent-foreground" : "text-foreground/80",
                             )}
                           >
                             {link.label}
@@ -436,7 +446,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                         }}
                         className={cn(
                           "group inline-flex h-9 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 cursor-pointer no-underline",
-                          link.active
+                          (link.active || isLinkActive(link.href))
                             ? "bg-accent text-accent-foreground"
                             : "text-foreground/80 hover:text-foreground",
                         )}

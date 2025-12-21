@@ -180,6 +180,18 @@ export async function cancelFriendRequest(req: AuthenticatedRequest, res: Respon
   }
 }
 
+// Reject a friend request
+export async function rejectFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user._id.toString();
+    const { requestId } = req.body as { requestId: string };
+    const result = await userService.rejectFriendRequestService(userId, requestId);
+    return res.status(200).json({ status: 'success', message: result.message });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function friendRelations(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user._id.toString();

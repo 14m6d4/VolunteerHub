@@ -88,3 +88,12 @@ export async function cancelFriendRequest(requestId: string) {
     headers: { 'Content-Type': 'application/json' }
   });
 }
+
+// Reject a friend request
+export async function rejectFriendRequest(requestId: string) {
+  return apiFetch(`/users/friends/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ requestId }),
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
