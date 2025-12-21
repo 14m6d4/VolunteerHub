@@ -92,7 +92,7 @@ export function FeedPostCard({
                 {/* User Name + Time */}
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5 flex-wrap">
                   <Link
-                    to={`/u/${post.author.name.toLowerCase().replace(/\s+/g, '')}`}
+                    to={`/u/${(post.author as any).username || post.author.id}`}
                     className="hover:underline hover:text-foreground transition-colors"
                   >
                     {post.author.name}

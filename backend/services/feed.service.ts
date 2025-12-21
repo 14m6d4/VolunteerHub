@@ -88,7 +88,7 @@ export const FeedService = {
                 const comments = await (await import("../models/Comment.model.ts")).CommentModel.find({ postId: p._id })
                     .sort({ createdAt: -1 })
                     .limit(2)
-                    .populate("authorId", "name profilePicture");
+                    .populate("authorId", "name username profilePicture");
 
                 const commentCount = await (await import("../models/Comment.model.ts")).CommentModel.countDocuments({ postId: p._id });
 

@@ -87,6 +87,7 @@ export default function DiscussionPage() {
         author: {
           id: c.authorId?._id || 'unknown',
           name: c.authorId?.name || 'Unknown',
+          username: c.authorId?.username,
           avatarUrl: c.authorId?.profilePicture,
           role: 'volunteer'
         }
@@ -143,6 +144,7 @@ export default function DiscussionPage() {
           author: {
             id: p.authorId?._id || 'unknown',
             name: p.authorId?.name || 'Unknown',
+            username: p.authorId?.username,
             avatarUrl: p.authorId?.profilePicture || p.authorId?.image,
             role: p.authorId?.role || 'volunteer'
           },
@@ -196,6 +198,7 @@ export default function DiscussionPage() {
         author: {
           id: p.authorId?._id || 'unknown',
           name: p.authorId?.name || 'Unknown',
+          username: p.authorId?.username,
           avatarUrl: p.authorId?.profilePicture || p.authorId?.image,
           role: p.authorId?.role || 'volunteer'
         },

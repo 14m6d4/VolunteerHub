@@ -1,7 +1,7 @@
 // frontend/src/components/discussion/comment-section.tsx
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ export function CommentSection({
   viewAllCommentsUrl,
   onAddComment,
 }: CommentSectionProps) {
+  const navigate = useNavigate();
   const [newComment, setNewComment] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -85,7 +86,15 @@ export function CommentSection({
           </Avatar>
           <div className="flex-1 bg-muted/50 rounded-lg px-3 py-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold">{comment.author.name}</span>
+              <span
+                className="text-xs font-semibold cursor-pointer hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/u/${(comment.author as any).username || comment.author.id}`);
+                }}
+              >
+                {comment.author.name}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {formatRelativeTime(comment.timestamp)}
               </span>
