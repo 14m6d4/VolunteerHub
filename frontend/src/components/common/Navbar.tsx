@@ -20,6 +20,7 @@ import logoImage from "@/assets/logo.png"
 import { useNavigate } from "react-router-dom"
 import { ModeToggle } from "@/components/mode-toggle"
 import { ThemeSelector } from "@/components/theme-selector"
+import { NotificationCard } from "@/components/common/NotificationCard"
 
 type NavigationLink = {
   href: string
@@ -517,31 +518,12 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                       ) : (
                         <div className="p-2">
                           {notifications.map((n: any) => (
-                            <div key={n._id} className="group relative flex items-start gap-1 rounded-md p-3 hover:bg-accent cursor-pointer">
-                              <div
-                                className={cn("flex-1 space-y-1", !n.isRead && "font-semibold")}
-                                onClick={() => {
-                                  onMarkRead?.(n._id);
-                                  // Handle navigation based on type
-                                  if (n.data?.url) {
-                                    navigate(n.data.url);
-                                  } else if (n.type === 'friend_request_received') {
-                                    navigate('/u?tab=requests');
-                                  } else if (['event_report', 'user_report', 'post_report'].includes(n.type)) {
-                                    navigate('/admin/reports');
-                                  }
-                                }}
-                              >
-                                <div className="text-sm font-medium leading-none">{n.title}</div>
-                                {n.body ? (
-                                  <div className="text-xs text-muted-foreground line-clamp-2">{n.body}</div>
-                                ) : null}
-                                {n.createdAt ? (
-                                  <div className="text-[11px] text-muted-foreground">
-                                    {new Date(n.createdAt).toLocaleString()}
-                                  </div>
-                                ) : null}
-                              </div>
+                            <div key={n._id} className="group relative flex items-start gap-1 rounded-md p-3 hover:bg-accent">
+                              <NotificationCard
+                                notification={n}
+                                onMarkRead={onMarkRead}
+                                userRole={user?.role}
+                              />
                               {onDeleteNotification && (
                                 <Button
                                   variant="ghost"
