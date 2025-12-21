@@ -1,4 +1,4 @@
-// frontend/src/components/discussion/event-about.tsx
+
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

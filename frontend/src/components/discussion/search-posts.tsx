@@ -1,4 +1,4 @@
-// frontend/src/components/discussion/search-posts.tsx
+
 
 import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';

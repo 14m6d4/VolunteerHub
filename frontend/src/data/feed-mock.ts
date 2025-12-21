@@ -1,4 +1,4 @@
-// frontend/src/data/feed-mock.ts
+
 
 import type { DiscussionUser, Post, Comment } from '@/types/discussion';
 import type { Event as EventType } from '@/types/event';

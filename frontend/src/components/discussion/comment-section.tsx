@@ -1,4 +1,4 @@
-// frontend/src/components/discussion/comment-section.tsx
+
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';

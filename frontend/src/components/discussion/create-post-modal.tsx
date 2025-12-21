@@ -1,4 +1,4 @@
-// frontend/src/components/discussion/create-post-modal.tsx
+
 
 import { useState, useRef } from 'react';
 import {

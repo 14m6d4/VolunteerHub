@@ -1,4 +1,4 @@
-// frontend/src/components/discussion/event-header.tsx
+
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Users } from 'lucide-react';

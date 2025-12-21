@@ -1,4 +1,4 @@
-// frontend/src/utils/validators.ts
+
 import { z } from 'zod';
 
 export const secureUpdateProfileSchema = z.object({

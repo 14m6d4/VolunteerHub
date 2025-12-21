@@ -1,4 +1,4 @@
-// frontend/src/data/discussion-mock.ts
+
 
 import type { DiscussionUser, Post, Comment, DiscussionEvent } from '@/types/discussion';
 

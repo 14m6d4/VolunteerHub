@@ -1,9 +1,5 @@
-// frontend/src/utils/formatDate.ts
 
-/**
- * Format a date relative to current time (e.g., "5 mins ago", "2 hours ago")
- * If more than 24 hours, show date/time string
- */
+
 export function formatRelativeTime(date: Date | string): string {
   const now = new Date();
 
@@ -11,7 +7,6 @@ export function formatRelativeTime(date: Date | string): string {
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  // console.log(now, date, diffMs, diffMins, diffHours, diffDays);
   if (diffMins < 1) {
     return 'Just now';
   }
@@ -28,7 +23,6 @@ export function formatRelativeTime(date: Date | string): string {
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   }
 
-  // More than a week, show full date
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -38,9 +32,6 @@ export function formatRelativeTime(date: Date | string): string {
   });
 }
 
-/**
- * Format a date for display (e.g., "Dec 20, 2024")
- */
 export function formatDate(date: Date | string): string {
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -49,9 +40,6 @@ export function formatDate(date: Date | string): string {
   });
 }
 
-/**
- * Format a date with time (e.g., "Dec 20, 2024 at 10:30 AM")
- */
 export function formatDateTime(date: Date | string): string {
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -62,18 +50,13 @@ export function formatDateTime(date: Date | string): string {
   });
 }
 
-/**
- * Format time only (e.g., "10:30 AM")
- */
 export function formatTime(date: Date | string): string {
   return new Date(date).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
 }
-/**
- * Format an event date with minutes rounded to the nearest 5 (e.g., "Dec 20, 2024, 10:30 AM")
- */
+
 export function formatEventDate(date: Date | string): string {
   const d = new Date(date);
   const minutes = d.getMinutes();
