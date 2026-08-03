@@ -3,8 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getPublicProfile, getFriends, sendFriendRequest, getRelations, removeFriend, getUserStats, getUserEventsList, getUserFriendsList } from '@/services/user.service';
-import { getMyRegistrations, getEvents } from '@/services/event.service';
+import { getPublicProfile, sendFriendRequest, getRelations, removeFriend, getUserStats, getUserEventsList, getUserFriendsList } from '@/services/user.service';
 import { reportUser } from '@/services/report.service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -63,6 +62,14 @@ interface UserStats {
   friends: number;
 }
 
+interface Friend {
+  _id?: string;
+  id?: string;
+  name?: string;
+  username: string;
+  profilePicture?: string;
+}
+
 type FriendRelation = 'none' | 'friends' | 'pending_sent' | 'pending_received' | 'self';
 type EventFilter = 'all' | 'active' | 'completed';
 const ITEMS_PER_PAGE = 6;
@@ -83,7 +90,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
-  const [friends, setFriends] = useState<any[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
   const [stats, setStats] = useState<UserStats>({ eventsJoined: 0, eventsOrganized: 0, friends: 0 });
   const [relation, setRelation] = useState<FriendRelation>('none');
   const [actionLoading, setActionLoading] = useState(false);
@@ -199,9 +206,9 @@ export default function ProfilePage() {
               });
             }
           }
-        } catch (statsErr: any) {
+        } catch (statsErr) {
           // Handle 403 - admin profile
-          if (statsErr.response?.status === 403 || statsErr.status === 403) {
+          if ((statsErr as { status?: number })?.status === 403) {
             setForbidden(true);
             setLoading(false);
             return;
@@ -219,15 +226,29 @@ export default function ProfilePage() {
             const eventsData = eventsRes.data || eventsRes || [];
             const friendsData = friendsRes.data || friendsRes || [];
 
-            const userEvents: Event[] = eventsData.map((e: any) => ({
-              id: e._id || e.id,
+            interface RawUserEvent {
+              _id?: string;
+              id?: string;
+              title: string;
+              image: string;
+              startAt?: string;
+              endAt?: string;
+              location: string;
+              currentMembers?: number;
+              tags?: string[];
+              description: string;
+              status?: string;
+            }
+            const userEvents: Event[] = eventsData.map((e: RawUserEvent) => ({
+              id: (e._id || e.id)!,
               title: e.title,
               image: e.image,
-              date: formatEventDate(e.startAt),
+              date: formatEventDate(e.startAt || ''),
+              startAt: e.startAt || '',
               location: e.location,
               membersCount: e.currentMembers || 0,
               isJoined: isOwnProfile,
-              isPast: e.endAt && new Date(e.endAt) < new Date(),
+              isPast: !!(e.endAt && new Date(e.endAt) < new Date()),
               status: e.endAt && new Date(e.endAt) < new Date() ? 'past' : 'joined',
               tags: e.tags || [],
               description: e.description,
@@ -263,9 +284,9 @@ export default function ProfilePage() {
             }
           }
         }
-      } catch (err: any) {
+      } catch (err) {
         // Handle 403 for admin profiles
-        if (err.response?.status === 403 || err.status === 403) {
+        if ((err as { status?: number })?.status === 403) {
           setForbidden(true);
         } else {
           console.error('Failed to load profile:', err);
@@ -282,7 +303,7 @@ export default function ProfilePage() {
   // Handle friend request
   const handleSendFriendRequest = async () => {
     if (!profile) return;
-    const userId = (profile as any)._id || (profile as any).id;
+    const userId = profile._id || profile.id;
     if (!userId) return;
 
     setActionLoading(true);
@@ -290,8 +311,8 @@ export default function ProfilePage() {
       await sendFriendRequest(userId);
       setRelation('pending_sent');
       toast.success('Friend request sent!');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to send friend request');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send friend request');
     } finally {
       setActionLoading(false);
     }
@@ -300,7 +321,7 @@ export default function ProfilePage() {
   // Handle unfriend
   const handleUnfriend = async () => {
     if (!profile) return;
-    const userId = (profile as any)._id || (profile as any).id;
+    const userId = profile._id || profile.id;
     if (!userId) return;
 
     setActionLoading(true);
@@ -308,8 +329,8 @@ export default function ProfilePage() {
       await removeFriend(userId);
       setRelation('none');
       toast.success('Friend removed');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to remove friend');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove friend');
     } finally {
       setActionLoading(false);
     }
@@ -318,7 +339,7 @@ export default function ProfilePage() {
   // Handle report user
   const handleReportSubmit = async () => {
     if (!reportReason.trim() || !profile) return;
-    const userId = (profile as any)._id || (profile as any).id;
+    const userId = profile._id || profile.id;
     if (!userId) return;
 
     setReportSubmitting(true);
@@ -337,8 +358,8 @@ export default function ProfilePage() {
         setReportSubmitted(false);
         setReportDialogOpen(false);
       }, 1500);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to submit report');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit report');
     } finally {
       setReportSubmitting(false);
     }
@@ -723,7 +744,7 @@ export default function ProfilePage() {
             {paginatedFriends.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {paginatedFriends.map((friend: any) => (
+                  {paginatedFriends.map((friend) => (
                     <Card
                       key={friend._id || friend.id}
                       className="cursor-pointer hover:shadow-md transition-shadow"

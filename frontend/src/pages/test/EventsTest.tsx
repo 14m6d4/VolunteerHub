@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import useAuth from "@/hooks/useAuth";
-import EventCard from "./EventCard.tsx";
+import EventCard, { type EventCardEvent } from "./EventCard.tsx";
 import EventForm from "./EventForm.tsx";
 import EventDetails from "./EventDetails.tsx";
 
 const API_URL = "http://localhost:5000/api/events/all";
 
 const EventsTest: React.FC = () => {
-    const [events, setEvents] = useState<any[]>([]);
-    const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+    const [events, setEvents] = useState<EventCardEvent[]>([]);
+    const [selectedEvent, setSelectedEvent] = useState<EventCardEvent | null>(null);
     const { user } = useAuth();
 
     const fetchEvents = async () => {
@@ -22,7 +22,7 @@ const EventsTest: React.FC = () => {
         }
     };
 
-    const createEvent = async (data: any) => {
+    const createEvent = async (data: { title: string; description: string; startAt: string }) => {
         try {
             const res = await axios.post("http://localhost:5000/api/events", {
                 ...data,
@@ -48,6 +48,7 @@ const EventsTest: React.FC = () => {
                 console.error("Failed to set axios header", e);
             }
         }
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount
         fetchEvents();
     }, []);
 

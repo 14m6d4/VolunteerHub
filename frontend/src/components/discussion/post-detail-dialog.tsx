@@ -69,6 +69,7 @@ export function PostDetailDialog({
 
   useEffect(() => {
     if (open && initialPost.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-open loading flag
       setLoading(true);
       Promise.all([
         getPostById(initialPost.id),
@@ -82,7 +83,7 @@ export function PostDetailDialog({
           imageUrl: postData.image,
           timestamp: new Date(postData.createdAt),
           likes: postData.likes.length,
-          likedByMe: postData.likes.some((l: any) => (l._id || l) === currentUser.id),
+          likedByMe: postData.likes.some((l: string | { _id: string }) => (typeof l === 'string' ? l : l._id) === currentUser.id),
           comments: [],
           author: {
             id: postData.authorId._id,
@@ -94,19 +95,31 @@ export function PostDetailDialog({
         };
         setFetchedPost(mappedPost);
 
-        const mappedComments: CommentWithUser[] = Array.isArray(commentsData) ? commentsData.map((c: any) => ({
-          id: c._id,
-          userId: c.authorId._id || c.authorId, // Fallback
-          content: c.content,
-          timestamp: new Date(c.createdAt),
-          author: {
-            id: c.authorId._id,
-            name: c.authorId.name,
-            username: c.authorId.username,
-            avatarUrl: c.authorId.profilePicture || c.authorId.image,
-            role: c.authorId.role || 'volunteer'
-          }
-        })) : [];
+        interface RawCommentAuthor { _id: string; name: string; username?: string; profilePicture?: string; image?: string; role?: 'volunteer' | 'manager' | 'admin' }
+        interface RawComment {
+          _id: string;
+          content: string;
+          createdAt: string;
+          authorId: string | RawCommentAuthor;
+        }
+        const mappedComments: CommentWithUser[] = Array.isArray(commentsData) ? commentsData.map((c: RawComment) => {
+          const author: RawCommentAuthor = typeof c.authorId === 'string'
+            ? { _id: c.authorId, name: '' }
+            : c.authorId;
+          return {
+            id: c._id,
+            userId: author._id,
+            content: c.content,
+            timestamp: new Date(c.createdAt),
+            author: {
+              id: author._id,
+              name: author.name,
+              username: author.username,
+              avatarUrl: author.profilePicture || author.image,
+              role: author.role || 'volunteer'
+            }
+          };
+        }) : [];
         setFetchedComments(mappedComments);
       }).catch(err => {
         console.error("Failed to fetch post details", err);
@@ -158,7 +171,7 @@ export function PostDetailDialog({
                 className="text-base font-semibold cursor-pointer hover:underline"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/u/${(displayPost.author as any).username || displayPost.author.id}`);
+                  navigate(`/u/${displayPost.author.username || displayPost.author.id}`);
                 }}
               >
                 {displayPost.author.name}
@@ -238,7 +251,7 @@ export function PostDetailDialog({
                             className="text-sm font-semibold cursor-pointer hover:underline"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/u/${(comment.author as any).username || comment.author.id}`);
+                              navigate(`/u/${comment.author.username || comment.author.id}`);
                             }}
                           >
                             {comment.author.name}

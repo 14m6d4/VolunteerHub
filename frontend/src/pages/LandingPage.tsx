@@ -236,6 +236,7 @@ function useAnimatedCounter(
 
   useEffect(() => {
     if (!startOnView) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- immediate-start counter has no external trigger to sync from
       setHasStarted(true);
     }
   }, [startOnView]);
@@ -404,31 +405,31 @@ function HeroSection() {
   );
 }
 
+function StatCard({ stat }: { stat: (typeof impactStats)[number] }) {
+  const { count, ref } = useAnimatedCounter(stat.value, 2500);
+  const Icon = stat.icon;
+  return (
+    <div ref={ref} className="text-center group">
+      <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4 group-hover:scale-110 transition-transform">
+        <Icon className="w-7 h-7 text-primary" />
+      </div>
+      <p className="text-3xl md:text-4xl font-bold text-foreground">
+        {count.toLocaleString()}
+        {stat.suffix}
+      </p>
+      <p className="text-muted-foreground mt-1">{stat.label}</p>
+    </div>
+  );
+}
+
 function StatsSection() {
   return (
     <section className="py-16 bg-muted/30">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          {impactStats.map((stat) => {
-            const { count, ref } = useAnimatedCounter(stat.value, 2500);
-            const Icon = stat.icon;
-            return (
-              <div
-                key={stat.id}
-                ref={ref}
-                className="text-center group"
-              >
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4 group-hover:scale-110 transition-transform">
-                  <Icon className="w-7 h-7 text-primary" />
-                </div>
-                <p className="text-3xl md:text-4xl font-bold text-foreground">
-                  {count.toLocaleString()}
-                  {stat.suffix}
-                </p>
-                <p className="text-muted-foreground mt-1">{stat.label}</p>
-              </div>
-            );
-          })}
+          {impactStats.map((stat) => (
+            <StatCard key={stat.id} stat={stat} />
+          ))}
         </div>
       </div>
     </section>

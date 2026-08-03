@@ -1,4 +1,4 @@
-import { type ObjectId } from 'mongoose';
+import { Types } from 'mongoose';
 
 /**
  * @enum UserRole
@@ -13,7 +13,7 @@ export enum UserRole {
  * @interface IUser
  */
 export interface IUser {
-  _id: ObjectId;
+  _id: Types.ObjectId;
   // Auth & Profile
   username: string;
   // Optional full/display name

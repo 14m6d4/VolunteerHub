@@ -364,6 +364,7 @@ export const toEventType = (feedEvent: FeedEvent): EventType => ({
   title: feedEvent.title,
   image: feedEvent.image,
   date: feedEvent.date,
+  startAt: feedEvent.date,
   location: feedEvent.location,
   membersCount: feedEvent.membersCount,
   description: feedEvent.description,

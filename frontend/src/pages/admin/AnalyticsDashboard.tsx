@@ -144,9 +144,9 @@ export default function AnalyticsDashboard() {
         const response = await getAnalytics();
         setData(response.data);
         setError(null);
-      } catch (err: any) {
+      } catch (err) {
         console.error('Failed to fetch analytics:', err);
-        setError(err.message || 'Failed to load analytics data');
+        setError(err instanceof Error ? err.message : 'Failed to load analytics data');
       } finally {
         setLoading(false);
       }

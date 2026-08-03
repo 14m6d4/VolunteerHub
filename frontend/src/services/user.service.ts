@@ -1,4 +1,5 @@
 import apiFetch from "./api";
+import type { UpdateProfilePayload } from "@/types/user";
 
 // Helper to keep Feed.tsx working (and used in SearchUsers/Friends)
 export async function searchUsers(query: string) {
@@ -11,7 +12,7 @@ export async function getFriendSuggestions() {
   return apiFetch("/users/friends/suggestions");
 }
 
-export async function updateProfile(data: any) {
+export async function updateProfile(data: UpdateProfilePayload) {
   return apiFetch("/users/profile/secure", {
     method: "PATCH",
     body: JSON.stringify(data),

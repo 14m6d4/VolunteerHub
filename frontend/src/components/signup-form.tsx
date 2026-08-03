@@ -55,9 +55,9 @@ export function SignupForm({
 
     try {
       await onRegister?.(payload)
-    } catch (err: any) {
+    } catch (err) {
       try {
-        const parsed = typeof err === 'string' ? err : (err?.message || JSON.stringify(err))
+        const parsed = typeof err === 'string' ? err : ((err instanceof Error ? err.message : '') || JSON.stringify(err))
         setLocalError(parsed)
       } catch {
         setLocalError('Registration failed')

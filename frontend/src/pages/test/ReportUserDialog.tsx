@@ -42,9 +42,9 @@ export function ReportUserDialog({ targetId, targetName }: ReportUserDialogProps
             setOpen(false);
             setReason("");
             setDescription("");
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
-            alert(error.message || "Failed to submit report");
+            alert(error instanceof Error ? error.message : "Failed to submit report");
         } finally {
             setLoading(false);
         }

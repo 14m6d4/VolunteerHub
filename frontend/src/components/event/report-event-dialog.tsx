@@ -75,8 +75,8 @@ export function ReportEventDialog({
         setSubmitted(false);
         onOpenChange(false);
       }, 1500);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to submit report');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to submit report');
     } finally {
       setIsSubmitting(false);
     }

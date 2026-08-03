@@ -25,7 +25,7 @@ interface CreateEditEventModalProps {
   event: Event | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (eventData: Partial<Event>) => void;
+  onSave: (eventData: Partial<Event> & { imageFile?: File | null }) => void;
   availableTags: string[];
 }
 
@@ -49,6 +49,7 @@ export const CreateEditEventModal = ({
   useEffect(() => {
     if (event) {
       // Edit mode - populate form
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing form state to the `event` prop on open
       setFormData({
         title: event.title,
         image: event.image,
@@ -85,7 +86,7 @@ export const CreateEditEventModal = ({
     if (!eventDate) {
       return;
     }
-    onSave({ ...formData, startAt: eventDate.toISOString(), imageFile } as any);
+    onSave({ ...formData, startAt: eventDate.toISOString(), imageFile });
     onOpenChange(false);
   };
 

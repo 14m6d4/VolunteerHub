@@ -10,10 +10,19 @@ import { getPublicProfile } from '@/services/user.service';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ReportUserDialog } from '@/pages/test/ReportUserDialog';
 import { useState } from 'react';
 import type { User } from '@/types/user';
+
+interface ProfileViewUser {
+  id?: string;
+  _id?: string;
+  name?: string;
+  username: string;
+  role?: string;
+  birthdate?: string;
+  createdAt?: string;
+}
 
 export default function UserProfilePage() {
   const { username } = useParams<{ username: string }>();
@@ -71,7 +80,7 @@ export default function UserProfilePage() {
         <CardContent>
           {isOwnProfile ? (
             // Chỉ hiện form khi là chính mình
-            currentUser && <UpdateProfileForm user={currentUser as User} />
+            currentUser && <UpdateProfileForm user={currentUser as unknown as User} />
           ) : (
             <PublicProfileView user={profileUser} />
           )}
@@ -82,7 +91,7 @@ export default function UserProfilePage() {
 }
 
 // Component con để hiển thị public info
-function PublicProfileView({ user }: { user: any }) {
+function PublicProfileView({ user }: { user: ProfileViewUser }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
@@ -102,7 +111,7 @@ function PublicProfileView({ user }: { user: any }) {
         </div>
         <div>
           <span className="font-medium text-muted-foreground">Participated since</span>
-          <p className="mt-1">{format(new Date(user.createdAt), 'MMMM yyyy')}</p>
+          <p className="mt-1">{user.createdAt ? format(new Date(user.createdAt), 'MMMM yyyy') : 'Chưa cập nhật'}</p>
         </div>
       </div>
 
@@ -115,7 +124,7 @@ function PublicProfileView({ user }: { user: any }) {
   );
 }
 
-function ActionButtons({ user }: { user: any }) {
+function ActionButtons({ user }: { user: ProfileViewUser }) {
   const { user: currentUser } = useAuth();
   const [sending, setSending] = useState(false);
 
@@ -123,10 +132,10 @@ function ActionButtons({ user }: { user: any }) {
     if (!currentUser) return alert('You need to sign in to send a friend request');
     setSending(true);
     try {
-      await (await import('@/services/user.service')).sendFriendRequest(user.id);
+      await (await import('@/services/user.service')).sendFriendRequest((user.id || user._id)!);
       alert('Friend request sent');
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Unable to send friend request');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Unable to send friend request');
     } finally {
       setSending(false);
     }
@@ -137,7 +146,7 @@ function ActionButtons({ user }: { user: any }) {
       {currentUser && currentUser.id !== user.id && (
         <>
           <Button onClick={handleSend} disabled={sending}>{sending ? 'Sending...' : 'Add friend'}</Button>
-          <ReportUserDialog targetId={user.id} targetName={user.name || user.username} />
+          <ReportUserDialog targetId={(user.id || user._id)!} targetName={user.name || user.username} />
         </>
       )}
     </div>

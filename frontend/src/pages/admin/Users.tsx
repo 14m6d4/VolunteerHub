@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Ban, CheckCircle } from "lucide-react";
+import { Search, Ban } from "lucide-react";
 import { toast } from "sonner";
 
 interface User {
     _id: string;
+    id?: string;
     username: string;
     name?: string;
     profilePicture?: string;
@@ -61,32 +62,32 @@ export default function AdminUsersPage() {
     const handleBan = async (user: User) => {
         if (!confirm(`Are you sure you want to ban ${user.username}?`)) return;
         try {
-            await apiFetch(`/users/admin/ban/${user._id || (user as any).id}`, {
+            await apiFetch(`/users/admin/ban/${user._id || user.id}`, {
                 method: 'POST',
                 body: JSON.stringify({ reason: 'Admin manual ban' })
             });
             toast.success(`User ${user.username} banned`);
             // Refresh lists
             fetchBannedUsers();
-            if (searchResults.find(u => u._id === user._id || (u as any).id === (user as any).id)) {
+            if (searchResults.find(u => u._id === user._id || u.id === user.id)) {
                 handleSearch();
             }
-        } catch (error: any) {
-            toast.error(error.message || "Ban failed");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Ban failed");
         }
     };
 
     const handleUnban = async (user: User) => {
         if (!confirm(`Unban ${user.username}?`)) return;
         try {
-            await apiFetch(`/users/admin/unban/${user._id || (user as any).id}`, { method: 'POST' });
+            await apiFetch(`/users/admin/unban/${user._id || user.id}`, { method: 'POST' });
             toast.success(`User ${user.username} unbanned`);
             fetchBannedUsers();
-            if (searchResults.find(u => u._id === user._id || (u as any).id === (user as any).id)) {
+            if (searchResults.find(u => u._id === user._id || u.id === user.id)) {
                 handleSearch();
             }
-        } catch (error: any) {
-            toast.error(error.message || "Unban failed");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Unban failed");
         }
     };
 
@@ -124,7 +125,7 @@ export default function AdminUsersPage() {
                                 )}
                                 {searchResults.map(user => (
                                     <UserRow
-                                        key={user._id || (user as any).id}
+                                        key={user._id || user.id}
                                         user={user}
                                         onBan={() => handleBan(user)}
                                         onUnban={() => handleUnban(user)}
@@ -152,7 +153,7 @@ export default function AdminUsersPage() {
                                 )}
                                 {bannedUsers.map(user => (
                                     <UserRow
-                                        key={user._id || (user as any).id}
+                                        key={user._id || user.id}
                                         user={user}
                                         onBan={() => handleBan(user)}
                                         onUnban={() => handleUnban(user)}
@@ -168,7 +169,6 @@ export default function AdminUsersPage() {
 }
 
 function UserRow({ user, onBan, onUnban }: { user: User, onBan: () => void, onUnban: () => void }) {
-    const userId = user._id || (user as any).id;
     return (
         <div className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-accent/5 transition-colors">
             <div className="flex items-center gap-3">

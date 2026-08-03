@@ -1,8 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { loadGoogleFonts } from "@/utils/font-loader"
-
-type Theme = "dark" | "light" | "system"
-type CustomTheme = "default" | "vintage-paper" | "neo-brutalism" | "doom-64" | "nature" | "everforest" | "bubblegum" | "perpetuity" | "notebook"
+import { ThemeProviderContext, type Theme, type CustomTheme } from "@/context/theme-context"
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -10,20 +8,6 @@ type ThemeProviderProps = {
   defaultCustomTheme?: CustomTheme
   storageKey?: string
   customThemeStorageKey?: string
-}
-
-type ThemeProviderState = {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-  customTheme: CustomTheme
-  setCustomTheme: (theme: CustomTheme) => void
-}
-
-const initialState: ThemeProviderState = {
-  theme: "system",
-  setTheme: () => null,
-  customTheme: "default",
-  setCustomTheme: () => null,
 }
 
 const THEME_STYLE_ID = "dynamic-theme-style"
@@ -62,8 +46,6 @@ async function loadThemeStylesheet(theme: CustomTheme) {
   }
 }
 
-export const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
-
 export function ThemeProvider({
   children,
   defaultTheme = "system",
@@ -80,8 +62,6 @@ export function ThemeProvider({
     () => (localStorage.getItem(customThemeStorageKey) as CustomTheme) || defaultCustomTheme
   )
   
-  const [isThemeLoaded, setIsThemeLoaded] = useState(false)
-
   useEffect(() => {
     const root = window.document.documentElement
 
@@ -103,10 +83,8 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement
     
-    loadThemeStylesheet(customTheme).then(() => {
-      setIsThemeLoaded(true)
-    })
-    
+    loadThemeStylesheet(customTheme)
+
     if (customTheme === "default") {
       root.removeAttribute("data-theme")
     } else {
@@ -139,13 +117,4 @@ export function ThemeProvider({
       {children}
     </ThemeProviderContext.Provider>
   )
-}
-
-export const useTheme = () => {
-  const context = useContext(ThemeProviderContext)
-
-  if (context === undefined)
-    throw new Error("useTheme must be used within a ThemeProvider")
-
-  return context
 }

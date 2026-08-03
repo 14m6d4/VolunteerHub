@@ -22,7 +22,7 @@ import { EventCard } from '@/components/event/event-card';
 import { EventDetailModal } from '@/components/event/event-detail';
 import type { Event, EventFilters } from '@/types/event';
 import { getEvents, getMyRegistrations, unregisterEvent, registerEvent } from '@/services/event.service';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { formatEventDate } from '@/utils/formatDate';
 
 export const EventsList = () => {
@@ -50,13 +50,31 @@ export const EventsList = () => {
       const backendEvents = eventsResponse.items || [];
       const registrations = registrationsResponse?.data || registrationsResponse?.items || [];
 
-      const registrationMap = new Map(registrations.map((r: any) => {
+      interface RawRegistration {
+        eventId: string | { _id?: string; id?: string };
+        status: string;
+      }
+      const registrationMap = new Map(registrations.map((r: RawRegistration) => {
         const eventId = typeof r.eventId === 'string' ? r.eventId : r.eventId?._id || r.eventId?.id;
         return [eventId, r.status];
       }));
 
-      const mappedEvents: Event[] = backendEvents.map((be: any) => {
-        const eventId = be._id || be.id;
+      interface RawEvent {
+        _id?: string;
+        id?: string;
+        title: string;
+        image?: string;
+        startAt?: string;
+        date?: string;
+        location?: string;
+        currentMembers?: number;
+        membersCount?: number;
+        status?: string;
+        tags?: string[];
+        description?: string;
+      }
+      const mappedEvents: Event[] = backendEvents.map((be: RawEvent) => {
+        const eventId = (be._id || be.id)!;
         const registrationStatus = registrationMap.get(eventId);
 
         const isApproved = registrationStatus === 'approved';
@@ -64,7 +82,7 @@ export const EventsList = () => {
         const isCompleted = registrationStatus === 'completed';
         const isJoined = isApproved || isPending || isCompleted;
 
-        const eventDate = new Date(be.startAt || be.date);
+        const eventDate = new Date(be.startAt || be.date || 0);
         const isPast = eventDate < new Date() || be.status === 'finished' || isCompleted;
 
         let status: Event['status'] = 'available';
@@ -76,7 +94,7 @@ export const EventsList = () => {
           id: eventId,
           title: be.title,
           image: be.image || 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=400&fit=crop', // Fallback image
-          date: formatEventDate(be.startAt || be.date),
+          date: formatEventDate(be.startAt || be.date || ''),
           location: be.location || 'TBD',
           membersCount: be.currentMembers || be.membersCount || 0,
           isJoined,
@@ -112,7 +130,7 @@ export const EventsList = () => {
 
   // Filter and sort events
   const processedEvents = useMemo(() => {
-    let filtered = events.filter(event => {
+    const filtered = events.filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(filters.searchQuery.toLowerCase());
       const matchesTags = filters.selectedTags.length === 0 ||
         filters.selectedTags.some(tag => event.tags.includes(tag));

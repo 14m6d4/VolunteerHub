@@ -1,8 +1,14 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 
+interface AdminEvent {
+    _id: string;
+    title: string;
+    status: string;
+}
+
 export default function AdminPage() {
-    const [events, setEvents] = useState([]);
+    const [events, setEvents] = useState<AdminEvent[]>([]);
 
     const fetchEvents = async () => {
         const res = await axios.get("http://localhost:5000/api/events/all");
@@ -15,6 +21,7 @@ export default function AdminPage() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount
         fetchEvents();
     }, []);
 
@@ -22,7 +29,7 @@ export default function AdminPage() {
         <div style={{ padding: 20 }}>
             <h2>Admin – Tất cả sự kiện</h2>
 
-            {events.map((e: any) => (
+            {events.map((e: AdminEvent) => (
                 <div key={e._id} style={{ border: "1px solid #ccc", marginTop: 10, padding: 12 }}>
                     <b>{e.title}</b>
                     <div>Trạng thái: {e.status}</div>

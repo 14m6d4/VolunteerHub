@@ -37,7 +37,7 @@ export const DiscussionService = {
 
         return posts.map(post => ({
             ...post,
-            attachments: post.attachments?.map(att => ({
+            attachments: (post as any).attachments?.map((att: any) => ({
                 ...att,
                 url: `${process.env.SERVER_URL}/file/${att.fileId}`
             })) || []

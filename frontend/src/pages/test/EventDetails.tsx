@@ -1,7 +1,8 @@
 import React from "react";
+import type { EventCardEvent } from "./EventCard.tsx";
 
 interface EventDetailsProps {
-    event: any;
+    event: EventCardEvent;
     onBack: () => void;
 }
 
@@ -17,7 +18,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ event, onBack }) => {
             <h2 className="font-bold text-xl">{event.title}</h2>
             <p>{event.description}</p>
             <p>Status: {event.status}</p>
-            <p>Start: {new Date(event.startAt).toLocaleString()}</p>
+            <p>Start: {event.startAt ? new Date(event.startAt).toLocaleString() : "N/A"}</p>
             <p>End: {event.endAt ? new Date(event.endAt).toLocaleString() : "N/A"}</p>
             <p>Tags: {event.tags?.join(", ") || "None"}</p>
             <p>Current Members: {event.currentMembers}</p>

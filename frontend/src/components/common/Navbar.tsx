@@ -12,9 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -22,7 +19,7 @@ import logoImage from "@/assets/logo.png"
 import { useNavigate } from "react-router-dom"
 import { ModeToggle } from "@/components/mode-toggle"
 import { ThemeSelector } from "@/components/theme-selector"
-import { NotificationCard } from "@/components/common/NotificationCard"
+import { NotificationCard, type NotificationItem } from "@/components/common/NotificationCard"
 
 type NavigationLink = {
   href: string
@@ -55,7 +52,7 @@ type Navbar01Props = {
   onNotificationClick?: () => void
   hasNotifications?: boolean
   notificationDropdownOpen?: boolean
-  notifications?: any[]
+  notifications?: NotificationItem[]
   onMarkAllRead?: () => void
   onMarkRead?: (id: string) => void
   onDeleteNotification?: (id: string) => void
@@ -175,48 +172,6 @@ const LogOutIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-const FileTextIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    className={className}
-    width={16}
-    height={16}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="16" x2="8" y1="13" y2="13" />
-    <line x1="16" x2="8" y1="17" y2="17" />
-    <polyline points="10 9 9 9 8 9" />
-  </svg>
-)
-
-const ImageIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    className={className}
-    width={16}
-    height={16}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-    <circle cx="9" cy="9" r="2" />
-    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-  </svg>
-)
-
 // MessageSquare icon component for Feedback
 const MessageSquareIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -293,9 +248,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
       logoHref = "/feed",
       navigationLinks = defaultNavigationLinks,
       signInText = "Log In",
-      signInHref = "/login",
       ctaText = "Get Started",
-      ctaHref = "/register",
       onSignInClick,
       onCtaClick,
       user = null,
@@ -522,7 +475,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                         </div>
                       ) : (
                         <div className="p-2">
-                          {notifications.map((n: any) => (
+                          {notifications.map((n: NotificationItem) => (
                             <div key={n._id} className="group relative flex items-start gap-1 rounded-md p-3 hover:bg-accent">
                               <NotificationCard
                                 notification={n}
