@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 interface EventFormProps {
-    onCreate: (data: any) => void;
+    onCreate: (data: { title: string; description: string; startAt: string }) => void;
 }
 
 const EventForm: React.FC<EventFormProps> = ({ onCreate }) => {

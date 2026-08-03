@@ -489,7 +489,6 @@ const seed = async () => {
                         "Is there parking available?", "Count me in!", "Thanks for organizing this."
                     ]),
                     likes: [],
-                    likes: [],
                     // Comment > Post (at least 1 min later) & strictly past
                     createdAt: getRandomDate(new Date(post.createdAt.getTime() + 60000), new Date(Date.now() - 60000)),
                     updatedAt: new Date(Date.now() - 60000)

@@ -6,7 +6,7 @@ export const FileController = {
     async getFile(req: Request, res: Response, next: NextFunction) {
         try {
             const gfs = getGFS();
-            const fileId = req.params.id;
+            const fileId = req.params.id as string;
 
             if (!mongoose.Types.ObjectId.isValid(fileId)) {
                 return res.status(400).json({ status: "fail", message: "Invalid file ID" });

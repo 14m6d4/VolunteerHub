@@ -35,8 +35,11 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^2.2.0",
     "@types/node": "^24.10.1",
     "@types/nodemailer": "^7.0.4",
     "@types/web-push": "^3.6.4",

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Image, X } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CreatePostModalProps {
   open: boolean;
@@ -98,7 +98,7 @@ export function CreatePostModal({ open, onOpenChange, onPost }: CreatePostModalP
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
               <AvatarImage src={user.profilePicture} alt={user.name} />
-              <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+              <AvatarFallback>{getInitials(user.name || '')}</AvatarFallback>
             </Avatar>
             <div>
               <p className="font-semibold text-sm">{user.name}</p>

@@ -1,4 +1,4 @@
-import { DiscussionUser, CommentWithUser } from './discussion';
+import type { DiscussionUser, CommentWithUser } from './discussion';
 
 export interface FeedPostWithUser {
     id: string;

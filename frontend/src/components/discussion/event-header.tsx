@@ -63,7 +63,7 @@ export function EventHeader({ event }: EventHeaderProps) {
                     className="ring-2 ring-background h-9 w-9"
                     style={{ zIndex: displayMembers.length - index }}
                   >
-                    <AvatarImage src={member.avatar || (member as any).avatarUrl} alt={member.name} />
+                    <AvatarImage src={member.avatarUrl} alt={member.name} />
                     <AvatarFallback className="text-xs">
                       {getInitials(member.name)}
                     </AvatarFallback>

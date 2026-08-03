@@ -1,17 +1,7 @@
-import { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { PropsWithChildren } from 'react';
 import * as authService from '@/services/auth.service';
-
-type User = any;
-
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  login: (payload: { email?: string; username?: string; password: string }) => Promise<any>;
-  logout: () => void;
-}
-
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext, type User } from '@/hooks/useAuth';
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null);
@@ -38,9 +28,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
           setUser(res.user || null);
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error('[AuthProvider] Failed to fetch profile on mount:', err);
-        if (!err?.isNetworkError && mounted) setUser(null);
+        if (!(err as { isNetworkError?: boolean })?.isNetworkError && mounted) setUser(null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -68,9 +58,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
         setUser(res.user || null);
-      } catch (err: any) {
+      } catch (err) {
         console.error('[AuthProvider] Failed to fetch profile after token change:', err);
-        if (!err?.isNetworkError) setUser(null);
+        if (!(err as { isNetworkError?: boolean })?.isNetworkError) setUser(null);
       } finally {
         setLoading(false);
       }
@@ -98,8 +88,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return data;
       }
       setUser(profile.user || null);
-    } catch (err: any) {
-      if (!err?.isNetworkError) setUser(null);
+    } catch (err) {
+      if (!(err as { isNetworkError?: boolean })?.isNetworkError) setUser(null);
     }
 
     return data;
@@ -115,12 +105,4 @@ export function AuthProvider({ children }: PropsWithChildren) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }

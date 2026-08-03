@@ -7,11 +7,8 @@ import BannedPage from "@/pages/auth/Banned"
 import SignupPage from "./pages/auth/Register"
 import PasswordResetPage from "./pages/auth/PasswordReset"
 // import UserProfilePage from "@/pages/test/[username]"
-import EventsTest from "./pages/test/TestRouter";
 import FriendsPage from '@/pages/Friends';
 import SearchUsersPage from '@/pages/SearchUsers';
-import AdminReportsPage from "@/pages/admin/Reports";
-import AdminUsersPage from "@/pages/admin/Users";
 // New Admin Dashboard imports
 import AdminLayout from "@/pages/admin/AdminLayout";
 import UsersManagement from "@/pages/admin/UsersManagement";
@@ -31,7 +28,8 @@ import Error401 from "./components/errors/401"
 import Footer from "@/components/common/Footer"
 import NavBar from "@/features/navigation-menu"
 import QueryProvider from "./providers/QueryProvider"
-import { AuthProvider, useAuth } from "@/context/AuthContext"
+import { AuthProvider } from "@/context/AuthContext"
+import { useAuth } from "@/hooks/useAuth"
 import SettingsPage from "./pages/Settings";
 import ProfilePage from "./pages/Profile";
 import AboutPage from "./pages/About";

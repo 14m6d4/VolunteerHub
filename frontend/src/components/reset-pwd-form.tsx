@@ -50,8 +50,8 @@ export function ResetPwdForm({
         throw new Error(body?.message || "Failed to reset password")
       }
       setIsSuccess(true)
-    } catch (err: any) {
-      alert(err.message || "Unable to reset password")
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Unable to reset password")
     }
   }
 

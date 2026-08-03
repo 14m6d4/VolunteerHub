@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, MapPin, Users, TrendingUp, Sparkles } from 'lucide-react';
 import { EventDetailModal } from '@/components/event/event-detail';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import type { TrendingEvent } from '@/types/feed';
 import { toEventType } from '@/data/feed-mock';
 import { registerEvent } from '@/services/event.service';
@@ -31,8 +31,8 @@ export function TrendingEventCard({ event }: TrendingEventCardProps) {
       await registerEvent(event.id);
       toast.success('Successfully registered for event!');
       setShowDetail(false);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to register for event');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to register for event');
     }
   };
 
@@ -116,7 +116,7 @@ export function TrendingEventCard({ event }: TrendingEventCardProps) {
 
       {/* Event Detail Modal */}
       <EventDetailModal
-        event={toEventType(event as any)}
+        event={toEventType({ ...event, isJoined: event.isJoined ?? false })}
         open={showDetail}
         onOpenChange={setShowDetail}
         onApply={handleApply}

@@ -25,20 +25,20 @@ function parseApiError(raw: string) {
       if (typeof maybe === 'string') title = stripHtml(maybe)
       else if (maybe.message) title = stripHtml(String(maybe.message))
       if (maybe.errors && Array.isArray(maybe.errors)) {
-        maybe.errors.forEach((e: any) => details.push(stripHtml(String(e))))
+        maybe.errors.forEach((e: unknown) => details.push(stripHtml(String(e))))
       }
       if (maybe.errors && typeof maybe.errors === 'object' && maybe.errors.length) {
-        maybe.errors.forEach((it: any) => details.push(stripHtml(String(it))))
+        maybe.errors.forEach((it: unknown) => details.push(stripHtml(String(it))))
       }
     }
-  } catch (_e) {
+  } catch {
     const cleaned = stripHtml(raw)
     if (cleaned.includes('\n')) {
       const parts = cleaned.split('\n').map(s => s.trim()).filter(Boolean)
       title = parts.shift() || title
       parts.forEach(p => details.push(p))
     } else if (cleaned.includes(':')) {
-      const parts = cleaned.split(/[,;]\s*|\:\s*/)
+      const parts = cleaned.split(/[,;]\s*|:\s*/)
       title = parts.shift() || title
       parts.forEach(p => details.push(p))
     } else {
@@ -71,8 +71,8 @@ export function LoginForm({
     try {
       await login({ email, password })
       window.location.href = '/feed'
-    } catch (err: any) {
-      const raw = err?.message || String(err) || 'Login failed'
+    } catch (err) {
+      const raw = (err instanceof Error ? err.message : '') || String(err) || 'Login failed'
       const parsed = parseApiError(raw)
       setError(parsed.title)
       setErrorDetails(parsed.details.length ? parsed.details : null)

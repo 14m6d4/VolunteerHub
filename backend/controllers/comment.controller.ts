@@ -5,7 +5,7 @@ export const CommentController = {
     async createComment(req: Request, res: Response, next: NextFunction) {
         try {
             const userId = (req.user as any)._id;
-            const { postId } = req.params;
+            const postId = req.params.postId as string;
             const { content } = req.body;
             console.log(userId, postId, content)
             const comment = await CommentService.createComment(userId, postId, content);
@@ -18,7 +18,7 @@ export const CommentController = {
 
     async getComments(req: Request, res: Response, next: NextFunction) {
         try {
-            const { postId } = req.params;
+            const postId = req.params.postId as string;
             const comments = await CommentService.getCommentsByPost(postId);
 
             return res.json({ success: true, data: comments });
@@ -30,7 +30,7 @@ export const CommentController = {
     async likeComment(req: Request, res: Response, next: NextFunction) {
         try {
             const userId = (req.user as any)._id;
-            const commentId = req.params.commentId;
+            const commentId = req.params.commentId as string;
 
             const comment = await CommentService.likeComment(userId, commentId);
 
@@ -44,7 +44,7 @@ export const CommentController = {
         try {
             const userId = (req.user as any)._id;
             const role = (req.user as any).role;
-            const commentId = req.params.commentId;
+            const commentId = req.params.commentId as string;
 
             const comment = await CommentService.deleteComment(commentId, userId, role);
 

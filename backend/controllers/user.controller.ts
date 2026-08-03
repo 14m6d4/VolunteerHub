@@ -24,8 +24,8 @@ export async function updateProfileSecure(req: AuthenticatedRequest, res: Respon
         const matches = updateData.profilePicture.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
 
         if (matches && matches.length === 3) {
-          const mimeType = matches[1];
-          const base64Data = matches[2];
+          const mimeType = matches[1]!;
+          const base64Data = matches[2]!;
           const buffer = Buffer.from(base64Data, 'base64');
 
           const filename = `avatar-${userId}-${Date.now()}.${mimeType.split('/')[1]}`;
@@ -195,7 +195,7 @@ export async function banUser(req: AuthenticatedRequest, res: Response, next: Ne
 
 export async function unbanUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const userId = req.params.id;
+    const userId = req.params.id as string;
     await userService.unbanUserService(userId);
 
     return res.status(200).json({ status: 'success', message: 'User unbanned', userId });
@@ -280,7 +280,7 @@ export async function createUserController(req: AuthenticatedRequest, res: Respo
 
 export async function deleteUserController(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const userId = req.params.id;
+    const userId = req.params.id as string;
     await userService.deleteUserService(userId);
     return res.status(200).json({ status: 'success', message: 'User deleted' });
   } catch (error) {
@@ -290,7 +290,7 @@ export async function deleteUserController(req: AuthenticatedRequest, res: Respo
 
 export async function updateUserController(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const userId = req.params.id;
+    const userId = req.params.id as string;
     const user = await userService.updateUserAdminService(userId, req.body);
     return res.status(200).json({ status: 'success', data: user });
   } catch (error) {

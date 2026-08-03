@@ -1,17 +1,22 @@
 import apiFetch from './api';
+import type { NotificationItem } from '@/components/common/NotificationCard';
+
+interface NotificationListResponse { data: { notifications: NotificationItem[] } }
+interface UnreadCountResponse { data: { count: number } }
+interface NotificationResponse { data: { notification: NotificationItem } }
 
 export async function getNotifications({ skip = 0, limit = 20 } = {}) {
-  const data = await apiFetch<any>(`/notifications?skip=${skip}&limit=${limit}`, { method: 'GET' });
+  const data = await apiFetch<NotificationListResponse>(`/notifications?skip=${skip}&limit=${limit}`, { method: 'GET' });
   return data.data.notifications;
 }
 
 export async function getUnreadCount() {
-  const data = await apiFetch<any>('/notifications/unread/count', { method: 'GET' });
+  const data = await apiFetch<UnreadCountResponse>('/notifications/unread/count', { method: 'GET' });
   return data.data.count;
 }
 
 export async function markRead(id: string) {
-  const data = await apiFetch<any>(`/notifications/${id}/read`, { method: 'PATCH' });
+  const data = await apiFetch<NotificationResponse>(`/notifications/${id}/read`, { method: 'PATCH' });
   return data.data.notification;
 }
 
@@ -30,8 +35,17 @@ export async function deleteAllNotifications() {
   return res.data;
 }
 
-export async function createNotification(payload: any) {
-  const data = await apiFetch<any>('/notifications', { method: 'POST', body: JSON.stringify(payload) });
+interface CreateNotificationPayload {
+  userId: string;
+  actorId?: string;
+  type: string;
+  title: string;
+  body?: string;
+  data?: Record<string, unknown>;
+}
+
+export async function createNotification(payload: CreateNotificationPayload) {
+  const data = await apiFetch<NotificationResponse>('/notifications', { method: 'POST', body: JSON.stringify(payload) });
   return data.data.notification;
 }
 

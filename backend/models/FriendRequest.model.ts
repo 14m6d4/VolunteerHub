@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, type ObjectId } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export enum FriendRequestStatus {
   Pending = 'pending',
@@ -7,8 +7,8 @@ export enum FriendRequestStatus {
 }
 
 export interface IFriendRequest extends Document {
-  sender: ObjectId;
-  receiver: ObjectId;
+  sender: Types.ObjectId;
+  receiver: Types.ObjectId;
   status: FriendRequestStatus;
   createdAt: Date;
 }

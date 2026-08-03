@@ -1,9 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { getFeed, createPost, likePost } from '@/services/feed.service';
-import { Heart, MessageCircle, Share2, Image as ImageIcon, ThumbsUp, Globe, MoreHorizontal, Smile, Video } from 'lucide-react';
+import { MessageCircle, Share2, Image as ImageIcon, ThumbsUp, Globe, MoreHorizontal, Smile } from 'lucide-react';
+
+interface FeedItemData {
+    _id?: string;
+    authorId?: { name?: string; username?: string; profilePicture?: string };
+    content?: string;
+    image?: { fileId?: string };
+    likes?: unknown[];
+    [key: string]: unknown;
+}
+
+interface FeedItemRaw {
+    data: FeedItemData;
+    createdAt: string;
+    [key: string]: unknown;
+}
 
 const Feed = () => {
-    const [feedData, setFeedData] = useState([]);
+    const [feedData, setFeedData] = useState<FeedItemRaw[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [tab, setTab] = useState("all");
@@ -179,12 +194,12 @@ const Feed = () => {
                             ))}
                         </div>
                     ) : (
-                        feedData.map((feedItem: any) => {
+                        feedData.map((feedItem: FeedItemRaw) => {
                             const post = feedItem.data;
                             const author = post.authorId;
                             // console.log("Post data:", post); // Debugging
                             return (
-                                <div key={feedItem.data_id} className="bg-white rounded-lg shadow-sm pb-2">
+                                <div key={String(feedItem.data_id)} className="bg-white rounded-lg shadow-sm pb-2">
                                     {/* Post Header */}
                                     <div className="px-4 pt-4 pb-2 flex items-start justify-between">
                                         <div className="flex space-x-3">
@@ -246,7 +261,7 @@ const Feed = () => {
                                     {/* Action Buttons */}
                                     <div className="px-2 py-1 flex justify-between items-center mx-2">
                                         <button
-                                            onClick={() => handleLike(post._id)}
+                                            onClick={() => handleLike(post._id!)}
                                             className="flex-1 flex items-center justify-center space-x-2 py-2 hover:bg-gray-100 rounded-lg text-gray-600 font-medium transition-colors"
                                         >
                                             <ThumbsUp size={20} />

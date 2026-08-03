@@ -3,7 +3,7 @@
 import { Check, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useTheme } from "@/components/theme-provider"
+import { useTheme } from "@/context/theme-context"
 
 const themes = [
 	{ id: "default", name: "Default", color: "oklch(0.205 0 0)" },

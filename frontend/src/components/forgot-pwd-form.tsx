@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Lock } from "lucide-react"
-export function ForgotPwdForm({ className, onSubmit, ...props }: React.ComponentProps<"div"> & { onSubmit?: (email: string) => void | Promise<void> }) {
+export function ForgotPwdForm({ className, onSubmit, ...props }: Omit<React.ComponentProps<"div">, "onSubmit"> & { onSubmit?: (email: string) => void | Promise<void> }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = e.currentTarget
