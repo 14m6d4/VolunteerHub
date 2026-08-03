@@ -34,3 +34,6 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Database backups
+volunteerhub_database_backup/
