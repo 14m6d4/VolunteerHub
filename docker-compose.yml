@@ -1,3 +1,5 @@
+name: volunteerhub-dev
+
 services:
   mongo:
     image: mongo:7
@@ -13,6 +15,7 @@ services:
       target: dev
     env_file:
       - ./backend/.env
+    restart: unless-stopped
     ports:
       - "5000:5000"
     volumes:

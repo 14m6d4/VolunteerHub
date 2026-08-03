@@ -1,3 +1,5 @@
+name: volunteerhub-prod
+
 services:
   mongo:
     image: mongo:7
@@ -11,6 +13,8 @@ services:
       target: prod
     env_file:
       - ./backend/.env
+    environment:
+      NODE_ENV: production
     ports:
       - "5000:5000"
     restart: unless-stopped
@@ -21,6 +25,8 @@ services:
     build:
       context: ./frontend
       target: prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api}
     ports:
       - "80:80"
     restart: unless-stopped

@@ -34,3 +34,22 @@ Go to the `frontend` folder, and run `dev`.
 cd ./frontend
 npm run dev
 ```
+
+## Running with Docker
+
+1. Copy `backend/.env.example` to `backend/.env` and fill in real secrets (Mongo, JWT, Google OAuth, VAPID, email, ImgBB).
+2. Start the dev stack (hot reload, source mounted as volumes):
+
+```
+docker compose up --build
+```
+
+This starts `mongo`, `backend` (port 5000), and `frontend` (port 5173).
+
+For a production-like build (nginx-served frontend, compiled backend):
+
+```
+docker compose -f docker-compose.prod.yml up --build
+```
+
+Set `VITE_API_URL` in your shell/`.env` before building the prod frontend if the API isn't reachable at `http://localhost:5000/api` (e.g. a real domain) — it's baked into the frontend bundle at build time.
