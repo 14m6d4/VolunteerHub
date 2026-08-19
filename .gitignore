@@ -12,13 +12,24 @@ dist/
 
 # Misc
 .DS_Store
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 *.log
 *.pid
+
+# Environment files - ignore every variant, keep the checked-in templates
+.env
+.env.*
+!.env.example
+
+# Secrets / key material - never commit these
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+deploy_key*
+*service-account*.json
+gen-lang-client-*.json
 
 # Logs
 npm-debug.log*
@@ -35,6 +46,14 @@ yarn-error.log*
 *.sln
 *.sw?
 
-# Database backups
+# Database backups / dumps
 volunteerhub_database_backup/
+*.archive
+*.bson
+*.dump
+
+# Local tooling state
+.claude/worktrees/
+.claude/settings.local.json
+
 docs/
