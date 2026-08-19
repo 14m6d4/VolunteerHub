@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FeedPostCard, TrendingEventCard, EventShortcuts, FriendSuggestions } from '@/components/feed';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { getFeed, likePost } from '@/services/feed.service';
 import { getMyRegistrations, getEvents } from '@/services/event.service';
 import { getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
@@ -15,6 +15,50 @@ import { formatEventDate } from '@/utils/formatDate';
 type FeedItem =
   | { type: 'post'; data: FeedPostWithUser }
   | { type: 'trending'; data: TrendingEvent };
+
+interface RawAuthor {
+  _id?: string;
+  name?: string;
+  username?: string;
+  profilePicture?: string;
+  role?: string;
+}
+
+interface RawFeedComment {
+  _id: string;
+  authorId?: RawAuthor;
+  content: string;
+  createdAt: string;
+}
+
+interface RawFeedPost {
+  _id: string;
+  authorId?: RawAuthor;
+  content?: string;
+  image?: string;
+  createdAt: string;
+  likes?: string[];
+  eventId?: { _id?: string; title?: string; image?: string };
+  comments?: RawFeedComment[];
+  commentCount?: number;
+}
+
+interface RawTrendingEvent {
+  _id: string;
+  title: string;
+  image: string;
+  startAt?: string;
+  location: string;
+  currentMembers?: number;
+  tags?: string[];
+  description: string;
+  bestFeature?: { type: string; count: number; days: number };
+}
+
+interface RawFeedItem {
+  type: 'post' | 'trending';
+  data: RawFeedPost | RawTrendingEvent;
+}
 
 export default function FeedPage() {
   const { user } = useAuth();
@@ -36,10 +80,10 @@ export default function FeedPage() {
       try {
         const feedRes = await getFeed({ limit: 20 });
         const apiFeed = feedRes.data || feedRes || [];
-        const mappedFeed: FeedItem[] = apiFeed.map((item: any) => {
+        const mappedFeed: FeedItem[] = apiFeed.map((item: RawFeedItem): FeedItem | null => {
           if (item.type === 'post') {
             if (!user) return null;
-            const p = item.data;
+            const p = item.data as RawFeedPost;
             if (!p.authorId) return null; // Skip posts with deleted authors
 
             return {
@@ -47,12 +91,12 @@ export default function FeedPage() {
               data: {
                 id: p._id,
                 userId: p.authorId?._id || 'deleted',
-                content: p.content,
+                content: p.content || '',
                 imageUrl: p.image,
                 timestamp: new Date(p.createdAt),
                 likes: p.likes?.length || 0,
-                likedByMe: user ? p.likes?.includes(user.id) : false,
-                eventId: p.eventId?._id,
+                likedByMe: user ? !!p.likes?.includes(user.id || user._id || '') : false,
+                eventId: p.eventId?._id || '',
                 eventTitle: p.eventId?.title || 'Unknown Event',
                 eventImage: p.eventId?.image || '',
                 author: {
@@ -60,28 +104,28 @@ export default function FeedPage() {
                   name: p.authorId?.name || 'Deleted User',
                   username: p.authorId?.username || 'deleted',
                   avatarUrl: p.authorId?.profilePicture,
-                  role: p.authorId?.role || 'volunteer'
+                  role: (p.authorId?.role as 'volunteer' | 'manager' | 'admin') || 'volunteer'
                 },
                 comments: (p.comments || [])
-                  .filter((c: any) => c.authorId)
-                  .map((c: any) => ({
+                  .filter((c) => c.authorId)
+                  .map((c) => ({
                     id: c._id,
-                    userId: c.authorId._id,
+                    userId: c.authorId!._id || 'unknown',
                     content: c.content,
                     timestamp: new Date(c.createdAt),
                     author: {
-                      id: c.authorId._id,
-                      name: c.authorId.name,
-                      username: c.authorId.username,
-                      avatarUrl: c.authorId.profilePicture,
-                      role: c.authorId.role || 'volunteer'
+                      id: c.authorId!._id || 'unknown',
+                      name: c.authorId!.name || 'Unknown',
+                      username: c.authorId!.username,
+                      avatarUrl: c.authorId!.profilePicture,
+                      role: (c.authorId!.role as 'volunteer' | 'manager' | 'admin') || 'volunteer'
                     }
                   })),
                 commentCount: p.commentCount || 0
               }
             };
           } else if (item.type === 'trending') {
-            const e = item.data;
+            const e = item.data as RawTrendingEvent;
             let reason = 'Recommended for you';
             if (e.bestFeature && e.bestFeature.count > 0) {
               const { type, count, days } = e.bestFeature;
@@ -99,7 +143,7 @@ export default function FeedPage() {
                 id: e._id,
                 title: e.title,
                 image: e.image,
-                date: formatEventDate(e.startAt),
+                date: formatEventDate(e.startAt || ''),
                 location: e.location,
                 membersCount: e.currentMembers || 0,
                 tags: e.tags || [],
@@ -110,7 +154,7 @@ export default function FeedPage() {
             };
           }
           return null;
-        }).filter((item: FeedItem | null) => item !== null) as FeedItem[];
+        }).filter((item: FeedItem | null): item is FeedItem => item !== null);
         setFeedItems(mappedFeed);
       } catch (err) {
         console.error("Failed to load feed", err);
@@ -130,21 +174,26 @@ export default function FeedPage() {
         if (user.role === 'manager') {
           const managedRes = await getEvents({ managerId: user.id, status: 'all' });
           const managedEvents = managedRes.items || [];
-          setJoinedEvents(managedEvents.map((e: any) => ({
-            id: e._id || e.id,
+          interface RawManagedEvent { _id?: string; id?: string; title: string; image: string }
+          setJoinedEvents(managedEvents.map((e: RawManagedEvent) => ({
+            id: (e._id || e.id)!,
             title: e.title,
             image: e.image
           })));
         } else {
           const myRegRes = await getMyRegistrations();
           const myRegs = myRegRes.data || myRegRes || [];
+          interface RawMyReg { eventId?: string | { _id?: string; id?: string; title: string; image: string } }
           const myEventsList: EventShortcut[] = myRegs
-            .filter((r: any) => r.eventId && typeof r.eventId !== 'string')
-            .map((r: any) => ({
-              id: r.eventId._id || r.eventId.id,
-              title: r.eventId.title,
-              image: r.eventId.image
-            }));
+            .filter((r: RawMyReg) => r.eventId && typeof r.eventId !== 'string')
+            .map((r: RawMyReg) => {
+              const ev = r.eventId as { _id?: string; id?: string; title: string; image: string };
+              return {
+                id: (ev._id || ev.id)!,
+                title: ev.title,
+                image: ev.image
+              };
+            });
           setJoinedEvents(myEventsList);
         }
       } catch (err) {
@@ -163,7 +212,8 @@ export default function FeedPage() {
       try {
         const suggestionsRes = await getFriendSuggestions();
         const rawSuggestions = suggestionsRes.data || suggestionsRes || [];
-        const suggestions: FriendSuggestion[] = rawSuggestions.map((u: any) => ({
+        interface RawSuggestedUser { _id: string; name?: string; username: string; profilePicture?: string; mutualFriends?: number }
+        const suggestions: FriendSuggestion[] = rawSuggestions.map((u: RawSuggestedUser) => ({
           id: u._id,
           name: u.name || u.username,
           username: u.username,
@@ -224,14 +274,14 @@ export default function FeedPage() {
       const res = await createComment(postId, { content });
       const newComment = {
         id: res.data?._id || `temp-${Date.now()}`,
-        userId: user.id,
+        userId: user.id || user._id || '',
         content: content,
         timestamp: new Date(),
         author: {
-          id: user.id,
-          name: user.name,
+          id: user.id || user._id || '',
+          name: user.name || '',
           avatarUrl: user.profilePicture || '',
-          role: user.role
+          role: (user.role as 'volunteer' | 'manager' | 'admin') || 'volunteer'
         }
       };
 
@@ -352,10 +402,10 @@ export default function FeedPage() {
                       key={`post-${item.data.id}`}
                       post={item.data}
                       comments={item.data.comments}
-                      currentUserId={user.id}
+                      currentUserId={user.id || user._id || ''}
                       currentUser={{
-                        id: user.id,
-                        name: user.name,
+                        id: user.id || user._id || '',
+                        name: user.name || '',
                         avatarUrl: user.profilePicture || ''
                       }}
                       onLike={handleLike}

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/input-otp"
 import { useState } from "react"
 
-export function OTPForm({ className, onSubmit, onVerify, ...props }: React.ComponentProps<"div"> & { onSubmit?: (otp: string) => void | Promise<void>; onVerify?: (payload: { otp: string }) => void | Promise<void> }) {
+export function OTPForm({ className, email, onSubmit, onVerify, ...props }: Omit<React.ComponentProps<"div">, "onSubmit"> & { email?: string; onSubmit?: (otp: string) => void | Promise<void>; onVerify?: (payload: { otp: string }) => void | Promise<void> }) {
   const [otp, setOtp] = useState("")
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -41,7 +41,7 @@ export function OTPForm({ className, onSubmit, onVerify, ...props }: React.Compo
             </a>
             <h1 className="text-xl font-bold">Enter verification code</h1>
             <FieldDescription>
-              We sent a 6-digit code to your email address
+              We sent a 6-digit code to {email || 'your email address'}
             </FieldDescription>
           </div>
           <Field>

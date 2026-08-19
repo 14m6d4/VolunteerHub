@@ -45,13 +45,13 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
   const onSubmit = async (data: FormData) => {
     try {
       // Filter out empty profilePicture so we don't accidentally clear it
-      const payload: any = { ...data };
+      const payload: Partial<FormData> = { ...data };
       if (!payload.profilePicture) {
         delete payload.profilePicture;
       }
 
       // If user signed in via Google, don't send currentPassword
-      if ((user as any).authProvider === 'google' && ('currentPassword' in payload)) {
+      if (user.authProvider === 'google' && ('currentPassword' in payload)) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { currentPassword, ...rest } = payload;
         await updateProfile(rest);
@@ -61,8 +61,8 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
 
       alert('Profile updated successfully! Refreshing...');
       window.location.reload();
-    } catch (err: any) {
-      const message = err.response?.data?.message || 'Unable to update profile. Please try again.';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to update profile. Please try again.';
       alert('Error: ' + message);
       console.error('Profile update error:', err);
     }
@@ -120,7 +120,7 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
               reader.onload = () => {
                 const result = reader.result as string;
                 // set into the form
-                try { (setValue ?? ((register as any).setValue))?.('profilePicture', result); } catch { };
+                setValue('profilePicture', result);
                 setPreview(result);
               };
               reader.readAsDataURL(file);
@@ -162,7 +162,7 @@ export default function UpdateProfileForm({ user }: UpdateProfileFormProps) {
       </div>
 
       <div className="border-t pt-6">
-        {(user as any).authProvider === 'google' ? (
+        {user.authProvider === 'google' ? (
           <div className="text-sm text-muted-foreground">No password required for Google accounts to update profile.</div>
         ) : (
           <>

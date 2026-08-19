@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate, Link } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { Check } from "lucide-react"
 import illustration from "@/assets/login-illustration.jpg"
 import logoImage from "@/assets/logo.png"
@@ -19,22 +19,23 @@ export default function SignupPage() {
       setRegisteredEmail(payload.email)
       setStep(2)
       setSignupError(null)
-    } catch (err: any) {
+    } catch (err) {
       console.error('Register failed', err)
       try {
-        const msg = err?.message || String(err)
-        let parsed: any = msg
+        const msg = (err instanceof Error ? err.message : '') || String(err)
+        let parsed: unknown = msg
         try {
           parsed = JSON.parse(msg)
-        } catch { }
+        } catch { /* not JSON, keep raw message */ }
 
         if (typeof parsed === 'string') setSignupError(parsed)
         else if (Array.isArray(parsed)) setSignupError(parsed)
         else if (parsed && typeof parsed === 'object') {
-          if (parsed.message) setSignupError(parsed.message)
+          const obj = parsed as Record<string, unknown>
+          if (obj.message) setSignupError(String(obj.message))
           else setSignupError(JSON.stringify(parsed))
         } else setSignupError(String(msg))
-      } catch (parseErr) {
+      } catch {
         setSignupError('Registration failed')
       }
     }
@@ -45,7 +46,7 @@ export default function SignupPage() {
       if (!registeredEmail) throw new Error('Missing registered email')
       await authService.verifyOTP({ email: registeredEmail, otp })
       window.location.href = '/login'
-    } catch (err: any) {
+    } catch (err) {
       console.error('OTP verify failed', err)
     }
   }

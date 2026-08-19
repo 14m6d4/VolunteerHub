@@ -7,7 +7,7 @@ export async function getPosts(groupId: string) {
     });
 }
 
-export async function createPost(groupId: string, data: any) {
+export async function createPost(groupId: string, data: Record<string, unknown>) {
     return apiFetch(`/groups/${groupId}/posts`, {
         method: "POST",
         body: JSON.stringify(data),
@@ -33,7 +33,7 @@ export async function getPostById(postId: string) {
 }
 
 // comment
-export async function createComment(postId: string, data: any) {
+export async function createComment(postId: string, data: Record<string, unknown>) {
     return apiFetch(`/comments/post/${postId}`, {
         method: "POST",
         body: JSON.stringify(data),

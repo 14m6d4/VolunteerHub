@@ -13,7 +13,7 @@ export const PostController = {
                 discussionId,
                 eventId,
                 content,
-                file: req.file
+                ...(req.file ? { file: req.file } : {})
             });
 
             res.status(201).json({ success: true, data: post });
@@ -25,7 +25,7 @@ export const PostController = {
     async getByDiscussion(req: Request, res: Response, next: NextFunction) {
         try {
             const posts = await PostService.getPostsByDiscussion(
-                req.params.discussionId
+                req.params.discussionId as string
             );
             res.json({ success: true, data: posts });
         } catch (err) {
@@ -37,7 +37,7 @@ export const PostController = {
         try {
             const post = await PostService.likePost(
                 (req.user as any)._id,
-                req.params.postId
+                req.params.postId as string
             );
             res.json({ success: true, data: post });
         } catch (err) {
@@ -47,7 +47,7 @@ export const PostController = {
 
     async delete(req: Request, res: Response, next: NextFunction) {
         try {
-            const post = await PostService.deletePost(req.params.postId);
+            const post = await PostService.deletePost(req.params.postId as string);
             res.json({ success: true, data: post });
         } catch (err) {
             next(err);
@@ -56,7 +56,7 @@ export const PostController = {
 
     async pin(req: Request, res: Response, next: NextFunction) {
         try {
-            const post = await PostService.togglePin(req.params.postId);
+            const post = await PostService.togglePin(req.params.postId as string);
             res.json({ success: true, data: post });
         } catch (err) {
             next(err);
@@ -65,7 +65,7 @@ export const PostController = {
 
     async getById(req: Request, res: Response, next: NextFunction) {
         try {
-            const post = await PostService.getPostById(req.params.postId);
+            const post = await PostService.getPostById(req.params.postId as string);
             res.json({ success: true, data: post });
         } catch (err) {
             next(err);

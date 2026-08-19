@@ -16,7 +16,7 @@ export const ReportService = {
             targetId: event._id,
             targetType: ReportTargetType.Event,
             reason,
-            description,
+            ...(description ? { description } : {}),
             status: 'pending'
         });
 
@@ -42,7 +42,7 @@ export const ReportService = {
             targetId: post._id,
             targetType: ReportTargetType.Post,
             reason,
-            description,
+            ...(description ? { description } : {}),
             status: 'pending'
         });
 
@@ -70,7 +70,7 @@ export const ReportService = {
             targetId: targetUser._id,
             targetType: ReportTargetType.User,
             reason,
-            description,
+            ...(description ? { description } : {}),
             status: 'pending'
         });
 

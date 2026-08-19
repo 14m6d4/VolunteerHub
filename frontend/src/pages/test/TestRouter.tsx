@@ -3,15 +3,22 @@ import { useEffect, useState } from "react";
 import useAuth from "@/hooks/useAuth";
 import { getEvents, getEventRegistrations, registerEvent, unregisterEvent, getMyRegistrations } from "@/services/event.service";
 import { approveEvent, deleteEvent } from "@/services/admin.service";
-import EventCard from "@/pages/test/EventCard"; // Đảm bảo đúng đường dẫn
+import EventCard, { type EventCardEvent } from "@/pages/test/EventCard"; // Đảm bảo đúng đường dẫn
+
+interface TestRegistration {
+    _id: string;
+    status: string;
+    eventId?: { _id?: string };
+    volunteerId?: { email?: string };
+}
 
 export default function EventsPage() {
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [pendingEvents, setPendingEvents] = useState([]);
-    const [approvedEvents, setApprovedEvents] = useState([]);
-    const [myRegistrations, setMyRegistrations] = useState([]);
-    const [eventRegistrations, setEventRegistrations] = useState<any>(null); // Lưu trữ đăng ký sự kiện
+    const [pendingEvents, setPendingEvents] = useState<EventCardEvent[]>([]);
+    const [approvedEvents, setApprovedEvents] = useState<EventCardEvent[]>([]);
+    const [myRegistrations, setMyRegistrations] = useState<TestRegistration[]>([]);
+    const [eventRegistrations, setEventRegistrations] = useState<TestRegistration[] | null>(null); // Lưu trữ đăng ký sự kiện
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null); // Để track sự kiện đang xem đăng ký
 
     useEffect(() => {
@@ -97,11 +104,11 @@ export default function EventsPage() {
                 <section className="mb-6">
                     <h2 className="text-xl font-semibold mb-2">Pending Events</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {pendingEvents.map((e: any) => (
+                        {pendingEvents.map((e) => (
                             <EventCard
                                 key={e._id}
                                 event={e}
-                                user={user}
+                                user={user ?? undefined}
                                 onApprove={handleApprove}
                                 onDelete={handleDelete}
                                 myRegs={myRegistrations}
@@ -115,11 +122,11 @@ export default function EventsPage() {
             <section>
                 <h2 className="text-xl font-semibold mb-2">Events</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {approvedEvents.map((e: any) => (
+                    {approvedEvents.map((e) => (
                         <EventCard
                             key={e._id}
                             event={e}
-                            user={user}
+                            user={user ?? undefined}
                             onRegister={handleRegister}
                             onUnregister={handleUnregister}
                             onDelete={handleDelete}
@@ -137,7 +144,7 @@ export default function EventsPage() {
                     <h2 className="text-xl font-semibold mb-2">Registrations for Event {selectedEventId}</h2>
                     <div className="grid grid-cols-1 gap-4">
                         {eventRegistrations.length > 0 ? (
-                            eventRegistrations.map((reg: any) => (
+                            eventRegistrations.map((reg) => (
                                 <div key={reg._id} className="border p-4 rounded shadow">
                                     <p>Email: {reg.volunteerId?.email}</p>
                                     <p>Status: {reg.status}</p>

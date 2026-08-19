@@ -1,3 +1,4 @@
+import type { Types } from 'mongoose';
 import NotificationModel, { type INotification } from '../models/Notification.model.ts';
 import { WebPushService } from "./webpush.service.ts";
 import AppError from '../utils/appError.ts';
@@ -12,11 +13,11 @@ export async function createNotification(payload: {
 }) {
 	const doc = await NotificationModel.create({
 		user: payload.userId,
-		actor: payload.actorId,
+		...(payload.actorId ? { actor: payload.actorId } : {}),
 		type: payload.type,
 		title: payload.title,
-		body: payload.body,
-		data: payload.data,
+		...(payload.body ? { body: payload.body } : {}),
+		...(payload.data ? { data: payload.data } : {}),
 	});
 	return doc;
 }
@@ -64,7 +65,7 @@ export async function deleteAllNotifications(userId: string) {
 }
 
 export const NotificationService = {
-	async notify(userId: string, { title, body, data, type }: any) {
+	async notify(userId: string | Types.ObjectId, { title, body, data, type }: any) {
 		try {
 			await NotificationModel.create({
 				user: userId,

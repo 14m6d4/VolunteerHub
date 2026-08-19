@@ -121,7 +121,7 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
       return;
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.split(' ')[1]!;
     let payload;
     try {
       payload = verifyToken(token);

@@ -71,10 +71,20 @@ export const ManagerEventDashboard = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
+      interface RawEvent {
+        _id?: string;
+        id?: string;
+        title: string;
+        startAt?: string;
+        status?: string;
+        currentMembers?: number;
+        tags?: string[];
+        [key: string]: unknown;
+      }
       const response = await getEvents();
-      const fetchedEvents = (response.items || []).map((event: any) => ({
+      const fetchedEvents = (response.items || []).map((event: RawEvent) => ({
         ...event,
-        date: formatEventDate(event.startAt),
+        date: formatEventDate(event.startAt || ''),
         managerStatus: event.status === 'pending' ? 'pending'
           : event.status === 'approved' ? 'active'
             : 'completed',
@@ -109,7 +119,7 @@ export const ManagerEventDashboard = () => {
   }, [events]);
 
   const processedEvents = useMemo(() => {
-    let filtered = events.filter(event => {
+    const filtered = events.filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(filters.searchQuery.toLowerCase());
       const matchesTags = filters.selectedTags.length === 0 ||
         (event.tags || []).some(tag => filters.selectedTags.includes(tag));
@@ -141,22 +151,23 @@ export const ManagerEventDashboard = () => {
     setCreateEditModalOpen(true);
   };
 
-  const handleSaveEvent = async (eventData: Partial<Event> & { imageFile?: File }) => {
+  const handleSaveEvent = async (eventData: Partial<Event> & { imageFile?: File | null }) => {
     try {
-      let dataToSend: any = eventData;
+      let dataToSend: FormData | Partial<Event>;
       const isMultipart = !!eventData.imageFile;
 
       if (isMultipart) {
         const formData = new FormData();
-        Object.keys(eventData).forEach(key => {
+        (Object.keys(eventData) as (keyof typeof eventData)[]).forEach(key => {
           if (key === 'imageFile') {
             formData.append('image', eventData.imageFile!);
           } else if (key === 'tags') {
             const tags = eventData.tags || [];
             tags.forEach(tag => formData.append('tags', tag));
           } else if (key === 'image' || key === 'date') {
+            // frontend-only display fields, not sent to the backend
           } else {
-            const value = (eventData as any)[key];
+            const value = eventData[key];
             if (value !== undefined && value !== null) {
               formData.append(key, value.toString());
             }
@@ -164,7 +175,8 @@ export const ManagerEventDashboard = () => {
         });
         dataToSend = formData;
       } else {
-        const { date, ...rest } = eventData as any;
+        const rest = { ...eventData } as Partial<Event>;
+        delete rest.date;
         dataToSend = rest;
       }
 
@@ -199,11 +211,17 @@ export const ManagerEventDashboard = () => {
       const members: User[] = [];
       const requests: User[] = [];
 
-      registrations.forEach((reg: any) => {
+      interface RawRegistration {
+        _id?: string;
+        id?: string;
+        status: string;
+        volunteerId?: { _id?: string; id?: string; name: string; username?: string; email: string };
+      }
+      registrations.forEach((reg: RawRegistration) => {
         if (reg.volunteerId) {
-          newRegistrationMap[reg.volunteerId._id || reg.volunteerId.id] = reg._id || reg.id;
+          newRegistrationMap[(reg.volunteerId._id || reg.volunteerId.id)!] = (reg._id || reg.id)!;
           const user: User = {
-            id: reg.volunteerId._id || reg.volunteerId.id,
+            id: (reg.volunteerId._id || reg.volunteerId.id)!,
             name: reg.volunteerId.name,
             username: reg.volunteerId.username || reg.volunteerId.name,
             email: reg.volunteerId.email

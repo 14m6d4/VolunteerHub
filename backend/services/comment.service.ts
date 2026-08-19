@@ -1,4 +1,5 @@
 import createHttpError from "http-errors";
+import { Types } from "mongoose";
 import { CommentModel } from "../models/Comment.model.ts";
 import { PostModel } from "../models/Post.model.ts";
 import { NotificationService } from "./notification.service.ts";
@@ -47,7 +48,7 @@ export const CommentService = {
 
         const idx = comment.likes.findIndex((id) => id.equals(userId));
 
-        if (idx === -1) comment.likes.push(userId);
+        if (idx === -1) comment.likes.push(new Types.ObjectId(userId));
         else comment.likes.splice(idx, 1);
 
         await comment.save();

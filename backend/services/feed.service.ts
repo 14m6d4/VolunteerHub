@@ -4,9 +4,8 @@ import { RegistrationModel } from "../models/Registration.model.ts";
 import { EventModel } from "../models/Event.model.ts";
 import UserModel from "../models/User.model.ts";
 import { CommentModel } from "../models/Comment.model.ts";
-import { ObjectId } from "mongoose";
 
-function calculateScore(feed, data, user, friendCount = 0) {
+function calculateScore(feed: any, data: any, user: any, friendCount = 0) {
     const now = Date.now();
     const ageHours = (now - new Date(feed.createdAt).getTime()) / 3600000;
 
@@ -48,7 +47,7 @@ function calculateScore(feed, data, user, friendCount = 0) {
 }
 
 export const FeedService = {
-    async getFeed({ page = 1, limit = 40, tab = "all" }, user?) {
+    async getFeed({ page = 1, limit = 40, tab = "all" }: { page?: number; limit?: number; tab?: string }, user?: any) {
         try {
             const skip = (page - 1) * limit;
             let postQuery: any = {};

@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { EventService } from "../services/event.service.ts";
-import { RegistrationService } from "../services/registration.service";
+import { RegistrationService } from "../services/registration.service.ts";
 import createHttpError from "http-errors";
 import { Types } from "mongoose";
 
@@ -39,7 +39,7 @@ export const EventController = {
 
     async update(req: Request, res: Response, next: NextFunction) {
         try {
-            const eventId = req.params.id;
+            const eventId = req.params.id as string;
             if (req.file) {
                 const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
                 req.body.image = imageUrl;
@@ -56,7 +56,7 @@ export const EventController = {
             const userId = (req.user as any)?._id;
 
             const data = await EventService.getEventById(
-                req.params.id,
+                req.params.id as string,
                 userId
             );
 
@@ -72,16 +72,16 @@ export const EventController = {
 
     async list(req: Request, res: Response, next: NextFunction) {
         try {
-            const user = req.user;
+            const user = req.user as any;
             const status = req.query.status as string | undefined;
-            console.log("List Events - User:", user ? { id: (user as any)._id, role: (user as any).role } : null);
+            console.log("List Events - User:", user ? { id: user._id, role: user.role } : null);
 
             if (status === "pending") {
                 if (!user) {
                     return res.status(403).json({ success: false, message: "Forbidden" });
                 }
                 if (user.role === "manager") {
-                    req.query.managerId = user._id;
+                    req.query.managerId = user._id.toString();
                 } else if (user.role !== "admin") {
                     return res.status(403).json({ success: false, message: "Forbidden" });
                 }
@@ -110,7 +110,7 @@ export const EventController = {
 
     async approve(req: Request, res: Response, next: NextFunction) {
         try {
-            const event = await EventService.approveEvent(req.params.id);
+            const event = await EventService.approveEvent(req.params.id as string);
             return res.json({ success: true, data: event });
         } catch (err) {
             next(err);
@@ -119,7 +119,7 @@ export const EventController = {
 
     async cancel(req: Request, res: Response, next: NextFunction) {
         try {
-            const event = await EventService.cancelEvent(req.params.id, req.body.reason);
+            const event = await EventService.cancelEvent(req.params.id as string, req.body.reason);
             return res.json({ success: true, data: event });
         } catch (err) {
             next(err);
@@ -128,7 +128,7 @@ export const EventController = {
 
     async pinPost(req: Request, res: Response, next: NextFunction) {
         try {
-            const { eventId } = req.params;
+            const eventId = req.params.eventId as string;
             const { postId } = req.body;
             const userId = (req.user as any)._id;
             const post = await EventService.pinPostOnEvent(eventId, postId, userId);
@@ -140,7 +140,7 @@ export const EventController = {
 
     async stats(req: Request, res: Response, next: NextFunction) {
         try {
-            const stats = await EventService.getEventStats(req.params.id);
+            const stats = await EventService.getEventStats(req.params.id as string);
             return res.json({ success: true, data: stats });
         } catch (err) {
             next(err);
@@ -148,7 +148,7 @@ export const EventController = {
     },
     async delete(req: Request, res: Response, next: NextFunction) {
         try {
-            await EventService.deleteEvent(req.params.id);
+            await EventService.deleteEvent(req.params.id as string);
             return res.json({ success: true, message: "Event deleted" });
         } catch (err) {
             next(err);
@@ -157,7 +157,7 @@ export const EventController = {
 
     async getPosts(req: Request, res: Response, next: NextFunction) {
         try {
-            const posts = await import("../services/post.service").then(m => m.PostService.getPostsByEvent(req.params.id));
+            const posts = await import("../services/post.service.ts").then(m => m.PostService.getPostsByEvent(req.params.id as string));
             return res.json({ success: true, data: posts });
         } catch (err) {
             next(err);
@@ -165,7 +165,7 @@ export const EventController = {
     },
     async complete(req: Request, res: Response, next: NextFunction) {
         try {
-            const event = await EventService.completeEvent(req.params.id);
+            const event = await EventService.completeEvent(req.params.id as string);
             return res.json({ success: true, data: event });
         } catch (err) {
             next(err);

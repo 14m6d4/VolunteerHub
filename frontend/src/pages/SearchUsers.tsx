@@ -3,11 +3,19 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { searchUsers as apiSearchUsers, sendFriendRequest, getRelations } from '@/services/user.service';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
+
+interface SearchResultUser {
+  _id: string;
+  username: string;
+  name?: string;
+  profilePicture?: string;
+  relation: 'friends' | 'pending_sent' | 'pending_received' | 'none';
+}
 
 export default function SearchUsersPage() {
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SearchResultUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const { user } = useAuth();
@@ -22,10 +30,10 @@ export default function SearchUsersPage() {
         setLoading(true);
         try {
           const res = await apiSearchUsers(q);
-          const users = res.data || res || [];
-          const ids = users.map((u: any) => u._id);
-          const rel = (ids.length > 0) ? ((await getRelations(ids)).data || {}) : {};
-          const enriched = users.map((u: any) => ({ ...u, relation: rel[u._id] || 'none' }));
+          const users: Omit<SearchResultUser, 'relation'>[] = res.data || res || [];
+          const ids = users.map((u) => u._id);
+          const rel: Record<string, SearchResultUser['relation']> = (ids.length > 0) ? ((await getRelations(ids)).data || {}) : {};
+          const enriched = users.map((u) => ({ ...u, relation: rel[u._id] || 'none' }));
           setResults(enriched);
         } catch (err) {
           console.error('Search users error', err);
@@ -43,8 +51,8 @@ export default function SearchUsersPage() {
     try {
       await sendFriendRequest(id);
       alert('Friend request sent');
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Unable to send request');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Unable to send request');
     } finally {
       setSendingId(null);
     }

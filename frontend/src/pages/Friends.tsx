@@ -167,8 +167,8 @@ export default function FriendsPage() {
       await sendFriendRequest(id);
       setResults(prev => prev.map(r => r._id === id ? { ...r, relation: 'pending_sent' } : r));
       toast.success('Friend request sent');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Unable to send request');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Unable to send request');
     } finally {
       setSendingToId(null);
     }
@@ -202,8 +202,8 @@ export default function FriendsPage() {
       }
 
       toast.success('Friend request accepted');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Unable to accept');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Unable to accept');
     } finally {
       setAcceptingId(null);
     }
@@ -215,8 +215,8 @@ export default function FriendsPage() {
       await rejectFriendRequest(requestId);
       setRequests(prev => prev.filter(r => r._id !== requestId));
       toast.success('Friend request declined');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Unable to reject request');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Unable to reject request');
     } finally {
       setRejectingId(null);
     }
@@ -228,8 +228,8 @@ export default function FriendsPage() {
       await removeFriend(friendId);
       setFriends(prev => prev.filter((f) => (f._id || f.id || f.username) !== friendId));
       toast.success('Friend removed');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Unable to remove friend');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Unable to remove friend');
     }
   };
 
@@ -239,8 +239,8 @@ export default function FriendsPage() {
       await cancelFriendRequest(requestId);
       setSentRequests(prev => prev.filter(r => r._id !== requestId));
       toast.success('Request cancelled');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Unable to cancel request');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Unable to cancel request');
     } finally {
       setCancellingId(null);
     }

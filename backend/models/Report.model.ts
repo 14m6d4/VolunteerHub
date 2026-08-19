@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, type ObjectId } from 'mongoose';
+import mongoose, { Schema, Document, type Model, Types } from 'mongoose';
 
 export enum ReportTargetType {
   User = 'user',
@@ -7,8 +7,8 @@ export enum ReportTargetType {
 }
 
 export interface IReport extends Document {
-  reporter: ObjectId; // User who reports
-  targetId: ObjectId; // ID of the user/event/post being reported
+  reporter: Types.ObjectId; // User who reports
+  targetId: Types.ObjectId; // ID of the user/event/post being reported
   targetType: ReportTargetType;
   reason: string;
   description?: string;

@@ -1,9 +1,21 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 
+interface VolunteerEvent {
+    _id: string;
+    title: string;
+    status: string;
+}
+
+interface Registration {
+    _id: string;
+    status: string;
+    eventId?: { _id?: string; title?: string };
+}
+
 export default function VolunteerPage() {
-    const [events, setEvents] = useState<any[]>([]);
-    const [myRegs, setMyRegs] = useState<any[]>([]);
+    const [events, setEvents] = useState<VolunteerEvent[]>([]);
+    const [myRegs, setMyRegs] = useState<Registration[]>([]);
 
     const fetchEvents = async () => {
         const res = await axios.get("http://localhost:5000/api/events?status=approved");
@@ -27,6 +39,7 @@ export default function VolunteerPage() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount
         fetchEvents();
         fetchMyRegistrations();
     }, []);

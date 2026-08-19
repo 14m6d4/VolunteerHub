@@ -53,8 +53,15 @@ import { formatDistanceToNow } from 'date-fns';
 import { mockReports } from '@/data/admin-mock';
 import type { MockReport } from '@/data/admin-mock';
 
+interface TargetDetails {
+  username?: string;
+  title?: string;
+}
+
+type ReportWithDetails = MockReport & { targetDetails?: TargetDetails };
+
 export default function ReportsManagement() {
-  const [reports, setReports] = useState<(MockReport & { targetDetails?: any })[]>([]);
+  const [reports, setReports] = useState<ReportWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [useMockData, setUseMockData] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,7 +85,18 @@ export default function ReportsManagement() {
       }
       const data = await apiFetch(`/report/admin/all${qs}`);
 
-      const transformedData: MockReport[] = (data || []).map((report: any) => ({
+      interface RawReport {
+        _id: string;
+        reporter?: { _id?: string; id?: string; username?: string; name?: string; email?: string; profilePicture?: string };
+        targetType: 'post' | 'user' | 'event';
+        targetId: string;
+        targetDetails?: TargetDetails;
+        reason: string;
+        description?: string;
+        status: 'pending' | 'resolved' | 'rejected';
+        createdAt: string;
+      }
+      const transformedData: ReportWithDetails[] = (data || []).map((report: RawReport) => ({
         id: report._id,
         reporter: {
           id: report.reporter?._id || report.reporter?.id || 'unknown',
@@ -157,7 +175,7 @@ export default function ReportsManagement() {
         });
         fetchReports();
         toast.success('Report resolved successfully');
-      } catch (error) {
+      } catch {
         toast.error('Failed to resolve report');
       }
     }
@@ -182,7 +200,7 @@ export default function ReportsManagement() {
         });
         fetchReports();
         toast.success('Report rejected successfully');
-      } catch (error) {
+      } catch {
         toast.error('Failed to reject report');
       }
     }
@@ -192,16 +210,21 @@ export default function ReportsManagement() {
   };
 
   const handleExport = (format: 'csv' | 'json') => {
-    const dataToExport = filteredReports.map(({ id, ...rest }) => ({
-      ...rest,
-      reporter: rest.reporter.username,
+    const dataToExport = filteredReports.map((report) => ({
+      reporter: report.reporter.username,
+      targetType: report.targetType,
+      targetId: report.targetId,
+      reason: report.reason,
+      description: report.description,
+      status: report.status,
+      createdAt: report.createdAt,
     }));
 
     if (format === 'csv') {
-      const headers = ['reporter', 'targetType', 'targetId', 'reason', 'description', 'status', 'createdAt'];
+      const headers = ['reporter', 'targetType', 'targetId', 'reason', 'description', 'status', 'createdAt'] as const;
       const rows = dataToExport.map(row =>
         headers.map(h => {
-          const val = (row as any)[h];
+          const val = row[h];
           return typeof val === 'string' && val.includes(',') ? `"${val}"` : val || '';
         }).join(',')
       );
@@ -241,16 +264,7 @@ export default function ReportsManagement() {
     }
   };
 
-  const getTargetId = (report: MockReport) => {
-    if (report.targetType === 'post') {
-      return report.targetId.length > 12
-        ? `${report.targetId.substring(0, 12)}...`
-        : report.targetId;
-    }
-    return report.targetUsername || report.targetId;
-  };
-
-  const getTargetDisplay = (report: MockReport & { targetDetails?: any }) => {
+  const getTargetDisplay = (report: ReportWithDetails) => {
     if (report.targetType === 'user' && report.targetDetails?.username) {
       return `@${report.targetDetails.username}`;
     } else if (report.targetType === 'event' && report.targetDetails?.title) {
@@ -265,7 +279,7 @@ export default function ReportsManagement() {
     return report.targetId;
   };
 
-  const getTargetLink = (report: MockReport & { targetDetails?: any }) => {
+  const getTargetLink = (report: ReportWithDetails) => {
     if (report.targetType === 'user' && report.targetDetails?.username) {
       return `/u/${report.targetDetails.username}`;
     } else if (report.targetType === 'event') {

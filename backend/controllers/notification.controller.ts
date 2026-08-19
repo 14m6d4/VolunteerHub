@@ -28,7 +28,7 @@ export async function unreadCount(req: AuthenticatedRequest, res: Response, next
 export async function markRead(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user._id.toString();
-    const id = req.params.id;
+    const id = req.params.id as string;
     const doc = await notificationService.markAsRead(id, userId);
     res.status(200).json({ status: 'success', data: { notification: doc } });
   } catch (err) {
@@ -49,7 +49,7 @@ export async function markAllReadController(req: AuthenticatedRequest, res: Resp
 export async function deleteNotification(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.user._id.toString();
-    const { id } = req.params;
+    const id = req.params.id as string;
     await notificationService.deleteNotification(id, userId);
     res.status(200).json({ status: 'success' });
   } catch (err) {

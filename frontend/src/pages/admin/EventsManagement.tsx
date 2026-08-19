@@ -137,8 +137,8 @@ export default function EventsManagement() {
       await apiFetch(`/events/${event._id}/approve`, { method: 'PATCH' });
       toast.success(`Event "${event.title}" approved successfully`);
       fetchEvents();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to approve event");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to approve event");
     }
   };
 
@@ -150,8 +150,8 @@ export default function EventsManagement() {
         setEventToReject(null);
         setRejectDialogOpen(false);
         fetchEvents();
-      } catch (error: any) {
-        toast.error(error.message || "Failed to reject event");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to reject event");
       }
     }
   };
@@ -164,8 +164,8 @@ export default function EventsManagement() {
         setEventToDelete(null);
         setDeleteDialogOpen(false);
         fetchEvents();
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete event");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to delete event");
       }
     }
   };

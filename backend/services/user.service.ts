@@ -17,7 +17,7 @@ export async function updateProfileWithPasswordCheck(
     throw new AppError('User not found', 404);
   }
 
-  const isChangingPassword = !!updateData.password;
+  const isChangingPassword = !!(updateData as any).password;
 
   if (isChangingPassword && user.authProvider === 'local') {
     if (!currentPassword) {
@@ -146,7 +146,7 @@ export async function findOrCreateByGoogleId(
   }
 
   try {
-    const baseUsername = email.split('@')[0];
+    const baseUsername = email.split('@')[0]!;
 
     const uniqueUsername = await generateUniqueUsername(baseUsername);
 

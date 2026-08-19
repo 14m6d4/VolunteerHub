@@ -95,7 +95,17 @@ export function EventReportsDialog({
     setLoading(true);
     try {
       const data = await apiFetch(`/report/event/${eventId}/reports`);
-      const transformedData: EventReport[] = (data || []).map((report: any) => ({
+      interface RawReport {
+        _id: string;
+        reporter?: { _id?: string; id?: string; username?: string; name?: string; email?: string; profilePicture?: string };
+        targetType: 'post';
+        targetId: string;
+        reason: string;
+        description?: string;
+        status: 'pending' | 'resolved' | 'rejected';
+        createdAt: string;
+      }
+      const transformedData: EventReport[] = (data || []).map((report: RawReport) => ({
         id: report._id,
         reporter: {
           id: report.reporter?._id || report.reporter?.id || 'unknown',
@@ -160,7 +170,7 @@ export function EventReportsDialog({
       fetchReports();
       toast.success('Report resolved successfully');
       onReportAction?.();
-    } catch (error) {
+    } catch {
       toast.error('Failed to resolve report');
     }
 
@@ -179,7 +189,7 @@ export function EventReportsDialog({
       fetchReports();
       toast.success('Report rejected successfully');
       onReportAction?.();
-    } catch (error) {
+    } catch {
       toast.error('Failed to reject report');
     }
 

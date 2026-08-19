@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Info, MessageSquare, Star, Users, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import {
   EventHeader,
   EventAbout,
@@ -19,8 +19,44 @@ import {
 import { getEventById, getEventPosts, getEventRegistrations } from '@/services/event.service';
 import { createPost, likePost } from '@/services/feed.service';
 import { createComment, getComments, deletePost, deleteComment } from '@/services/post.service';
-import type { PostWithUser, CommentWithUser } from '@/types/discussion';
+import type { PostWithUser, CommentWithUser, DiscussionEvent, DiscussionUser } from '@/types/discussion';
 import type { Event } from '@/types/event';
+
+interface RawAuthor {
+  _id?: string;
+  name?: string;
+  username?: string;
+  profilePicture?: string;
+  image?: string;
+  role?: string;
+}
+
+interface RawComment {
+  _id: string;
+  authorId?: string | RawAuthor;
+  content: string;
+  createdAt: string;
+}
+
+interface RawPost {
+  _id: string;
+  authorId?: string | RawAuthor;
+  content?: string;
+  image?: string;
+  createdAt: string;
+  likes?: (string | { _id?: string })[];
+}
+
+interface RawRegistration {
+  status: string;
+  createdAt?: string;
+  volunteerId?: { _id?: string; id?: string; name?: string; username?: string; email?: string; profilePicture?: string };
+}
+
+function resolveAuthor(authorId: string | RawAuthor | undefined): RawAuthor {
+  if (!authorId) return {};
+  return typeof authorId === 'string' ? { _id: authorId } : authorId;
+}
 
 export default function DiscussionPage() {
   const { eventId, postId } = useParams<{ eventId: string; postId?: string }>();
@@ -28,7 +64,7 @@ export default function DiscussionPage() {
   const { user } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [posts, setPosts] = useState<PostWithUser[]>([]);
-  const [members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<(DiscussionUser & { email?: string; joinDate?: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
 
@@ -71,19 +107,22 @@ export default function DiscussionPage() {
   const fetchComments = async (postId: string) => {
     try {
       const res = await getComments(postId);
-      const mappedComments = (res.data || res || []).map((c: any) => ({
-        id: c._id,
-        userId: c.authorId?._id || c.authorId,
-        content: c.content,
-        timestamp: new Date(c.createdAt),
-        author: {
-          id: c.authorId?._id || 'unknown',
-          name: c.authorId?.name || 'Unknown',
-          username: c.authorId?.username,
-          avatarUrl: c.authorId?.profilePicture,
-          role: 'volunteer'
-        }
-      }));
+      const mappedComments = (res.data || res || []).map((c: RawComment) => {
+        const author = resolveAuthor(c.authorId);
+        return {
+          id: c._id,
+          userId: author._id || 'unknown',
+          content: c.content,
+          timestamp: new Date(c.createdAt),
+          author: {
+            id: author._id || 'unknown',
+            name: author.name || 'Unknown',
+            username: author.username,
+            avatarUrl: author.profilePicture,
+            role: 'volunteer' as const
+          }
+        };
+      });
       setCommentsMap(prev => ({ ...prev, [postId]: mappedComments }));
     } catch (e) {
       console.error(`Failed to fetch comments for ${postId}`, e);
@@ -102,20 +141,20 @@ export default function DiscussionPage() {
         ]);
 
         const approvedMembers = (registrationsData?.data || registrationsData || [])
-          .filter((r: any) => (r.status === 'approved' || r.status === 'completed') && r.volunteerId)
-          .map((r: any) => ({
-            id: r.volunteerId._id || r.volunteerId.id,
-            name: r.volunteerId.name,
-            username: r.volunteerId.username,
-            email: r.volunteerId.email,
-            avatarUrl: r.volunteerId.profilePicture,
+          .filter((r: RawRegistration) => (r.status === 'approved' || r.status === 'completed') && r.volunteerId)
+          .map((r: RawRegistration) => ({
+            id: r.volunteerId!._id || r.volunteerId!.id,
+            name: r.volunteerId!.name,
+            username: r.volunteerId!.username,
+            email: r.volunteerId!.email,
+            avatarUrl: r.volunteerId!.profilePicture,
             role: 'volunteer',
             joinDate: r.createdAt
           }));
         setMembers(approvedMembers);
 
         const rawEvent = eventData?.data?.event || eventData?.event || eventData;
-        const mappedEvent: any = {
+        const mappedEvent = {
           ...rawEvent,
           id: rawEvent._id || rawEvent.id,
           date: rawEvent.startAt || rawEvent.date,
@@ -125,27 +164,30 @@ export default function DiscussionPage() {
         };
         setEvent(mappedEvent);
 
-        const mappedPosts = (postsData.data || postsData || []).map((p: any) => ({
-          id: p._id,
-          userId: p.authorId?._id || p.authorId,
-          content: p.content,
-          imageUrl: p.image,
-          timestamp: new Date(p.createdAt),
-          likes: p.likes?.length || 0,
-          likedByMe: user ? p.likes?.some((l: any) => (l._id || l) === user.id) : false,
-          author: {
-            id: p.authorId?._id || 'unknown',
-            name: p.authorId?.name || 'Unknown',
-            username: p.authorId?.username,
-            avatarUrl: p.authorId?.profilePicture || p.authorId?.image,
-            role: p.authorId?.role || 'volunteer'
-          },
-          comments: []
-        }));
+        const mappedPosts = (postsData.data || postsData || []).map((p: RawPost) => {
+          const author = resolveAuthor(p.authorId);
+          return {
+            id: p._id,
+            userId: author._id || 'unknown',
+            content: p.content,
+            imageUrl: p.image,
+            timestamp: new Date(p.createdAt),
+            likes: p.likes?.length || 0,
+            likedByMe: user ? p.likes?.some((l) => (typeof l === 'string' ? l : l._id) === (user.id || user._id)) : false,
+            author: {
+              id: author._id || 'unknown',
+              name: author.name || 'Unknown',
+              username: author.username,
+              avatarUrl: author.profilePicture || author.image,
+              role: author.role || 'volunteer'
+            },
+            comments: []
+          };
+        });
 
         setPosts(mappedPosts);
 
-        mappedPosts.forEach((post: any) => {
+        mappedPosts.forEach((post: { id: string }) => {
           fetchComments(post.id);
         });
 
@@ -176,23 +218,26 @@ export default function DiscussionPage() {
       await createPost(formData);
       toast.success("Post created");
       const postsData = await getEventPosts(eventId);
-      const mappedPosts = (postsData.data || postsData || []).map((p: any) => ({
-        id: p._id,
-        userId: p.authorId?._id || p.authorId,
-        content: p.content,
-        imageUrl: p.image,
-        timestamp: new Date(p.createdAt),
-        likes: p.likes?.length || 0,
-        likedByMe: user ? p.likes?.some((l: any) => (l._id || l) === user.id) : false,
-        author: {
-          id: p.authorId?._id || 'unknown',
-          name: p.authorId?.name || 'Unknown',
-          username: p.authorId?.username,
-          avatarUrl: p.authorId?.profilePicture || p.authorId?.image,
-          role: p.authorId?.role || 'volunteer'
-        },
-        comments: []
-      }));
+      const mappedPosts = (postsData.data || postsData || []).map((p: RawPost) => {
+        const author = resolveAuthor(p.authorId);
+        return {
+          id: p._id,
+          userId: author._id || 'unknown',
+          content: p.content,
+          imageUrl: p.image,
+          timestamp: new Date(p.createdAt),
+          likes: p.likes?.length || 0,
+          likedByMe: user ? p.likes?.some((l) => (typeof l === 'string' ? l : l._id) === (user.id || user._id)) : false,
+          author: {
+            id: author._id || 'unknown',
+            name: author.name || 'Unknown',
+            username: author.username,
+            avatarUrl: author.profilePicture || author.image,
+            role: author.role || 'volunteer'
+          },
+          comments: []
+        };
+      });
       setPosts(mappedPosts);
       setIsCreatePostOpen(false);
     } catch (e) {
@@ -215,7 +260,7 @@ export default function DiscussionPage() {
         }
         return p;
       }));
-    } catch (e) {
+    } catch {
       toast.error("Failed to like post");
     }
   };
@@ -224,7 +269,7 @@ export default function DiscussionPage() {
     try {
       await createComment(postId, { content });
       fetchComments(postId);
-    } catch (e) {
+    } catch {
       toast.error("Failed to add comment");
     }
   };
@@ -272,7 +317,7 @@ export default function DiscussionPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <EventHeader event={{ ...event, members } as any} />
+      <EventHeader event={{ ...event, members } as unknown as DiscussionEvent} />
 
       <div className="px-4 sm:px-6 lg:px-8 py-6">
         <div className="max-w-4xl mx-auto">
@@ -301,7 +346,7 @@ export default function DiscussionPage() {
             </TabsList>
 
             <TabsContent value="about" className="mt-6">
-              <EventAbout event={event as any} />
+              <EventAbout event={event as unknown as DiscussionEvent} />
             </TabsContent>
 
             <TabsContent value="discussion" className="mt-6">
@@ -314,7 +359,7 @@ export default function DiscussionPage() {
                     post={post}
                     comments={commentsMap[post.id] || []}
                     currentUserId={user?.id || ''}
-                    currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
+                    currentUser={user ? { id: user.id || user._id || '', name: user.name || '', avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
                     onLike={handleLike}
                     onAddComment={handleAddComment}
                     onViewDetail={() => handleViewDetail(post.id)}
@@ -346,7 +391,7 @@ export default function DiscussionPage() {
                     post={post}
                     comments={commentsMap[post.id] || []}
                     currentUserId={user?.id || ''}
-                    currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
+                    currentUser={user ? { id: user.id || user._id || '', name: user.name || '', avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
                     onLike={handleLike}
                     onAddComment={handleAddComment}
                     onViewDetail={() => handleViewDetail(post.id)}
@@ -368,7 +413,7 @@ export default function DiscussionPage() {
             <TabsContent value="members" className="mt-6">
               <MembersList
                 members={members}
-                managerId={typeof event.managerId === 'object' ? (event.managerId as any)._id : event.managerId}
+                managerId={typeof event.managerId === 'object' ? event.managerId?._id : event.managerId}
               />
             </TabsContent>
 
@@ -377,7 +422,7 @@ export default function DiscussionPage() {
                 posts={posts}
                 getCommentsForPost={(id) => commentsMap[id] || []}
                 currentUserId={user?.id || ''}
-                currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
+                currentUser={user ? { id: user.id || user._id || '', name: user.name || '', avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
                 onLike={handleLike}
                 onAddComment={handleAddComment}
                 onViewDetail={handleViewDetail}
@@ -392,7 +437,7 @@ export default function DiscussionPage() {
       <CreatePostModal
         open={isCreatePostOpen}
         onOpenChange={setIsCreatePostOpen}
-        onPost={async (content, image) => { await handleCreatePost(content, image as any); }}
+        onPost={async (content, image) => { await handleCreatePost(content, image); }}
       />
 
       {selectedPost && (
@@ -402,7 +447,7 @@ export default function DiscussionPage() {
           post={selectedPost}
           comments={commentsMap[selectedPost.id] || []}
           currentUserId={user?.id || ''}
-          currentUser={user ? { id: user.id, name: user.name, avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
+          currentUser={user ? { id: user.id || user._id || '', name: user.name || '', avatarUrl: user.profilePicture || '' } : { id: '', name: 'Unknown', avatarUrl: '' }}
           onAddComment={(content) => handleAddComment(selectedPost.id, content)}
           onLike={() => handleLike(selectedPost.id)}
           isLiked={selectedPost.likedByMe || false}

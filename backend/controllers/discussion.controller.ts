@@ -16,7 +16,7 @@ export const DiscussionController = {
     async getByEvent(req: Request, res: Response, next: NextFunction) {
         try {
             const discussion = await DiscussionService.getByEventId(
-                req.params.eventId
+                req.params.eventId as string
             );
             res.json({ success: true, data: discussion });
         } catch (err) {
@@ -27,7 +27,7 @@ export const DiscussionController = {
     async lock(req: Request, res: Response, next: NextFunction) {
         try {
             const discussion = await DiscussionService.lockDiscussion(
-                req.params.discussionId
+                req.params.discussionId as string
             );
             res.json({ success: true, data: discussion });
         } catch (err) {

@@ -16,8 +16,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
+interface Report {
+    _id: string;
+    reporter?: { profilePicture?: string; username?: string; name?: string; email?: string };
+    targetType: string;
+    targetId: string;
+    reason: string;
+    description?: string;
+    status: 'pending' | 'resolved' | 'rejected';
+    createdAt: string;
+}
+
 export default function AdminReportsPage() {
-    const [reports, setReports] = useState<any[]>([]);
+    const [reports, setReports] = useState<Report[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState<string>("all");
 
@@ -49,7 +60,7 @@ export default function AdminReportsPage() {
                 body: JSON.stringify({ status })
             });
             fetchReports();
-        } catch (error) {
+        } catch {
             alert("Failed to update status");
         }
     };

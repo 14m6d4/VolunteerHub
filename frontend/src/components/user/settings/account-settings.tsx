@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { updateProfile } from '@/services/user.service'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import type { UpdateProfilePayload } from '@/types/user'
 
 interface AccountSettingsProps {
   avatarFile?: File | null
@@ -17,7 +17,6 @@ interface AccountSettingsProps {
 
 export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsProps): React.ReactElement {
   const { user } = useAuth()
-  const navigate = useNavigate()
 
   const [fullname, setFullname] = useState(user?.name || '')
   const [username, setUsername] = useState(user?.username || '')
@@ -37,7 +36,7 @@ export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsPr
 
     setLoading(true)
     try {
-      const updateData: any = {
+      const updateData: UpdateProfilePayload = {
         name: fullname,
         username: username,
         currentPassword
@@ -62,8 +61,8 @@ export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsPr
       toast.success('Profile updated')
       setCurrentPassword('')
       onAvatarSaved?.()
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Update failed'
+    } catch (err) {
+      const errorMessage = (err instanceof Error ? err.message : '') || 'Update failed'
       toast.error(errorMessage)
     } finally {
       setLoading(false)
@@ -94,8 +93,8 @@ export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsPr
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Password change failed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Password change failed')
     } finally {
       setLoading(false)
     }

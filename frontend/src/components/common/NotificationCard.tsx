@@ -1,22 +1,30 @@
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
-interface NotificationCardProps {
-    notification: {
-        _id: string;
-        type: string;
-        title: string;
-        body?: string;
-        data?: Record<string, any>;
-        isRead: boolean;
-        createdAt: string;
-        actor?: {
-            _id: string;
-            name: string;
-            username: string;
-            profilePicture?: string;
-        };
+export interface NotificationItem {
+    _id: string;
+    type: string;
+    title: string;
+    body?: string;
+    data?: {
+        postId?: string;
+        eventId?: string;
+        username?: string;
+        url?: string;
+        [key: string]: unknown;
     };
+    isRead: boolean;
+    createdAt: string;
+    actor?: {
+        _id: string;
+        name: string;
+        username: string;
+        profilePicture?: string;
+    };
+}
+
+interface NotificationCardProps {
+    notification: NotificationItem;
     onMarkRead?: (id: string) => void;
     userRole?: string;
 }
@@ -130,7 +138,7 @@ export function NotificationCard({ notification, onMarkRead, userRole }: Notific
 
 
         const finalNodes: React.ReactNode[] = [];
-        let currentText = title;
+        const currentText = title;
 
         const parts1 = actor?.name ? currentText.split(actor.name) : [currentText];
 

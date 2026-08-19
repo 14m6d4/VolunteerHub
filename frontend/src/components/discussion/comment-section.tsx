@@ -115,7 +115,7 @@ export function CommentSection({
                 className="text-xs font-semibold cursor-pointer hover:underline"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/u/${(comment.author as any).username || comment.author.id}`);
+                  navigate(`/u/${comment.author.username || comment.author.id}`);
                 }}
               >
                 {comment.author.name}

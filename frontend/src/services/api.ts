@@ -11,11 +11,12 @@ function buildUrl(path: string, query?: Record<string, string | number | boolean
   return url.toString();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional loose default: most call sites don't pin a response shape
 export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): Promise<T> {
   const token = localStorage.getItem('accessToken');
-  const headers: any = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(opts.headers || {}),
+    ...(opts.headers as Record<string, string> || {}),
   };
 
   if (opts.body instanceof FormData) {
@@ -32,13 +33,13 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
   }
 
   const { query, ...fetchOpts } = opts;
-  const url = buildUrl(path, query as any);
+  const url = buildUrl(path, query);
 
   let res: Response;
   try {
     res = await fetch(url, { ...fetchOpts, headers });
-  } catch (err: any) {
-    const e: any = new Error('Network error: failed to reach API');
+  } catch (err) {
+    const e = new Error('Network error: failed to reach API') as Error & { isNetworkError?: boolean; original?: unknown };
     e.isNetworkError = true;
     e.original = err;
     throw e;
@@ -46,12 +47,12 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
   console.log("res in api.ts: ", res);
 
   const contentType = res.headers.get('content-type') || '';
-  let data: any = null;
+  let data: unknown = null;
 
   if (contentType.includes('application/json')) {
     try {
       data = await res.json();
-    } catch (e) {
+    } catch {
       const text = await res.text();
       data = text ? { message: text } : null;
     }
@@ -61,7 +62,8 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
   }
 
   if (!res.ok) {
-    const message = (data && (data.message || data.error)) || res.statusText || 'API error';
+    const body = data as { message?: string; error?: string } | null;
+    const message = (body && (body.message || body.error)) || res.statusText || 'API error';
     throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
   }
 

@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import useAuth from "@/hooks/useAuth";
 import Error404 from "@/components/errors/404";
 

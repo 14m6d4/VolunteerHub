@@ -18,11 +18,11 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return next(createHttpError(401, "Authentication token missing"));
         }
-        const token = authHeader.split(" ")[1];
+        const token = authHeader.split(" ")[1]!;
 
         let decoded: JwtPayload;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+            decoded = jwt.verify(token, process.env.JWT_SECRET!) as unknown as JwtPayload;
         } catch (err: any) {
             console.error("JWT verification failed:", err.name, err.message);
             return next(createHttpError(401, "Invalid or expired token"));
@@ -49,10 +49,10 @@ export async function optionalAuthMiddleware(req: Request, res: Response, next: 
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return next();
         }
-        const token = authHeader.split(" ")[1];
+        const token = authHeader.split(" ")[1]!;
         let decoded: JwtPayload;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+            decoded = jwt.verify(token, process.env.JWT_SECRET!) as unknown as JwtPayload;
         } catch (err: any) {
             console.error("JWT verification failed:", err.name, err.message);
             return next();

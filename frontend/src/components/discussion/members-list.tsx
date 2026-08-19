@@ -55,13 +55,13 @@ export function MembersList({ members, managerId }: MembersListProps) {
       {/* Members Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {filteredMembers.map((member) => {
-          const isManager = managerId && (member.id === managerId || (member as any).userId === managerId);
+          const isManager = managerId && (member.id === managerId || (member as { userId?: string }).userId === managerId);
           const displayRole = isManager ? 'manager' : member.role;
           return (
             <Card
               key={member.id}
               className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => navigate(`/u/${(member as any).username || member.id}`)}
+              onClick={() => navigate(`/u/${member.username || member.id}`)}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">

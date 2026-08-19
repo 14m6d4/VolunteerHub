@@ -77,7 +77,7 @@ router.get("/admin/all", authMiddleware, async (req, res) => {
 
 router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
     try {
-        const { eventId } = req.params;
+        const eventId = req.params.eventId as string;
         const user = (req as AuthenticatedRequest).user;
 
 
@@ -108,7 +108,7 @@ router.patch("/:reportId", async (req, res) => {
     try {
         const updatedReport = await ReportService.updateReportStatus(reportId, status);
         res.json(updatedReport);
-    } catch (error) {
+    } catch (error: any) {
         res.status(400).json({ message: error.message });
     }
 });

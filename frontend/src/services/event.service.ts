@@ -14,7 +14,7 @@ export async function getEvents(filters?: {
     });
 }
 
-export async function createEvent(data: any) {
+export async function createEvent(data: FormData | Record<string, unknown>) {
     const isFormData = data instanceof FormData;
     return apiFetch("/events", {
         method: "POST",
@@ -65,7 +65,7 @@ export async function getMyRegistrations() {
     });
 }
 
-export async function updateEvent(eventId: string, data: any) {
+export async function updateEvent(eventId: string, data: FormData | Record<string, unknown>) {
     const isFormData = data instanceof FormData;
     return apiFetch(`/events/${eventId}`, {
         method: "PUT",

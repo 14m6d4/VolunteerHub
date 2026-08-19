@@ -20,7 +20,7 @@ const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
     }
 
     // Logged in but role not allowed -> 403 Forbidden
-    if (allowedRoles && !allowedRoles.includes(user.role)) {
+    if (allowedRoles && !allowedRoles.includes(user.role || '')) {
         return <Error403 />;
     }
 

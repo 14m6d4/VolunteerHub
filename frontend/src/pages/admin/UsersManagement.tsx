@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Download,
   Search,
@@ -56,7 +56,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { apiFetch } from '@/services/api';
 
-type SortField = 'fullName' | 'username' | 'email' | null;
+type SortField = 'fullName' | 'username' | 'email' | 'createdAt' | null;
 type SortOrder = 'asc' | 'desc';
 
 interface User {
@@ -179,7 +179,7 @@ export default function UsersManagement() {
       name: user.name || '',
       username: user.username,
       email: user.email || '',
-      role: user.role as any,
+      role: user.role as 'volunteer' | 'manager' | 'admin',
       password: '',
       confirmPassword: '',
     });
@@ -206,21 +206,21 @@ export default function UsersManagement() {
       if (editingUser) {
         await apiFetch(`/users/admin/${editingUser._id}`, {
           method: 'PUT',
-          body: formData
+          body: JSON.stringify(formData)
         });
         toast.success('User updated successfully');
       } else {
         await apiFetch('/users/admin/create', {
           method: 'POST',
-          body: formData
+          body: JSON.stringify(formData)
         });
         toast.success('User created successfully');
       }
       setUserDialogOpen(false);
       fetchUsers();
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      toast.error(error.message || "Operation failed");
+      toast.error(error instanceof Error ? error.message : "Operation failed");
     }
   };
 
@@ -233,7 +233,7 @@ export default function UsersManagement() {
 
         await apiFetch(url, {
           method: 'POST',
-          body: userToBan.isBanned ? {} : { reason: banReason }
+          body: userToBan.isBanned ? undefined : JSON.stringify({ reason: banReason })
         });
 
         toast.success(`User ${userToBan.isBanned ? 'unbanned' : 'banned'} successfully`);
@@ -241,8 +241,8 @@ export default function UsersManagement() {
         setBanDialogOpen(false);
         setBanReason("");
         fetchUsers();
-      } catch (error: any) {
-        toast.error(error.message || "Action failed");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Action failed");
       }
     }
   };
@@ -255,8 +255,8 @@ export default function UsersManagement() {
         setUserToDelete(null);
         setDeleteDialogOpen(false);
         fetchUsers();
-      } catch (error: any) {
-        toast.error(error.message || "Delete failed");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Delete failed");
       }
     }
   };

@@ -21,8 +21,8 @@ export default function PasswordResetPage() {
       }
       setEmail(emailInput)
       setStep(2)
-    } catch (err: any) {
-      alert(err.message || "Unable to send OTP")
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Unable to send OTP")
     }
   }
 
@@ -44,8 +44,8 @@ export default function PasswordResetPage() {
       }
       setOtp(otpInput)
       setStep(3)
-    } catch (err: any) {
-      alert(err.message || "OTP verification failed")
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "OTP verification failed")
     }
   }
 

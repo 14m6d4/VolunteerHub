@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as notificationService from '@/services/notification.service';
+import type { NotificationItem } from '@/components/common/NotificationCard';
 
 type UseNotificationsReturn = {
   unreadCount: number;
-  notifications: any[];
+  notifications: NotificationItem[];
   isOpen: boolean;
   openPanel: () => Promise<void>;
   closePanel: () => void;
@@ -12,7 +13,7 @@ type UseNotificationsReturn = {
   markAllRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   deleteAllNotifications: () => Promise<void>;
-  refetch: () => Promise<any>;
+  refetch: () => Promise<unknown>;
 };
 
 export default function useNotifications(): UseNotificationsReturn {
