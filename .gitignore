@@ -36,4 +36,5 @@ yarn-error.log*
 *.sw?
 
 # Database backups
-volunteerhub_database_backup/
+volunteerhub_database_backup/
+docs/
