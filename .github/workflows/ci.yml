@@ -66,8 +66,10 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --build
             docker image prune -f
 
-      - name: Smoke test
-        run: |
-          curl -fsS --retry 6 --retry-delay 5 --retry-all-errors \
-            https://volunteerhub.l4mbd4.me/ -o /dev/null
-          curl -fsS https://volunteerhub.l4mbd4.me/api/events -o /dev/null
+            # Smoke test runs here, not on the runner: the domain is proxied by
+            # Cloudflare, which 403s GitHub Actions' datacenter IPs. The VM's own
+            # requests still egress to Cloudflare and back, so this stays a real
+            # end-to-end check of Cloudflare -> Traefik -> container.
+            curl -fsS --retry 6 --retry-delay 5 --retry-all-errors https://volunteerhub.l4mbd4.me/ -o /dev/null
+            curl -fsS https://volunteerhub.l4mbd4.me/api/events -o /dev/null
+            echo "smoke test passed"
