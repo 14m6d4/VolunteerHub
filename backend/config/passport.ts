@@ -5,7 +5,7 @@ import { generateAuthToken } from '../utils/jwt.util.ts';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_CALLBACK_URL = process.env.BACKEND_URL_WITHOUT_SLASH + '/api/auth/google/callback';
+const GOOGLE_CALLBACK_URL = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '') + '/api/auth/google/callback';
 
 passport.use(new GoogleStrategy({
   clientID: GOOGLE_CLIENT_ID!,

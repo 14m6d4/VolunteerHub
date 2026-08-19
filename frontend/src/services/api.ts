@@ -4,7 +4,7 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || '/api';
 type FetchOptions = RequestInit & { query?: Record<string, string | number | boolean> };
 
 function buildUrl(path: string, query?: Record<string, string | number | boolean>) {
-  const url = new URL(path.startsWith('/') ? `${API_BASE}${path}` : `${API_BASE}/${path}`);
+  const url = new URL(path.startsWith('/') ? `${API_BASE}${path}` : `${API_BASE}/${path}`, window.location.origin);
   if (query) {
     Object.entries(query).forEach(([k, v]) => url.searchParams.set(k, String(v)));
   }

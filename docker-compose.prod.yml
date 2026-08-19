@@ -15,23 +15,40 @@ services:
       - ./backend/.env
     environment:
       NODE_ENV: production
-    ports:
-      - "5000:5000"
     restart: unless-stopped
     depends_on:
       - mongo
+    networks:
+      - default
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vh-api.rule=Host(`volunteerhub.l4mbd4.me`) && (PathPrefix(`/api`) || PathPrefix(`/file`) || PathPrefix(`/uploads`))"
+      - "traefik.http.routers.vh-api.entrypoints=websecure"
+      - "traefik.http.routers.vh-api.priority=100"
+      - "traefik.http.services.vh-api.loadbalancer.server.port=5000"
 
   frontend:
     build:
       context: ./frontend
       target: prod
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api}
-    ports:
-      - "80:80"
+        VITE_API_URL: ${VITE_API_URL:-/api}
     restart: unless-stopped
     depends_on:
       - backend
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vh-web.rule=Host(`volunteerhub.l4mbd4.me`)"
+      - "traefik.http.routers.vh-web.entrypoints=websecure"
+      - "traefik.http.routers.vh-web.priority=10"
+      - "traefik.http.services.vh-web.loadbalancer.server.port=80"
 
 volumes:
   mongo-data:
+
+networks:
+  proxy:
+    external: true
