@@ -101,6 +101,24 @@ await check('login is rate limited', async () => {
     assert.ok(limited, 'expected a 429 within 25 attempts');
 });
 
+await check('rotating X-Forwarded-For does not reset the limit', async () => {
+    // Cloudflare appends to X-Forwarded-For rather than replacing it, so if the
+    // trusted hop count reaches a client-supplied entry, an attacker gets a new
+    // bucket per request and the limit means nothing. The limiter must key on
+    // something the client cannot choose.
+    const hit = (xff: string) => fetch(`${base}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': xff },
+        body: JSON.stringify({ username: 'nobody', password: 'wrongpassword' }),
+    });
+    let limited = false;
+    for (let i = 0; i < 40; i++) {
+        const res = await hit(`203.0.113.${i % 254}`);
+        if (res.status === 429) { limited = true; break; }
+    }
+    assert.ok(limited, 'a rotating X-Forwarded-For bypassed the rate limit');
+});
+
 console.log(results.join('\n'));
 console.log(process.exitCode ? '\nSECURITY SMOKE FAILED' : '\nSECURITY SMOKE PASSED');
 server.close();

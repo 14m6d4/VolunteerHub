@@ -15,9 +15,10 @@ services:
       - ./backend/.env
     environment:
       NODE_ENV: production
-      # Cloudflare + Traefik sit in front, so the API must look two hops back
-      # to find the real client IP that rate limiting keys on.
-      TRUST_PROXY: 2
+      # Only Traefik is trusted as a hop. Cloudflare appends to X-Forwarded-For
+      # instead of replacing it, so trusting two hops let a client forge its own
+      # entry; the real client comes from CF-Connecting-IP in rateLimit.middleware.
+      TRUST_PROXY: 1
     restart: unless-stopped
     depends_on:
       - mongo

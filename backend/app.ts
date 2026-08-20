@@ -25,10 +25,11 @@ const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").repla
 
 const app: Application = express();
 
-// In production the app sits behind Cloudflare and Traefik, so the socket peer
-// is always Traefik. Without this every client shares one rate-limit bucket.
-// Keep it 0 in development, where an unproxied X-Forwarded-For would be
-// attacker-controlled and would let anyone forge their way past the limiter.
+// Trust only the proxies we run. In production that is Traefik alone (1);
+// Cloudflare is deliberately not counted, because it appends to
+// X-Forwarded-For rather than replacing it, so trusting a further hop would
+// trust a value the client chose. Rate limiting identifies callers by
+// CF-Connecting-IP instead - see middlewares/rateLimit.middleware.ts.
 app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0));
 
 app.use(helmet({
