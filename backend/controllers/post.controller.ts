@@ -47,7 +47,11 @@ export const PostController = {
 
     async delete(req: Request, res: Response, next: NextFunction) {
         try {
-            const post = await PostService.deletePost(req.params.postId as string);
+            const post = await PostService.deletePost(
+                req.params.postId as string,
+                (req.user as any)._id,
+                (req.user as any).role
+            );
             res.json({ success: true, data: post });
         } catch (err) {
             next(err);
@@ -56,7 +60,10 @@ export const PostController = {
 
     async pin(req: Request, res: Response, next: NextFunction) {
         try {
-            const post = await PostService.togglePin(req.params.postId as string);
+            const post = await PostService.togglePin(
+                req.params.postId as string,
+                (req.user as any).role
+            );
             res.json({ success: true, data: post });
         } catch (err) {
             next(err);

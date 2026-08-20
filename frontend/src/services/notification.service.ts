@@ -35,18 +35,5 @@ export async function deleteAllNotifications() {
   return res.data;
 }
 
-interface CreateNotificationPayload {
-  userId: string;
-  actorId?: string;
-  type: string;
-  title: string;
-  body?: string;
-  data?: Record<string, unknown>;
-}
 
-export async function createNotification(payload: CreateNotificationPayload) {
-  const data = await apiFetch<NotificationResponse>('/notifications', { method: 'POST', body: JSON.stringify(payload) });
-  return data.data.notification;
-}
-
-export default { getNotifications, getUnreadCount, markRead, markAllRead, createNotification };
+export default { getNotifications, getUnreadCount, markRead, markAllRead };

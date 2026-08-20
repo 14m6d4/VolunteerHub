@@ -12,7 +12,5 @@ router.patch('/mark-all-read', authMiddleware, notificationController.markAllRea
 router.delete('/:id', authMiddleware, notificationController.deleteNotification as any);
 router.delete('/', authMiddleware, notificationController.deleteAllNotifications as any);
 
-// Internal/admin: create notification
-router.post('/', notificationController.createNotificationController);
 
 export default router;

@@ -2,8 +2,15 @@ import express from "express";
 import { ReportService } from "../services/report.service.ts";
 import { ReportTargetType } from "../models/Report.model.ts";
 import { authMiddleware, type AuthenticatedRequest } from "../middlewares/auth.middleware.ts";
+import { roleMiddleware } from "../middlewares/role.middleware.ts";
+import { UserRole } from "../types/user.ts";
 
 const router = express.Router();
+
+// Reports name their reporter and carry the reported content, and their status
+// decides whether moderation acts on them. Reading or resolving one is a
+// moderator action, never a public one.
+const staffOnly = [authMiddleware, roleMiddleware([UserRole.Admin, UserRole.Manager])];
 
 router.post("/event", authMiddleware, async (req, res) => {
     const { eventId, reason, description } = req.body;
@@ -75,7 +82,7 @@ router.get("/admin/all", authMiddleware, async (req, res) => {
     }
 });
 
-router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
+router.get("/event/:eventId/reports", ...staffOnly, async (req, res) => {
     try {
         const eventId = req.params.eventId as string;
         const user = (req as AuthenticatedRequest).user;
@@ -89,24 +96,24 @@ router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
     }
 });
 
-router.get("/:targetType/:targetId", async (req, res) => {
+router.get("/:targetType/:targetId", ...staffOnly, async (req, res) => {
     const { targetType, targetId } = req.params;
     const reportType = targetType === 'event' ? ReportTargetType.Event : ReportTargetType.Post;
 
     try {
-        const reports = await ReportService.getReportsByTarget(targetId, reportType);
+        const reports = await ReportService.getReportsByTarget(targetId as string, reportType);
         res.json(reports);
     } catch (error: any) {
         res.status(400).json({ message: error.message });
     }
 });
 
-router.patch("/:reportId", async (req, res) => {
+router.patch("/:reportId", ...staffOnly, async (req, res) => {
     const { reportId } = req.params;
     const { status } = req.body;
 
     try {
-        const updatedReport = await ReportService.updateReportStatus(reportId, status);
+        const updatedReport = await ReportService.updateReportStatus(reportId as string, status);
         res.json(updatedReport);
     } catch (error: any) {
         res.status(400).json({ message: error.message });
