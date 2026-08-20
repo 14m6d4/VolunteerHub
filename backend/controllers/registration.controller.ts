@@ -1,5 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { RegistrationService } from "../services/registration.service.ts";
+import { EventModel } from "../models/Event.model.ts";
+import { UserRole } from "../types/user.ts";
+import createHttpError from "http-errors";
 
 export const RegistrationController = {
     async register(req: Request, res: Response, next: NextFunction) {
@@ -30,7 +33,7 @@ export const RegistrationController = {
         try {
             const regId = req.params.regId as string;
             const managerId = (req.user as any)._id;
-            const reg = await RegistrationService.approveRegistration(regId, managerId);
+            const reg = await RegistrationService.approveRegistration(regId, managerId, (req.user as any).role);
             return res.json({ success: true, data: reg });
         } catch (err) {
             next(err);
@@ -41,7 +44,7 @@ export const RegistrationController = {
         try {
             const regId = req.params.regId as string;
             const managerId = (req.user as any)._id;
-            const result = await RegistrationService.rejectRegistration(regId, managerId);
+            const result = await RegistrationService.rejectRegistration(regId, managerId, (req.user as any).role);
             return res.json({ success: true, data: result });
         } catch (err) {
             next(err);
@@ -63,12 +66,19 @@ export const RegistrationController = {
             const eventId = req.params.eventId as string;
             const user = req.user as any;
 
-            // If user is not manager/admin, they can only see approved members
-            if (user.role !== 'manager' && user.role !== 'admin') {
+            // Being a manager is not enough - it has to be this event's manager.
+            // Anyone else, including managers of other events, sees only the
+            // approved roster without contact details.
+            const event = await EventModel.findById(eventId).select('managerId');
+            if (!event) throw createHttpError(404, "Event not found");
+            const runsThisEvent = user.role === UserRole.Admin ||
+                (user.role === UserRole.Manager && event.managerId.equals(user._id));
+
+            if (!runsThisEvent) {
                 req.query.status = 'approved';
             }
 
-            const items = await RegistrationService.getRegistrationsForEvent(eventId, req.query);
+            const items = await RegistrationService.getRegistrationsForEvent(eventId, req.query, runsThisEvent);
             return res.json({ success: true, data: items });
         } catch (err) {
             next(err);
@@ -89,7 +99,7 @@ export const RegistrationController = {
     async kickFromEvent(req: Request, res: Response, next: NextFunction) {
         try {
             const regId = req.params.regId as string;
-            const result = await RegistrationService.kickMember(regId);
+            const result = await RegistrationService.kickMember(regId, (req.user as any)._id, (req.user as any).role);
             return res.json({ success: true, data: result });
         } catch (err) {
             next(err);

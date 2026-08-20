@@ -11,6 +11,19 @@ import { UserRole } from "../types/user.ts";
 import { ReportTargetType } from "../models/Report.model.ts";
 import createHttpError from "http-errors";
 
+
+/**
+ * A manager may only act on events they run; an admin may act on any.
+ * Role alone is not enough: it proves the caller is *a* manager, never that
+ * they are *this event's* manager.
+ */
+function assertMayManageEvent(event: { managerId: Types.ObjectId }, actorId: Types.ObjectId, actorRole: string) {
+    if (actorRole === UserRole.Admin) return;
+    if (!event.managerId?.equals(actorId)) {
+        throw createHttpError(403, "You do not manage this event");
+    }
+}
+
 export const EventService = {
     async getAllEvents() {
         return EventModel.find({}).sort({ createdAt: -1 });
@@ -45,9 +58,10 @@ export const EventService = {
         }
     },
 
-    async updateEvent(eventId: string, updates: Partial<IEvent>, currentUserId: Types.ObjectId) {
+    async updateEvent(eventId: string, updates: Partial<IEvent>, currentUserId: Types.ObjectId, currentUserRole: string) {
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
+        assertMayManageEvent(event, currentUserId, currentUserRole);
         Object.assign(event, updates);
         await event.save();
 
@@ -256,7 +270,11 @@ export const EventService = {
     },
 
 
-    async pinPostOnEvent(eventId: string, postId: string, managerId: Types.ObjectId) {
+    async pinPostOnEvent(eventId: string, postId: string, managerId: Types.ObjectId, managerRole: string) {
+        const event = await EventModel.findById(eventId);
+        if (!event) throw createHttpError(404, "Event not found");
+        assertMayManageEvent(event, managerId, managerRole);
+
         const post = await PostModel.findById(postId);
         if (!post) throw createHttpError(404, "Post not found");
         if (!post.eventId?.equals(eventId)) throw createHttpError(400, "Post does not belong to event");
@@ -267,9 +285,10 @@ export const EventService = {
         return post;
     },
 
-    async getEventStats(eventId: string) {
+    async getEventStats(eventId: string, actorId: Types.ObjectId, actorRole: string) {
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
+        assertMayManageEvent(event, actorId, actorRole);
         const postsCount = await PostModel.countDocuments({ eventId });
         const regsCount = await (await import("../models/Registration.model.ts")).RegistrationModel.countDocuments({ eventId });
         return {
@@ -279,11 +298,14 @@ export const EventService = {
         };
     },
 
-    async deleteEvent(eventId: string) {
-        try {
-            const event = await EventModel.findById(eventId);
-            if (!event) throw createHttpError(404, "Event not found");
+    async deleteEvent(eventId: string, actorId: Types.ObjectId, actorRole: string) {
+        // Lookup and authorization sit outside the try: the catch below turns
+        // everything into a 500, which would mask the 404 and the 403.
+        const event = await EventModel.findById(eventId);
+        if (!event) throw createHttpError(404, "Event not found");
+        assertMayManageEvent(event, actorId, actorRole);
 
+        try {
             // Delete associated data
             await Promise.all([
                 DiscussionModel.deleteOne({ eventId }),
@@ -298,9 +320,10 @@ export const EventService = {
             throw createHttpError(500, "Failed to delete event");
         }
     },
-    async completeEvent(eventId: string) {
+    async completeEvent(eventId: string, actorId: Types.ObjectId, actorRole: string) {
         const event = await EventModel.findById(eventId);
         if (!event) throw createHttpError(404, "Event not found");
+        assertMayManageEvent(event, actorId, actorRole);
 
         // Update event status
         event.status = EventStatus.FINISHED;

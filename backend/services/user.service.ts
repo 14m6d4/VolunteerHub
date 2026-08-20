@@ -1,4 +1,5 @@
 import type { UpdateProfileData, IUser } from '../types/user.ts';
+import { UserRole } from '../types/user.ts';
 import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
 import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
@@ -203,11 +204,19 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
   return username;
 }
 
+/**
+ * User input goes into $regex in a few places. Unescaped, a crafted pattern is
+ * both a filter bypass and a ReDoS - the user search endpoint is public, so the
+ * input is anonymous. Escaping turns the value back into a literal substring.
+ */
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const searchUsersService = async (query: string, limit: number = 10) => {
+  const safe = escapeRegex(String(query ?? ''));
   return await UserModel.find({
     $or: [
-      { username: { $regex: query, $options: 'i' } },
-      { name: { $regex: query, $options: 'i' } }
+      { username: { $regex: safe, $options: 'i' } },
+      { name: { $regex: safe, $options: 'i' } }
     ],
     isActive: true,
     isBanned: false
@@ -403,14 +412,18 @@ export const adminSearchUsers = async (filters: {
   const query: any = {};
 
   if (q) {
+    const safe = escapeRegex(String(q));
     query.$or = [
-      { username: { $regex: q, $options: 'i' } },
-      { name: { $regex: q, $options: 'i' } },
-      { email: { $regex: q, $options: 'i' } }
+      { username: { $regex: safe, $options: 'i' } },
+      { name: { $regex: safe, $options: 'i' } },
+      { email: { $regex: safe, $options: 'i' } }
     ];
   }
 
-  if (role && role !== 'all') {
+  // Query-string values arrive as arbitrary shapes: ?role[$ne]=admin parses to
+  // an object, which would reach the filter as a Mongo operator. Only accept a
+  // known role name.
+  if (role && role !== 'all' && Object.values(UserRole).includes(role as UserRole)) {
     query.role = role;
   }
 
@@ -419,8 +432,10 @@ export const adminSearchUsers = async (filters: {
     else if (status === 'active') query.isBanned = false;
   }
 
+  // Same reasoning for sortBy, which is used as an object key.
+  const SORTABLE = ['createdAt', 'username', 'name', 'email', 'role'];
   const sort: any = {};
-  sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+  sort[SORTABLE.includes(sortBy) ? sortBy : 'createdAt'] = sortOrder === 'asc' ? 1 : -1;
 
   const skip = (page - 1) * limit;
 
