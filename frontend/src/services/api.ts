@@ -44,7 +44,6 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
     e.original = err;
     throw e;
   }
-  console.log("res in api.ts: ", res);
 
   const contentType = res.headers.get('content-type') || '';
   let data: unknown = null;
