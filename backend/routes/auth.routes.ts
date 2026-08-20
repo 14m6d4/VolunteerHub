@@ -4,6 +4,7 @@ import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
 import { authMiddleware } from '../middlewares/auth.middleware.ts';
 import passport from '../config/passport.ts';
+import { authLimiter, otpLimiter } from '../middlewares/rateLimit.middleware.ts';
 
 const router = express.Router();
 
@@ -14,6 +15,7 @@ const router = express.Router();
  */
 router.post(
   '/login',
+  authLimiter,
   validateBody(validators.loginSchema),
   authController.login
 );
@@ -25,6 +27,7 @@ router.post(
  */
 router.post(
   '/register',
+  authLimiter,
   validateBody(validators.registerSchema),
   authController.register // FIX: Gán hàm controller thực tế
 );
@@ -36,6 +39,7 @@ router.post(
  */
 router.post(
   '/verify-otp',
+  otpLimiter,
   // TODO: Validation middleware cho email và otp
   authController.verifyOTP
 );
@@ -43,6 +47,7 @@ router.post(
 // Forgot password - send reset OTP
 router.post(
   '/forgot-password',
+  otpLimiter,
   // TODO: add validation for { email }
   authController.forgotPassword
 );
@@ -50,6 +55,7 @@ router.post(
 // Verify reset OTP (password reset flow)
 router.post(
   '/verify-reset-otp',
+  otpLimiter,
   // TODO: add validation for { email, otp }
   authController.verifyResetOTP
 );
@@ -57,7 +63,8 @@ router.post(
 // Reset password using email + otp + new password
 router.post(
   '/reset-password',
-  // TODO: add validation for { email, otp, password }
+  otpLimiter,
+  validateBody(validators.resetPasswordSchema),
   authController.resetPassword
 );
 

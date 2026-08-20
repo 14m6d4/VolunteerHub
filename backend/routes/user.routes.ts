@@ -10,14 +10,6 @@ import { UserRole } from '../types/user.ts';
 const router = Router();
 
 
-router.options('/profile/secure', (req, res) => {
-  const origin = (req.headers.origin as string) || '*';
-  res.header('Access-Control-Allow-Origin', origin);
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  return res.sendStatus(204);
-});
 router.patch(
   '/profile/secure',
   authMiddleware,

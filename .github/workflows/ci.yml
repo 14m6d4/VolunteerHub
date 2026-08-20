@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# The workflow only builds and deploys over SSH; it never writes to the repo.
+permissions:
+  contents: read
+
 concurrency:
   group: cicd-${{ github.ref }}
   cancel-in-progress: true

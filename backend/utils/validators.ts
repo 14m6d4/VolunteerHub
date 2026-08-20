@@ -90,6 +90,15 @@ export const updateEventSchema = z.object({
   { message: 'End date must be after start date', path: ['endAt'] }
 );
 
+// --- Password Reset Schema ---
+// The reset flow set a new password with no validation at all, so it was the
+// one way into an account that ignored the 8-character floor above.
+export const resetPasswordSchema = z.object({
+  email: z.string().email('Email must be valid.'),
+  otp: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits.'),
+  password: z.string().min(8, 'Password must be at least 8 characters long.'),
+});
+
 // --- User Profile Schema ---
 export const secureUpdateProfileSchema = z.object({
   currentPassword: z.string().min(6, 'Password must be at least 6 characters long').optional(),
@@ -110,7 +119,11 @@ export const secureUpdateProfileSchema = z.object({
     z.string().regex(/^data:image\/[a-zA-Z]+;base64,/, 'Invalid image data URL'),
     z.literal('')
   ]).optional(),
-  password: z.string().min(6, 'Password must be at least 6 characters long').optional(),
+  // Matches the 8-character minimum enforced at registration; a lower bound
+  // here let users downgrade below the floor they signed up under.
+  // currentPassword above stays permissive - it verifies an existing password,
+  // and tightening it would lock out accounts created before this rule.
+  password: z.string().min(8, 'Password must be at least 8 characters long.').optional(),
   notificationsEnabled: z.boolean().optional(),
   notifyOnMention: z.boolean().optional(),
   notifyOnEventUpdate: z.boolean().optional(),

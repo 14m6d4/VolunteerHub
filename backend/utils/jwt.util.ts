@@ -2,7 +2,14 @@ import jwt from 'jsonwebtoken';
 import { type ITokenPayload, type IUser } from '../types/user.ts';
 import dotenv from "dotenv";
 dotenv.config();
-const JWT_SECRET: string = process.env.JWT_SECRET || 'secret123';
+const JWT_SECRET: string = process.env.JWT_SECRET as string;
+
+// Fail at boot rather than signing every token with a constant that is public
+// in this repository's history. A missing or misspelled JWT_SECRET would
+// otherwise let anyone forge a token for any user.
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is not set. Refusing to start with an insecure fallback secret.');
+}
 
 const ACCESS_TOKEN_EXPIRATION = '1d';
 
