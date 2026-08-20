@@ -1,12 +1,12 @@
 import type { Types } from 'mongoose';
-import NotificationModel, { type INotification } from '../models/Notification.model.ts';
+import NotificationModel, { NotificationType, type INotification } from '../models/Notification.model.ts';
 import { WebPushService } from "./webpush.service.ts";
 import AppError from '../utils/appError.ts';
 
 export async function createNotification(payload: {
 	userId: string;
 	actorId?: string;
-	type: string;
+	type: NotificationType;
 	title: string;
 	body?: string;
 	data?: Record<string, any>;

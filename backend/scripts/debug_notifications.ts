@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 import User from '../models/User.model.ts';
+import { UserRole } from '../types/user.ts';
 import { ReportService } from '../services/report.service.ts';
 
 const run = async () => {
@@ -18,11 +19,11 @@ const run = async () => {
         await mongoose.connect(process.env.MONGODB_URI as string);
         console.log('Connected.');
 
-        const admins = await User.find({ role: 'admin' });
+        const admins = await User.find({ role: UserRole.Admin });
         console.log(`Found ${admins.length} admins.`);
         admins.forEach(a => console.log(` - ${a.username} (${a._id})`));
 
-        const target = await User.findOne({ role: 'volunteer' });
+        const target = await User.findOne({ role: UserRole.Volunteer });
         if (!target) {
             console.log('No volunteer user found to report.');
             return;

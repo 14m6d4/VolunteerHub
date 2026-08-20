@@ -7,6 +7,8 @@ import { RegistrationModel, RegistrationStatus } from "../models/Registration.mo
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
 import User from "../models/User.model.ts";
+import { UserRole } from "../types/user.ts";
+import { ReportTargetType } from "../models/Report.model.ts";
 import createHttpError from "http-errors";
 
 export const EventService = {
@@ -26,7 +28,7 @@ export const EventService = {
                     { upsert: true, new: true }
                 );
             }
-            const admins = await User.find({ role: "admin" });
+            const admins = await User.find({ role: UserRole.Admin });
             admins.forEach(admin =>
                 NotificationService.notify(admin._id, {
                     type: NotificationType.EVENT_PENDING,
@@ -51,7 +53,7 @@ export const EventService = {
 
         const members = await RegistrationModel.find({
             eventId,
-            status: "approved"
+            status: RegistrationStatus.APPROVED
         });
 
         for (const m of members) {
@@ -174,7 +176,7 @@ export const EventService = {
             const posts = await PostModel.find({ eventId: item._id }).select('_id');
             const postIds = posts.map(p => p._id);
             const pendingReportsCount = await ReportModel.countDocuments({
-                targetType: 'post',
+                targetType: ReportTargetType.Post,
                 targetId: { $in: postIds },
                 status: 'pending'
             });

@@ -4,6 +4,7 @@ import AppError from '../utils/appError.ts';
 import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
 import FriendRequestModel, { FriendRequestStatus } from '../models/FriendRequest.model.ts';
 import * as notificationService from './notification.service.ts';
+import { NotificationType } from '../models/Notification.model.ts';
 
 export async function updateProfileWithPasswordCheck(
   userId: string,
@@ -284,7 +285,7 @@ export const sendFriendRequestService = async (senderId: string, receiverId: str
       await notificationService.createNotification({
         userId: receiverId,
         actorId: senderId,
-        type: 'friend_request_received',
+        type: NotificationType.FRIEND_REQUEST_RECEIVED,
         title: 'New friend request',
         body: 'You received a friend request',
         data: { senderId }
@@ -319,7 +320,7 @@ export const acceptFriendRequestService = async (requestId: string, currentUserI
     await notificationService.createNotification({
       userId: sender,
       actorId: currentUserId,
-      type: 'friend_request_accepted',
+      type: NotificationType.FRIEND_REQUEST_ACCEPTED,
       title: 'Friend request accepted',
       body: 'Your friend request was accepted',
       data: { by: currentUserId }

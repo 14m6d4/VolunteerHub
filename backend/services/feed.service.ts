@@ -1,6 +1,6 @@
 import { PostModel } from "../models/Post.model.ts";
 import { FeedType } from "../models/Feed.model.ts";
-import { RegistrationModel } from "../models/Registration.model.ts";
+import { RegistrationModel, RegistrationStatus } from "../models/Registration.model.ts";
 import { EventModel } from "../models/Event.model.ts";
 import UserModel from "../models/User.model.ts";
 import { CommentModel } from "../models/Comment.model.ts";
@@ -64,7 +64,7 @@ export const FeedService = {
 
                 const joinedRegs = await RegistrationModel.find({
                     volunteerId: user._id,
-                    status: { $in: ["approved", "completed"] },
+                    status: { $in: [RegistrationStatus.APPROVED, RegistrationStatus.COMPLETED] },
                 }).select("eventId");
                 joinedEventIds = joinedRegs.map(r => r.eventId);
 
@@ -162,7 +162,7 @@ export const FeedService = {
 
             const recentRegs = await RegistrationModel.find({
                 eventId: { $in: eventIds },
-                status: { $in: ["approved", "completed"] },
+                status: { $in: [RegistrationStatus.APPROVED, RegistrationStatus.COMPLETED] },
                 createdAt: { $gte: cutoff }
             }).select('eventId createdAt').lean();
 

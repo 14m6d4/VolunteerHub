@@ -11,6 +11,7 @@ import mongoose from 'mongoose';
 import 'dotenv/config';
 import app from '../app.ts';
 import User from '../models/User.model.ts';
+import { UserRole } from '../types/user.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 
 if (!process.env.MONGO_URI) {
@@ -23,12 +24,12 @@ const stamp = Date.now();
 const victimAdmin = await User.create({
   username: `zz_admin_${stamp}`, email: `zz_admin_${stamp}@test.local`,
   passwordHash: 'OriginalAdminPw1', name: 'Victim Admin',
-  birthdate: new Date('1990-01-01'), role: 'admin', isVerified: true, isActive: true, authProvider: 'local',
+  birthdate: new Date('1990-01-01'), role: UserRole.Admin, isVerified: true, isActive: true, authProvider: 'local',
 });
 const attacker = await User.create({
   username: `zz_vol_${stamp}`, email: `zz_vol_${stamp}@test.local`,
   passwordHash: 'AttackerPw12345', name: 'Attacker',
-  birthdate: new Date('1990-01-01'), role: 'volunteer', isVerified: true, isActive: true, authProvider: 'local',
+  birthdate: new Date('1990-01-01'), role: UserRole.Volunteer, isVerified: true, isActive: true, authProvider: 'local',
 });
 
 const token = createAccessToken({ id: attacker._id.toString(), email: attacker.email, role: attacker.role });
@@ -49,7 +50,7 @@ await check('volunteer cannot promote itself to admin', async () => {
   assert.equal(res.status, 403);
   const after = await User.findById(attacker._id);
   assert.ok(after);
-  assert.equal(after.role, 'volunteer', 'role changed in the database');
+  assert.equal(after.role, UserRole.Volunteer, 'role changed in the database');
 });
 
 await check("volunteer cannot reset an admin's password", async () => {
