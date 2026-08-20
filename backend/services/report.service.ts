@@ -5,6 +5,7 @@ import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
 import createHttpError from "http-errors";
 import User from "../models/User.model.ts";
+import { UserRole } from "../types/user.ts";
 
 export const ReportService = {
     async reportEvent(reporterId: string, eventId: string, reason: string, description?: string) {
@@ -20,7 +21,7 @@ export const ReportService = {
             status: 'pending'
         });
 
-        const admins = await User.find({ role: "admin" });
+        const admins = await User.find({ role: UserRole.Admin });
         admins.forEach(admin => {
             NotificationService.notify(admin._id.toString(), {
                 type: NotificationType.EVENT_REPORTED,
@@ -74,7 +75,7 @@ export const ReportService = {
             status: 'pending'
         });
 
-        const admins = await User.find({ role: "admin" });
+        const admins = await User.find({ role: UserRole.Admin });
         console.log(`[ReportService] reportUser: Found ${admins.length} admins to notify.`);
 
         admins.forEach(admin => {

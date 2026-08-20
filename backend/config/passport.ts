@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import * as userService from '../services/user.service.ts';
 import { generateAuthToken } from '../utils/jwt.util.ts';
+import { isBanned } from '../utils/ban.util.ts';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -25,7 +26,7 @@ passport.use(new GoogleStrategy({
 
       const user = await userService.findOrCreateByGoogleId({ email, name, googleId });
 
-      if ((user as any).isBanned || ((user as any).bannedUntil && (user as any).bannedUntil > new Date())) {
+      if (isBanned(user)) {
         const reason = (user as any).bannedReason || '';
         const until = (user as any).bannedUntil ? (user as any).bannedUntil.toISOString() : undefined;
         return done(null, { banned: true, reason, until });

@@ -44,7 +44,7 @@ export const EventController = {
                 const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
                 req.body.image = imageUrl;
             }
-            const updated = await EventService.updateEvent(eventId, req.body, (req.user as any)?._id);
+            const updated = await EventService.updateEvent(eventId, req.body, (req.user as any)._id, (req.user as any).role);
             return res.json({ success: true, data: updated });
         } catch (err) {
             next(err);
@@ -131,7 +131,7 @@ export const EventController = {
             const eventId = req.params.eventId as string;
             const { postId } = req.body;
             const userId = (req.user as any)._id;
-            const post = await EventService.pinPostOnEvent(eventId, postId, userId);
+            const post = await EventService.pinPostOnEvent(eventId, postId, userId, (req.user as any).role);
             return res.json({ success: true, data: post });
         } catch (err) {
             next(err);
@@ -140,7 +140,7 @@ export const EventController = {
 
     async stats(req: Request, res: Response, next: NextFunction) {
         try {
-            const stats = await EventService.getEventStats(req.params.id as string);
+            const stats = await EventService.getEventStats(req.params.id as string, (req.user as any)._id, (req.user as any).role);
             return res.json({ success: true, data: stats });
         } catch (err) {
             next(err);
@@ -148,7 +148,7 @@ export const EventController = {
     },
     async delete(req: Request, res: Response, next: NextFunction) {
         try {
-            await EventService.deleteEvent(req.params.id as string);
+            await EventService.deleteEvent(req.params.id as string, (req.user as any)._id, (req.user as any).role);
             return res.json({ success: true, message: "Event deleted" });
         } catch (err) {
             next(err);
@@ -165,7 +165,7 @@ export const EventController = {
     },
     async complete(req: Request, res: Response, next: NextFunction) {
         try {
-            const event = await EventService.completeEvent(req.params.id as string);
+            const event = await EventService.completeEvent(req.params.id as string, (req.user as any)._id, (req.user as any).role);
             return res.json({ success: true, data: event });
         } catch (err) {
             next(err);

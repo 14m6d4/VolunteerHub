@@ -22,6 +22,14 @@ if (!MONGO_URI) {
     process.exit(1);
 }
 
+// This script wipes the database and recreates 46 accounts that all share the
+// password below. Running it against production would be destructive and would
+// hand out known credentials, so refuse outright.
+if (process.env.NODE_ENV === "production") {
+    console.error("Refusing to seed: NODE_ENV is production. This script drops data and creates accounts with a shared, well-known password.");
+    process.exit(1);
+}
+
 // Helpers
 const getRandomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 const getRandomElement = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)];

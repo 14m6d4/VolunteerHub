@@ -1,3 +1,4 @@
+import createHttpError from "http-errors";
 import { PostModel } from "../models/Post.model.ts";
 import { uploadToImgBB } from "./imgbb.service.ts";
 import { NotificationService } from "./notification.service.ts";
@@ -88,13 +89,28 @@ export const PostService = {
         return updatedPost;
     },
 
-    async deletePost(postId: string) {
-        return PostModel.findByIdAndDelete(postId);
+    async deletePost(postId: string, userId: string, role: string) {
+        const post = await PostModel.findById(postId);
+        if (!post) throw createHttpError(404, "Post not found");
+
+        const isOwner = post.authorId.equals(userId);
+        if (!isOwner && role !== "admin" && role !== "manager") {
+            throw createHttpError(403, "You do not have permission to delete this post");
+        }
+
+        await post.deleteOne();
+        return post;
     },
 
-    async togglePin(postId: string) {
+    // Pinning is a moderation action, not an authoring one: the owner of a
+    // single post must not be able to pin it to the top of a shared feed.
+    async togglePin(postId: string, role: string) {
+        if (role !== "admin" && role !== "manager") {
+            throw createHttpError(403, "You do not have permission to pin this post");
+        }
+
         const post = await PostModel.findById(postId);
-        if (!post) throw new Error("Post not found");
+        if (!post) throw createHttpError(404, "Post not found");
 
         post.pinned = !post.pinned;
         await post.save();

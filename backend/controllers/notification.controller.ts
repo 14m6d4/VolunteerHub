@@ -67,12 +67,3 @@ export async function deleteAllNotifications(req: AuthenticatedRequest, res: Res
   }
 }
 
-export async function createNotificationController(req: Request, res: Response, next: NextFunction) {
-  try {
-    const { userId, actorId, type, title, body, data } = req.body;
-    const doc = await notificationService.createNotification({ userId, actorId, type, title, body, data });
-    res.status(201).json({ status: 'success', data: { notification: doc } });
-  } catch (err) {
-    next(err);
-  }
-}

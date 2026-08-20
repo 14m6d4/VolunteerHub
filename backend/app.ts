@@ -3,6 +3,7 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import morgan from "morgan";
 import type { Application } from "express";
 import authRoutes from './routes/auth.routes.ts'
@@ -24,31 +25,44 @@ const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").repla
 
 const app: Application = express();
 
-// Debug: log the CORS origin being used
-console.log('[=== CORS CONFIG ===]');
-console.log('[CORS] FRONTEND_URL from env:', process.env.FRONTEND_URL);
-console.log('[CORS] Configured to allow origin:', FRONTEND_URL);
-console.log('[===================]');
+// In production the app sits behind Cloudflare and Traefik, so the socket peer
+// is always Traefik. Without this every client shares one rate-limit bucket.
+// Keep it 0 in development, where an unproxied X-Forwarded-For would be
+// attacker-controlled and would let anyone forge their way past the limiter.
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0));
+
+app.use(helmet({
+    // The API serves JSON and redirects only; the SPA is served by nginx, which
+    // sets its own headers. CSP here would apply to neither.
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+
+// The browser app is served from the same origin in production, so CORS only
+// needs to cover the development server. Reflecting every origin was unsafe
+// alongside credentials: true.
+const allowedOrigins = new Set([FRONTEND_URL, 'http://localhost:5173']);
 
 app.use(
     cors({
-        // Allow requests from any origin. We echo the origin so credentials (cookies) can still be used.
         origin: (origin, callback) => {
-            // If no origin (e.g., same-origin requests like curl or server-to-server), allow it
-            callback(null, true);
+            // Same-origin and server-to-server requests send no Origin header.
+            if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+            return callback(new Error('Not allowed by CORS'));
         },
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
     })
 );
-// app.options('*', (req, res) => {
-//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-//   res.sendStatus(204);
-// });
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// 50mb on every route was a free memory-exhaustion DoS. Uploads go through
+// multer's 5mb limit instead; the one exception is the avatar route, which
+// takes a base64 data URL in the JSON body (~4/3 the file size, so 8mb covers
+// the 5mb the frontend enforces).
+app.use('/api/users/profile/secure', express.json({ limit: '8mb' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 app.use(morgan("dev"));
 app.use(passport.initialize());
 

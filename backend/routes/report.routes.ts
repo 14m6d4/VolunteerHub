@@ -2,8 +2,21 @@ import express from "express";
 import { ReportService } from "../services/report.service.ts";
 import { ReportTargetType } from "../models/Report.model.ts";
 import { authMiddleware, type AuthenticatedRequest } from "../middlewares/auth.middleware.ts";
+import { roleMiddleware } from "../middlewares/role.middleware.ts";
+import { UserRole } from "../types/user.ts";
+import { EventModel } from "../models/Event.model.ts";
 
 const router = express.Router();
+
+// Reports name their reporter and carry the reported content, and their status
+// decides whether moderation acts on them. Reading or resolving one is a
+// moderator action, never a public one.
+//
+// Managers are not interchangeable: GET /admin/all already scopes them to
+// events they own via getReportsForManager. Anything that reaches reports
+// across every event is therefore admin-only, so one manager cannot read
+// another's reports - or dismiss a report filed about their own event.
+const adminOnly = [authMiddleware, roleMiddleware([UserRole.Admin])];
 
 router.post("/event", authMiddleware, async (req, res) => {
     const { eventId, reason, description } = req.body;
@@ -80,6 +93,14 @@ router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
         const eventId = req.params.eventId as string;
         const user = (req as AuthenticatedRequest).user;
 
+        // Admins see any event; a manager sees only events they run.
+        if (user.role !== UserRole.Admin) {
+            const event = await EventModel.findById(eventId).select('managerId');
+            if (!event) return res.status(404).json({ message: "Event not found" });
+            if (user.role !== UserRole.Manager || !event.managerId.equals(user._id)) {
+                return res.status(403).json({ message: "Forbidden" });
+            }
+        }
 
         const reports = await ReportService.getReportsForEvent(eventId);
         res.json(reports);
@@ -89,24 +110,24 @@ router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
     }
 });
 
-router.get("/:targetType/:targetId", async (req, res) => {
+router.get("/:targetType/:targetId", ...adminOnly, async (req, res) => {
     const { targetType, targetId } = req.params;
     const reportType = targetType === 'event' ? ReportTargetType.Event : ReportTargetType.Post;
 
     try {
-        const reports = await ReportService.getReportsByTarget(targetId, reportType);
+        const reports = await ReportService.getReportsByTarget(targetId as string, reportType);
         res.json(reports);
     } catch (error: any) {
         res.status(400).json({ message: error.message });
     }
 });
 
-router.patch("/:reportId", async (req, res) => {
+router.patch("/:reportId", ...adminOnly, async (req, res) => {
     const { reportId } = req.params;
     const { status } = req.body;
 
     try {
-        const updatedReport = await ReportService.updateReportStatus(reportId, status);
+        const updatedReport = await ReportService.updateReportStatus(reportId as string, status);
         res.json(updatedReport);
     } catch (error: any) {
         res.status(400).json({ message: error.message });

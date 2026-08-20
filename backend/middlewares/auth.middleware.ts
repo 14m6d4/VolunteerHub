@@ -3,6 +3,7 @@ import createHttpError from "http-errors";
 import jwt from "jsonwebtoken";
 import User from "../models/User.model.ts";
 import { type IUserDocument } from "../types/user.ts";
+import { isBanned, banMessage } from "../utils/ban.util.ts";
 
 interface JwtPayload {
     id: string;
@@ -28,11 +29,21 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
             return next(createHttpError(401, "Invalid or expired token"));
         }
 
-        const user = await User.findById(decoded.id).select("+passwordHash");
-        console.log("User", user?.role);
+        const user = await User.findById(decoded.id);
 
         if (!user) {
             return next(createHttpError(401, "User no longer exists"));
+        }
+
+        // Checked on every request, not just at login: tokens live for a day, so
+        // a ban issued mid-session would otherwise not take effect until the
+        // token expired.
+        if (isBanned(user)) {
+            return next(createHttpError(403, banMessage(user)));
+        }
+
+        if (!user.isActive) {
+            return next(createHttpError(403, "Account is inactive."));
         }
 
         (req as any).user = user;
@@ -45,7 +56,6 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 export async function optionalAuthMiddleware(req: Request, res: Response, next: NextFunction) {
     try {
         const authHeader = req.headers.authorization;
-        console.log("Optional Auth Middleware - authHeader:", authHeader);
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return next();
         }
@@ -57,9 +67,11 @@ export async function optionalAuthMiddleware(req: Request, res: Response, next: 
             console.error("JWT verification failed:", err.name, err.message);
             return next();
         }
-        const user = await User.findById(decoded.id).select("+passwordHash");
+        const user = await User.findById(decoded.id);
 
-        if (user) {
+        // A banned user stays anonymous here rather than being rejected: these
+        // routes are public, they just lose the personalised view.
+        if (user && !isBanned(user) && user.isActive) {
             (req as any).user = user;
         }
         return next();

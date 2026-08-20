@@ -3,8 +3,22 @@ import User from "../models/User.model.ts";
 import { EventModel } from "../models/Event.model.ts";
 import createHttpError from "http-errors";
 import { Types } from "mongoose";
+import { UserRole } from "../types/user.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
+
+
+/**
+ * Moderating a registration means moderating its event, so the caller must run
+ * that event. roleMiddleware only proves they are some manager, which let any
+ * manager approve, reject, or kick members on anyone else's event.
+ */
+function assertMayManageEvent(event: { managerId: Types.ObjectId }, actorId: Types.ObjectId, actorRole: string) {
+    if (actorRole === UserRole.Admin) return;
+    if (!event.managerId?.equals(actorId)) {
+        throw createHttpError(403, "You do not manage this event");
+    }
+}
 
 export const RegistrationService = {
     async register(eventId: string, volunteerId: Types.ObjectId) {
@@ -56,11 +70,12 @@ export const RegistrationService = {
     },
 
 
-    async approveRegistration(regId: string, managerId: Types.ObjectId) {
+    async approveRegistration(regId: string, managerId: Types.ObjectId, managerRole: string) {
         const reg = await RegistrationModel.findById(regId);
         if (!reg) throw createHttpError(404, "Registration not found");
         const event = await EventModel.findById(reg.eventId);
         if (!event) throw createHttpError(404, "Event not found");
+        assertMayManageEvent(event, managerId, managerRole);
         if (event.maxMembers && event.currentMembers >= event.maxMembers) throw createHttpError(400, "Event is full");
         reg.status = RegistrationStatus.APPROVED;
         await reg.save();
@@ -75,11 +90,12 @@ export const RegistrationService = {
         return reg;
     },
 
-    async rejectRegistration(regId: string, managerId: Types.ObjectId) {
+    async rejectRegistration(regId: string, managerId: Types.ObjectId, managerRole: string) {
         const reg = await RegistrationModel.findById(regId);
         if (!reg) throw createHttpError(404, "Registration not found");
         const event = await EventModel.findById(reg.eventId);
         if (!event) throw createHttpError(404, "Event not found");
+        assertMayManageEvent(event, managerId, managerRole);
         reg.status = RegistrationStatus.REJECTED;
         await reg.save();
         NotificationService.notify(reg.volunteerId.toString(), {
@@ -101,10 +117,16 @@ export const RegistrationService = {
         return reg;
     },
 
-    async getRegistrationsForEvent(eventId: string, filters: any = {}) {
+    async getRegistrationsForEvent(eventId: string, filters: any = {}, includeContactDetails = false) {
         const query: any = { eventId };
         if (filters.status) query.status = filters.status;
-        const items = await RegistrationModel.find(query).populate("volunteerId", "name email username profilePicture");
+        // Email is only for whoever runs the event. Everyone else sees the
+        // public profile fields, so the member list cannot be scraped for
+        // addresses by any signed-in user.
+        const volunteerFields = includeContactDetails
+            ? "name email username profilePicture"
+            : "name username profilePicture";
+        const items = await RegistrationModel.find(query).populate("volunteerId", volunteerFields);
         console.log("Fetched registrations for event", eventId, "Count:", items.length);
         return items;
     },
@@ -116,9 +138,13 @@ export const RegistrationService = {
         }).populate("eventId");
     },
 
-    async kickMember(regId: string) {
+    async kickMember(regId: string, actorId: Types.ObjectId, actorRole: string) {
         const reg = await RegistrationModel.findById(regId);
         if (!reg) throw createHttpError(404, "Registration not found");
+
+        const owningEvent = await EventModel.findById(reg.eventId);
+        if (!owningEvent) throw createHttpError(404, "Event not found");
+        assertMayManageEvent(owningEvent, actorId, actorRole);
 
         // Ensure we only kick approved members (or check logic if you want to kick others too)
         if (reg.status !== RegistrationStatus.APPROVED) {

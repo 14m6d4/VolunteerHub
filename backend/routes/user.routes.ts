@@ -10,14 +10,6 @@ import { UserRole } from '../types/user.ts';
 const router = Router();
 
 
-router.options('/profile/secure', (req, res) => {
-  const origin = (req.headers.origin as string) || '*';
-  res.header('Access-Control-Allow-Origin', origin);
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  return res.sendStatus(204);
-});
 router.patch(
   '/profile/secure',
   authMiddleware,
@@ -42,13 +34,19 @@ router.post('/friends/remove', authMiddleware, unfriendUser as any);
 
 router.post('/report-user', authMiddleware, reportUser as any);
 
-router.get('/admin/search', authMiddleware, adminSearchUsersController as any);
-router.get('/admin/banned', authMiddleware, getBannedUsersController as any);
-router.post('/admin/ban/:id', authMiddleware, banUser as any);
-router.post('/admin/unban/:id', authMiddleware, unbanUser as any);
-router.post('/admin/create', authMiddleware, createUserController as any);
-router.put('/admin/:id', authMiddleware, updateUserController as any);
-router.delete('/admin/:id', authMiddleware, deleteUserController as any);
+// Every /admin/* route below is admin-only. authMiddleware alone only proves
+// the caller is signed in - without the role gate any volunteer could reach
+// them, and updateUserAdminService assigns whatever fields the body carries
+// (role, password included).
+const adminOnly = [authMiddleware, roleMiddleware([UserRole.Admin])];
+
+router.get('/admin/search', adminOnly, adminSearchUsersController as any);
+router.get('/admin/banned', adminOnly, getBannedUsersController as any);
+router.post('/admin/ban/:id', adminOnly, banUser as any);
+router.post('/admin/unban/:id', adminOnly, unbanUser as any);
+router.post('/admin/create', adminOnly, validateBody(validators.adminCreateUserSchema), createUserController as any);
+router.put('/admin/:id', adminOnly, validateBody(validators.adminUpdateUserSchema), updateUserController as any);
+router.delete('/admin/:id', adminOnly, deleteUserController as any);
 router.get('/:username/stats', getUserStats as any);
 router.get('/:username/events', getUserEvents as any);
 router.get('/:username/friends', getUserFriendsList as any);
