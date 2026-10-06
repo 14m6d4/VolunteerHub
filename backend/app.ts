@@ -5,6 +5,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import mongoose from "mongoose";
 import type { Application } from "express";
 import authRoutes from './routes/auth.routes.ts'
 import eventRoutes from "./routes/event.routes.ts";
@@ -64,6 +65,17 @@ app.use(
 app.use('/api/users/profile/secure', express.json({ limit: '8mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
+
+// Registered before morgan so the Docker healthcheck doesn't log every 30s.
+app.get('/api/health', async (req, res) => {
+    try {
+        await mongoose.connection.db!.admin().ping();
+        res.json({ status: 'ok' });
+    } catch {
+        res.status(503).json({ status: 'error', message: 'database unreachable' });
+    }
+});
+
 app.use(morgan("dev"));
 app.use(passport.initialize());
 

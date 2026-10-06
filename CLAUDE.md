@@ -15,8 +15,8 @@ The root `package.json` is unrelated tooling scratch space; the two real package
 
 Backend (`cd backend`):
 - `npm run dev` — start API with `tsx watch` (hot reload). Default port 5000.
-- `npm run build` — `tsc` typecheck/emit to `dist/` (config currently `noEmit`, so this is effectively a typecheck).
-- `npm start` — run compiled `dist/server.js`.
+- `npm run build` — `tsc` typecheck + emit to `dist/` (`.ts` import specifiers rewritten to `.js`).
+- `npm start` — run compiled `dist/server.js`. This is what the prod Docker image runs (no `tsx` in prod).
 - `npm run seed` — run `seed.ts` to populate the DB with sample data.
 
 Frontend (`cd frontend`):
@@ -61,7 +61,7 @@ Auth specifics: JWT-only (no server sessions, `session: false`). Local login + e
 
 ### TypeScript / ESM quirk (important)
 
-The backend runs as native ESM under `tsx` with `nodenext` resolution and `allowImportingTsExtensions`. **Intra-project imports must include the explicit `.ts` extension** (e.g. `import { EventService } from "../services/event.service.ts"`). Follow this in new files or module resolution breaks. There is no compile step in dev — `tsx` executes the `.ts` sources directly.
+The backend runs as native ESM under `tsx` with `nodenext` resolution and `rewriteRelativeImportExtensions`. **Intra-project imports must include the explicit `.ts` extension** (e.g. `import { EventService } from "../services/event.service.ts"`). Follow this in new files or module resolution breaks. There is no compile step in dev — `tsx` executes the `.ts` sources directly; prod runs the `tsc` output.
 
 ## Frontend architecture
 

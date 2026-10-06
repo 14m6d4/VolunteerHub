@@ -2,8 +2,8 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
-    // "rootDir": "./src",
-    // "outDir": "./dist",
+    "rootDir": ".",
+    "outDir": "./dist",
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
@@ -16,8 +16,6 @@
     // and npm install -D @types/node
     // Other Outputs
     "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -29,8 +27,9 @@
     // "noFallthroughCasesInSwitch": true,
     // "noPropertyAccessFromIndexSignature": true,
     // Recommended Options
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
+    // Sources import "./x.ts" so tsx can run them directly in dev; the emitted
+    // dist/ rewrites those specifiers to "./x.js" for plain node in prod.
+    "rewriteRelativeImportExtensions": true,
     "strict": true,
     "jsx": "react-jsx",
     "verbatimModuleSyntax": true,
