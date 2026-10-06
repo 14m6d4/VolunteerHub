@@ -69,7 +69,6 @@ app.use(express.urlencoded({ limit: '1mb', extended: true }));
 // Registered before morgan so the Docker healthcheck doesn't log every 30s.
 app.get('/api/health', async (req, res) => {
     try {
-        throw new Error('rollback drill: health always fails');
         await mongoose.connection.db!.admin().ping();
         res.json({ status: 'ok' });
     } catch {
