@@ -12,10 +12,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # Images are built and pushed by CI; IMAGE_TAG is the commit SHA, written
+  # to .env by the deploy.
   backend:
-    build:
-      context: ./backend
-      target: prod
+    image: ghcr.io/14m6d4/volunteerhub-backend:${IMAGE_TAG:?set IMAGE_TAG to a commit SHA}
     env_file:
       - ./backend/.env
     environment:
@@ -39,11 +39,7 @@ services:
       - "traefik.http.services.vh-api.loadbalancer.server.port=5000"
 
   frontend:
-    build:
-      context: ./frontend
-      target: prod
-      args:
-        VITE_API_URL: ${VITE_API_URL:-/api}
+    image: ghcr.io/14m6d4/volunteerhub-frontend:${IMAGE_TAG:?set IMAGE_TAG to a commit SHA}
     restart: unless-stopped
     depends_on:
       - backend

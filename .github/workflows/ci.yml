@@ -13,9 +13,13 @@ on:
     paths: *paths
   workflow_dispatch:
 
-# The workflow only builds and deploys over SSH; it never writes to the repo.
+# Jobs that push images or pull them on the VM widen this per job.
 permissions:
   contents: read
+
+env:
+  # Image label: links GHCR packages to this repo, and scopes the VM's prune.
+  IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
 
 concurrency:
   group: cicd-${{ github.ref }}
@@ -23,7 +27,7 @@ concurrency:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend
@@ -38,7 +42,7 @@ jobs:
       - run: npm run build
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -53,33 +57,99 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
-  deploy:
+  # Native arm64 runner: the VM is aarch64, so no QEMU emulation.
+  images:
     needs: [backend, frontend]
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - image: backend
+          - image: frontend
+            build-args: VITE_API_URL=/api
+    env:
+      # PRs build the image but never push it.
+      PUSH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: env.PUSH == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ./${{ matrix.image }}
+          target: prod
+          build-args: ${{ matrix.build-args }}
+          push: ${{ env.PUSH == 'true' }}
+          # One manifest per push, so each SHA is exactly one package version
+          # and the retention count below means 5 deployable tags.
+          provenance: false
+          tags: ghcr.io/${{ github.repository_owner }}/volunteerhub-${{ matrix.image }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ env.IMAGE_SOURCE }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - if: env.PUSH == 'true'
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: volunteerhub-${{ matrix.image }}
+          package-type: container
+          min-versions-to-keep: 5
+
+  deploy:
+    needs: images
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: production
+    permissions:
+      contents: read
+      packages: read
     concurrency:
       group: deploy-production
       cancel-in-progress: false
     steps:
       - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          SHA: ${{ github.sha }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: SHA,GHCR_USER,GHCR_TOKEN
           script: |
             set -euo pipefail
             cd ~/volunteerhub
+
+            # Throwaway Docker config: the job-scoped token never lands in ~/.docker.
+            DOCKER_CONFIG="$(mktemp -d)"
+            export DOCKER_CONFIG
+            trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            # The checkout only supplies the compose file; images come from GHCR.
             git fetch --prune origin
-            git reset --hard origin/main
-            docker compose -f docker-compose.prod.yml up -d --build
-            docker image prune -f
+            git checkout --force --detach "$SHA"
+            # Compose reads .env, so manual compose commands on the VM get the tag too.
+            echo "IMAGE_TAG=$SHA" > .env
+            docker compose -f docker-compose.prod.yml pull backend frontend
+            docker compose -f docker-compose.prod.yml up -d
+            # Old SHAs no container uses any more. The label scopes this to our images.
+            docker image prune -af --filter "label=org.opencontainers.image.source=${{ env.IMAGE_SOURCE }}"
 
             # Smoke test runs here, not on the runner: the domain is proxied by
             # Cloudflare, which 403s GitHub Actions' datacenter IPs. The VM's own
             # requests still egress to Cloudflare and back, so this stays a real
             # end-to-end check of Cloudflare -> Traefik -> container.
             curl -fsS --retry 6 --retry-delay 5 --retry-all-errors https://volunteerhub.l4mbd4.me/ -o /dev/null
+            curl -fsS --retry 6 --retry-delay 5 --retry-all-errors https://volunteerhub.l4mbd4.me/api/health -o /dev/null
             curl -fsS https://volunteerhub.l4mbd4.me/api/events -o /dev/null
             echo "smoke test passed"

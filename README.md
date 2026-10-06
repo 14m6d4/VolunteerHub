@@ -73,10 +73,12 @@ docker exec volunteerhub-dev-mongo-1 rm -rf /tmp/dump
 
 `--nsFrom`/`--nsTo` remaps the dump's database name to `volunteerhub` (matching `MONGO_URI` above) if they differ. This data lives in the `mongo-data` Docker volume — `docker compose down -v` deletes it; re-run the restore after.
 
-### 4. Production-like build (nginx-served frontend, backend still runs via `tsx` — no compiled `dist`, see `backend/tsconfig.json`'s `noEmit: true`)
+### 4. Production images
+
+`docker-compose.prod.yml` has no `build:` blocks. CI builds arm64 images on every push to `main`, tags them with the commit SHA and pushes them to GHCR (`ghcr.io/14m6d4/volunteerhub-{backend,frontend}`, private, 5 most recent kept). The deploy pulls them on the VM. Pulling by hand needs `docker login ghcr.io` with a token that has `read:packages`:
 
 ```
-docker compose -f docker-compose.prod.yml up --build
+IMAGE_TAG=<commit-sha> docker compose -f docker-compose.prod.yml up -d
 ```
 
-Set `VITE_API_URL` in your shell before building if the API isn't reachable at `http://localhost:5000/api` (e.g. a real domain) — it's baked into the frontend bundle at build time, same as the dev `.env` above.
+To build a prod image locally instead: `docker build --target prod ./backend`, or `docker build --target prod --build-arg VITE_API_URL=/api ./frontend`. `VITE_API_URL` is baked into the frontend bundle at build time.
