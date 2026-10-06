@@ -56,4 +56,5 @@ volunteerhub_database_backup/
 .claude/worktrees/
 .claude/settings.local.json
 
-docs/
+docs/superpowers/
+.scratch/

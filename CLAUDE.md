@@ -76,4 +76,18 @@ The backend runs as native ESM under `tsx` with `nodenext` resolution and `rewri
 
 - Success responses: `{ success: true, data }` (or `{ success: true, ...result }` for paginated lists with `page`/`limit`). Some endpoints use `{ status, message }`.
 - Errors: centralized handler returns `{ status, message }` (plus `stack` when `NODE_ENV !== 'production'`). The frontend `apiFetch` throws an `Error` whose message is `data.message || data.error`.
-- CORS in `app.ts` currently echoes any origin with `credentials: true` — auth is via Bearer token, not cookies.
+- CORS in `app.ts` allows only `FRONTEND_URL` and `http://localhost:5173` (prod is same-origin, so this mainly serves the dev server) — auth is via Bearer token, not cookies.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as local markdown files under `.scratch/<feature>/` (gitignored, local only). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), recorded as a `Status:` line in each issue file. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
