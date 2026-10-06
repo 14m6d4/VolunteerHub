@@ -12,6 +12,11 @@ on:
     branches: [main]
     paths: *paths
   workflow_dispatch:
+    inputs:
+      sha:
+        description: Deploy this retained image tag (full commit SHA) instead of building. Empty = build and deploy the branch head.
+        required: false
+        type: string
 
 # Jobs that push images or pull them on the VM widen this per job.
 permissions:
@@ -21,12 +26,14 @@ env:
   # Image label: links GHCR packages to this repo, and scopes the VM's prune.
   IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
 
+# Superseded PR runs are cancelled; main runs queue, so a deploy is never cut off mid-flight.
 concurrency:
   group: cicd-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   backend:
+    if: ${{ !inputs.sha }}
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -42,6 +49,7 @@ jobs:
       - run: npm run build
 
   frontend:
+    if: ${{ !inputs.sha }}
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -104,7 +112,12 @@ jobs:
 
   deploy:
     needs: images
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    # A manual SHA deploy skips the build jobs. Only then is a skipped `images` fine:
+    # a failed check upstream also shows up here as "skipped".
+    if: >-
+      !cancelled()
+      && (needs.images.result == 'success' || (inputs.sha && needs.images.result == 'skipped'))
+      && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     environment: production
     permissions:
@@ -113,11 +126,15 @@ jobs:
     concurrency:
       group: deploy-production
       cancel-in-progress: false
+    env:
+      SHA: ${{ inputs.sha || github.sha }}
     steps:
+      # Checked here, before the dispatch input gets anywhere near the VM's shell.
+      - name: Validate SHA
+        run: '[[ $SHA =~ ^[0-9a-f]{40}$ ]] || { echo "::error::not a full commit SHA: $SHA"; exit 1; }'
       - name: Deploy over SSH
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
-          SHA: ${{ github.sha }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -128,28 +145,66 @@ jobs:
           script: |
             set -euo pipefail
             cd ~/volunteerhub
+            # Last SHA that passed the smoke test; written only after a pass.
+            LAST_GOOD_FILE=.last-good-sha
+            LAST_GOOD_SHA="$(cat "$LAST_GOOD_FILE" 2>/dev/null || true)"
 
             # Throwaway Docker config: the job-scoped token never lands in ~/.docker.
             DOCKER_CONFIG="$(mktemp -d)"
             export DOCKER_CONFIG
             trap 'rm -rf "$DOCKER_CONFIG"' EXIT
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-
-            # The checkout only supplies the compose file; images come from GHCR.
             git fetch --prune origin
-            git checkout --force --detach "$SHA"
-            # Compose reads .env, so manual compose commands on the VM get the tag too.
-            echo "IMAGE_TAG=$SHA" > .env
-            docker compose -f docker-compose.prod.yml pull backend frontend
-            docker compose -f docker-compose.prod.yml up -d
+
+            # Both functions run as `if` conditions, where set -e is off: hence the && chains.
+            # The checkout only supplies the compose file; images come from GHCR. Compose
+            # reads .env, so manual compose commands on the VM get the tag too.
+            # --policy missing: a rollback reuses the known-good image still on disk.
+            deploy() {
+              echo "deploying $1" &&
+              git checkout --force --detach "$1" &&
+              echo "IMAGE_TAG=$1" > .env &&
+              docker compose -f docker-compose.prod.yml pull --policy missing backend frontend &&
+              docker compose -f docker-compose.prod.yml up -d
+            }
+            # Runs here, not on the runner: the domain is proxied by Cloudflare, which
+            # 403s GitHub Actions' datacenter IPs. The VM's own requests still egress to
+            # Cloudflare and back, so this stays a real end-to-end check of
+            # Cloudflare -> Traefik -> container.
+            # Bodies are checked, not just status: while the backend is starting or
+            # unhealthy Traefik drops its router, and /api/* falls through to the SPA,
+            # which answers 200 with index.html.
+            URL=https://volunteerhub.l4mbd4.me
+            expect() { # path, fixed string the body must contain; retries for ~60s
+              for _ in {1..12}; do
+                curl -fsS "$URL$1" | grep -F "$2" > /dev/null && return 0
+                sleep 5
+              done
+              echo "::error::$URL$1 never returned a body containing $2"
+              return 1
+            }
+            smoke() {
+              expect / '<div id="root">' &&
+              expect /api/health '"status":"ok"' &&
+              expect '/api/events?limit=1' '"success":true'
+            }
+
+            status=0
+            if deploy "$SHA" && smoke; then
+              echo "$SHA" > "$LAST_GOOD_FILE"
+              echo "smoke test passed, $SHA is live"
+            else
+              status=1
+              echo "::error::$SHA failed to deploy or failed its smoke test"
+              if [[ -z $LAST_GOOD_SHA || $LAST_GOOD_SHA == "$SHA" ]]; then
+                echo "::error::no other known-good SHA to roll back to"
+              elif deploy "$LAST_GOOD_SHA" && smoke; then
+                echo "::error::rolled back to $LAST_GOOD_SHA, which passed the smoke test"
+              else
+                echo "::error::rollback to $LAST_GOOD_SHA failed its smoke test too"
+              fi
+            fi
+
             # Old SHAs no container uses any more. The label scopes this to our images.
             docker image prune -af --filter "label=org.opencontainers.image.source=${{ env.IMAGE_SOURCE }}"
-
-            # Smoke test runs here, not on the runner: the domain is proxied by
-            # Cloudflare, which 403s GitHub Actions' datacenter IPs. The VM's own
-            # requests still egress to Cloudflare and back, so this stays a real
-            # end-to-end check of Cloudflare -> Traefik -> container.
-            curl -fsS --retry 6 --retry-delay 5 --retry-all-errors https://volunteerhub.l4mbd4.me/ -o /dev/null
-            curl -fsS --retry 6 --retry-delay 5 --retry-all-errors https://volunteerhub.l4mbd4.me/api/health -o /dev/null
-            curl -fsS https://volunteerhub.l4mbd4.me/api/events -o /dev/null
-            echo "smoke test passed"
+            exit "$status"

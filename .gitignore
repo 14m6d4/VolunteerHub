@@ -52,6 +52,9 @@ volunteerhub_database_backup/
 *.bson
 *.dump
 
+# Deploy state on the VM (last SHA that passed the smoke test)
+.last-good-sha
+
 # Local tooling state
 .claude/worktrees/
 .claude/settings.local.json
