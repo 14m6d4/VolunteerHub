@@ -2,7 +2,6 @@ import type { Request, Response, NextFunction } from "express";
 import { EventService } from "../services/event.service.ts";
 import { RegistrationService } from "../services/registration.service.ts";
 import createHttpError from "http-errors";
-import { Types } from "mongoose";
 
 import fs from "fs";
 import { uploadToImgBB } from "../services/imgbb.service.ts";

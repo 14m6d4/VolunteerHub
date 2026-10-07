@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { RegistrationService } from "../services/registration.service.ts";
-import { EventModel } from "../models/Event.model.ts";
+import { EventService } from "../services/event.service.ts";
 import { UserRole } from "../types/user.ts";
 import createHttpError from "http-errors";
 
@@ -69,10 +69,10 @@ export const RegistrationController = {
             // Being a manager is not enough - it has to be this event's manager.
             // Anyone else, including managers of other events, sees only the
             // approved roster without contact details.
-            const event = await EventModel.findById(eventId).select('managerId');
-            if (!event) throw createHttpError(404, "Event not found");
+            const managerId = await EventService.getManagerId(eventId);
+            if (!managerId) throw createHttpError(404, "Event not found");
             const runsThisEvent = user.role === UserRole.Admin ||
-                (user.role === UserRole.Manager && event.managerId.equals(user._id));
+                (user.role === UserRole.Manager && managerId.equals(user._id));
 
             if (!runsThisEvent) {
                 req.query.status = 'approved';

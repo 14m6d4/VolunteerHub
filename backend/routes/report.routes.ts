@@ -4,7 +4,7 @@ import { ReportTargetType } from "../models/Report.model.ts";
 import { authMiddleware, type AuthenticatedRequest } from "../middlewares/auth.middleware.ts";
 import { roleMiddleware } from "../middlewares/role.middleware.ts";
 import { UserRole } from "../types/user.ts";
-import { EventModel } from "../models/Event.model.ts";
+import { EventService } from "../services/event.service.ts";
 
 const router = express.Router();
 
@@ -95,9 +95,9 @@ router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
 
         // Admins see any event; a manager sees only events they run.
         if (user.role !== UserRole.Admin) {
-            const event = await EventModel.findById(eventId).select('managerId');
-            if (!event) return res.status(404).json({ message: "Event not found" });
-            if (user.role !== UserRole.Manager || !event.managerId.equals(user._id)) {
+            const managerId = await EventService.getManagerId(eventId);
+            if (!managerId) return res.status(404).json({ message: "Event not found" });
+            if (user.role !== UserRole.Manager || !managerId.equals(user._id)) {
                 return res.status(403).json({ message: "Forbidden" });
             }
         }
