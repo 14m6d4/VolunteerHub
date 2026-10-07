@@ -200,6 +200,15 @@ await check("another manager's event listing hides another manager's pending eve
   assert.ok(!body.items.some((e) => e._id === victimEvent!.id), "another manager's pending event was listed");
 });
 
+await check('pending events cannot be listed through a status list either', async () => {
+  const anon = await fetch(`${base}/api/events?status=approved,pending&q=Victim%20Event`);
+  assert.equal(anon.status, 403, 'anonymous caller');
+  const evil = await fetch(`${base}/api/events?status=approved,pending&q=Victim%20Event`, { headers: EH });
+  assert.equal(evil.status, 200);
+  const body = await evil.json() as { items: { _id: string }[] };
+  assert.ok(!body.items.some((e) => e._id === victimEvent!.id), "another manager's pending event was listed");
+});
+
 // --- bans apply to tokens issued before the ban --------------------------
 
 await check('banned user is rejected mid-session', async () => {

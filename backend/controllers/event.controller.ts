@@ -78,7 +78,8 @@ export const EventController = {
             let managerId = req.query.managerId as string | undefined;
             console.log("List Events - User:", user ? { id: user._id, role: user.role } : null);
 
-            if (status === "pending") {
+            // A comma list (status=approved,pending) is a status filter too.
+            if (typeof status === "string" && status.split(",").includes("pending")) {
                 if (!user) {
                     return res.status(403).json({ success: false, message: "Forbidden" });
                 }

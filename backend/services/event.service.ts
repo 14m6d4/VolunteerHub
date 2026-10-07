@@ -10,7 +10,7 @@ import { ReportModel, ReportTargetType } from "../models/Report.model.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
 import { UserRole } from "../types/user.ts";
-import { assertMayManageEvent, toEvent } from "../utils/event.util.ts";
+import { assertMayManageEvent, getEventRow, toEvent } from "../utils/event.util.ts";
 import { containsPattern } from "../utils/sql.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
 
@@ -34,12 +34,6 @@ function pickEventFields(input: EventInput) {
     if (endAt !== undefined) picked.endAt = endAt === null ? null : toDate(endAt);
     return picked;
 }
-
-const getEventRow = async (eventId: string) => {
-    if (!isUuid(eventId)) return undefined;
-    const [row] = await db.select().from(events).where(eq(events.id, eventId));
-    return row;
-};
 
 const approvedMemberIds = async (eventId: string) =>
     (await db.select({ id: registrations.volunteerId }).from(registrations)

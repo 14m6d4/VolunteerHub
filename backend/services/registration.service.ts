@@ -2,17 +2,12 @@ import { and, asc, eq, ne, sql } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
 import { events, registrationStatus, registrations, users } from "../db/schema.ts";
+import { EventStatus } from "../models/Event.model.ts";
 import { RegistrationStatus } from "../models/Registration.model.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
-import { assertMayManageEvent, toEvent, toRegistration } from "../utils/event.util.ts";
+import { assertMayManageEvent, getEventRow, toEvent, toRegistration } from "../utils/event.util.ts";
 import { isUniqueViolation, isUuid, toLean } from "../utils/user.util.ts";
-
-const getEventRow = async (eventId: string) => {
-    if (!isUuid(eventId)) return undefined;
-    const [row] = await db.select().from(events).where(eq(events.id, eventId));
-    return row;
-};
 
 const getRegistrationRow = async (regId: string) => {
     if (!isUuid(regId)) return undefined;
@@ -30,8 +25,8 @@ async function getRegistrationWithEvent(regId: string) {
 }
 
 // Atomic, so two requests can neither double count nor go below zero.
-const leaveEvent = sql`greatest(${events.currentMembers} - 1, 0)`;
-const takeSeat = sql`${events.currentMembers} + 1`;
+const decrementSeats = sql`greatest(${events.currentMembers} - 1, 0)`;
+const incrementSeats = sql`${events.currentMembers} + 1`;
 
 // A registration in these states already holds a seat in current_members.
 const HOLDS_SEAT: string[] = [RegistrationStatus.APPROVED, RegistrationStatus.COMPLETED];
@@ -40,7 +35,7 @@ export const RegistrationService = {
     async register(eventId: string, volunteerId: string) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
-        if (event.status !== "approved") throw createHttpError(400, "Event is not open for registration");
+        if (event.status !== EventStatus.APPROVED) throw createHttpError(400, "Event is not open for registration");
         const now = new Date();
         if (event.startAt <= now) throw createHttpError(400, "Event already started or past registration deadline");
         if (event.maxMembers && event.currentMembers >= event.maxMembers) throw createHttpError(400, "Event is full");
@@ -80,7 +75,7 @@ export const RegistrationService = {
 
         await db.transaction(async (tx) => {
             if (reg.status === RegistrationStatus.APPROVED) {
-                await tx.update(events).set({ currentMembers: leaveEvent }).where(eq(events.id, event!.id));
+                await tx.update(events).set({ currentMembers: decrementSeats }).where(eq(events.id, event!.id));
             }
             await tx.delete(registrations).where(eq(registrations.id, reg.id));
         });
@@ -99,7 +94,7 @@ export const RegistrationService = {
             // The seat is taken and the limit checked in one statement, so two
             // approvals racing for the last seat cannot both win.
             const [seat] = await tx.update(events)
-                .set({ currentMembers: takeSeat })
+                .set({ currentMembers: incrementSeats })
                 .where(and(
                     eq(events.id, event.id),
                     sql`(${events.maxMembers} is null or ${events.currentMembers} < ${events.maxMembers})`,
@@ -133,7 +128,7 @@ export const RegistrationService = {
                 .where(eq(registrations.id, reg.id));
             // Rejecting an approved member frees the seat they held.
             if (HOLDS_SEAT.includes(reg.status)) {
-                await tx.update(events).set({ currentMembers: leaveEvent }).where(eq(events.id, event.id));
+                await tx.update(events).set({ currentMembers: decrementSeats }).where(eq(events.id, event.id));
             }
         });
 
@@ -206,7 +201,7 @@ export const RegistrationService = {
             await tx.update(registrations)
                 .set({ status: RegistrationStatus.REJECTED, updatedAt: new Date() })
                 .where(eq(registrations.id, reg.id));
-            await tx.update(events).set({ currentMembers: leaveEvent }).where(eq(events.id, event.id));
+            await tx.update(events).set({ currentMembers: decrementSeats }).where(eq(events.id, event.id));
         });
 
         await NotificationService.notify(reg.volunteerId, {

@@ -1,7 +1,9 @@
+import { eq } from 'drizzle-orm';
 import createHttpError from 'http-errors';
-import type { events, registrations } from '../db/schema.ts';
+import { db } from '../db/client.ts';
+import { events, registrations } from '../db/schema.ts';
 import { UserRole } from '../types/user.ts';
-import { toLean } from './user.util.ts';
+import { isUuid, toLean } from './user.util.ts';
 
 export type EventRow = typeof events.$inferSelect;
 export type RegistrationRow = typeof registrations.$inferSelect;
@@ -37,3 +39,10 @@ export function assertMayManageEvent(event: { managerId: string }, actorId: stri
     throw createHttpError(403, 'You do not manage this event');
   }
 }
+
+/** The event row, or undefined for an unknown id (a malformed id counts as unknown). */
+export const getEventRow = async (eventId: string) => {
+  if (!isUuid(eventId)) return undefined;
+  const [row] = await db.select().from(events).where(eq(events.id, eventId));
+  return row;
+};
