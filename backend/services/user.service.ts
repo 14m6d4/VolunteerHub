@@ -405,14 +405,17 @@ export const adminSearchUsers = async (filters: {
 
   // Same reasoning for sortBy: it picks a column, it is never used as SQL.
   const SORTABLE = { createdAt: users.createdAt, username: users.username, name: users.name, email: users.email, role: users.role } as const;
-  const sortColumn = SORTABLE[sortBy as keyof typeof SORTABLE] ?? users.createdAt;
+  // The role enum sorts by declaration order; the API has always sorted alphabetically.
+  const ROLE_ALPHABETICAL = sql`case ${users.role} when 'admin' then 0 when 'manager' then 1 else 2 end`;
+  const sortColumn = sortBy === 'role' ? ROLE_ALPHABETICAL : SORTABLE[sortBy as keyof typeof SORTABLE] ?? users.createdAt;
+  const direction = sortOrder === 'asc' ? asc : desc;
 
   const where = and(...conditions);
 
   const [rows, total] = await Promise.all([
     db.select({ ...BANNED_LIST_COLUMNS, createdAt: users.createdAt, isActive: users.isActive }).from(users)
       .where(where)
-      .orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn))
+      .orderBy(direction(sortColumn), asc(users.id)) // id breaks ties so pages don't shuffle
       .offset((page - 1) * limit)
       .limit(limit),
     db.$count(users, where),
@@ -730,7 +733,7 @@ export const seedAdminUser = async (): Promise<void> => {
     const email = normalizeEmail(SEED_ADMIN_EMAIL);
 
     await db.insert(users).values({
-      username: email.split('@')[0] || 'admin',
+      username: await generateUniqueUsername(email.split('@')[0] || 'admin'),
       email,
       passwordHash: await hashPassword(SEED_ADMIN_PASSWORD),
       name: 'Administrator',
@@ -744,5 +747,6 @@ export const seedAdminUser = async (): Promise<void> => {
     console.log(`Admin user seeded: ${email}`);
   } catch (error) {
     console.error('Error seeding Admin user:', error);
+    throw error; // connectDB exits on this, so a failed seed fails the deploy instead of booting without an admin
   }
 };

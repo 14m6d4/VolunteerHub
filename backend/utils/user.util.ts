@@ -17,7 +17,8 @@ export const normalizeEmail = (email: string) => email.trim().toLowerCase();
  */
 export function toUser(row: UserRow): IUser {
   const { passwordHash, otp, otpExpiresAt, ...rest } = row;
-  return toLean(rest) as unknown as IUser;
+  // Old documents always carried `friends`; they live on Mongo until the social ticket (09).
+  return { ...toLean(rest), friends: [] } as unknown as IUser;
 }
 
 /** Same mapping for a partial select; the caller picks the columns, so no secrets to strip. */

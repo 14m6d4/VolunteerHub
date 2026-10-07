@@ -220,6 +220,13 @@ await check('admin can create, search, update and delete users', async () => {
   assert.equal(search.data.data[0].email, mail('made'));
   assert.deepEqual(search.data.meta, { total: 1, page: 1, totalPages: 1 });
 
+  // Role sorts alphabetically (admin, manager, volunteer), not by enum declaration order.
+  const byRole = await call('GET', `/api/users/admin/search?q=${encodeURIComponent('zz_')}&sortBy=role&sortOrder=asc&limit=50`, undefined, admin.token);
+  const roles: string[] = byRole.data.data.map((u: { role: string }) => u.role);
+  assert.ok(roles.includes('admin') && roles.includes('manager'), 'fixtures missing from the role sort');
+  assert.deepEqual(roles, [...roles].sort());
+  assert.deepEqual(created.data.data.friends, [], 'friends key dropped from user responses');
+
   const wild = await call('GET', `/api/users/admin/search?q=${encodeURIComponent('%')}`, undefined, admin.token);
   assert.equal(wild.data.meta.total, 0, '% must be a literal, not a wildcard');
 

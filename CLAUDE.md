@@ -67,9 +67,11 @@ The backend runs as native ESM under `tsx` with `nodenext` resolution and `rewri
 
 ## Database migrations (PostgreSQL, Drizzle)
 
-PostgreSQL is being introduced alongside MongoDB (see `docs/adr/0001-move-from-mongodb-to-postgresql.md`); the app does not read it yet. The schema lives in `backend/db/schema.ts`; migrations are plain SQL in `backend/drizzle/`, generated with `npm run db:generate` and committed. Never hand-edit an already-committed migration or the `drizzle/meta/` snapshots.
+PostgreSQL is replacing MongoDB domain by domain (see `docs/adr/0001-move-from-mongodb-to-postgresql.md`); users, auth and push subscriptions already live there, the rest is still on Mongo. The schema lives in `backend/db/schema.ts`; migrations are plain SQL in `backend/drizzle/`, generated with `npm run db:generate` and committed. Never hand-edit an already-committed migration or the `drizzle/meta/` snapshots.
 
 **Expand/contract rule (mandatory).** Every migration must be backward-compatible with the previous release, because the deploy automatically rolls back to the last known-good image on a failed smoke test, and the old image then runs against the already-migrated schema. So a release may only *expand*: add tables, add nullable columns or columns with a default, add indexes, add enum values. Anything destructive or incompatible (drop/rename a column or table, add a NOT NULL column without a default, narrow a type, drop an enum value) is a *contract* step and ships in a **later** release, after no deployed code uses the old shape. To rename: add the new column, dual-write and backfill, switch reads, and only then drop the old one, each in its own release. Before committing a migration, read the generated SQL and check it against this rule; if it breaks the rule, split it.
+
+*Documented exception:* `0001_users_and_push_subscriptions.sql` adds `users.username` as NOT NULL without a default. That is safe only because the `users` table from `0000` was an unused stub, empty in every environment, and no released image inserts into it. An exception like this needs the same proof (the table is empty and unused by the previous release) and a comment in the migration; it does not apply to tables that hold data.
 
 The app never migrates on startup: the `migrate` compose service applies migrations before the backend starts, and a failing migration fails the deploy.
 
