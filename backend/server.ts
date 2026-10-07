@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import app from "./app.ts";
 import { connectDB } from "./config/db.ts";
-import { EventModel } from "./models/Event.model.ts";
+import { EventService } from "./services/event.service.ts";
 
 dotenv.config();
 
@@ -13,7 +13,7 @@ const startServer = async (): Promise<void> => {
         await connectDB();
 
         console.log("Syncing Event indexes...");
-        await EventModel.syncIndexes();
+        await EventService.syncIndexes();
         console.log("Event indexes synced.");
 
         app.listen(PORT, () => {

@@ -2,7 +2,6 @@ import { type Response, type NextFunction } from 'express';
 import { updateProfileWithPasswordCheck } from '../services/user.service.ts';
 import type { UpdateProfileData } from '../types/user.ts';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.ts';
-import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
 import * as userService from '../services/user.service.ts';
 import { UserRole } from '../types/user.ts';
@@ -63,16 +62,7 @@ export async function getPublicProfile(
     if (!username) throw new AppError('Username parameter required', 400);
     console.log('[user.controller] getPublicProfile requested username:', username);
 
-    const user = await UserModel.findOne({ username: username as string, isActive: true })
-      .select('username name birthdate profilePicture role createdAt')
-      .lean();
-
-    console.log('[user.controller] db lookup result for', username, ':', !!user);
-
-    if (!user) {
-      console.warn(`[user.controller] User not found or deactivated: ${username}`);
-      throw new AppError('User not found or deactivated', 404);
-    }
+    const user = await userService.getPublicProfileByUsername(username as string);
 
     const birthdateIso = user.birthdate ? new Date(user.birthdate).toISOString().split('T')[0] : null;
     const createdAtIso = user.createdAt ? new Date(user.createdAt).toISOString() : null;
@@ -322,86 +312,11 @@ export async function getUserStats(req: AuthenticatedRequest, res: Response, nex
     const { username } = req.params;
     if (!username) throw new AppError('Username parameter required', 400);
 
-    const user = await UserModel.findOne({ username: username as string, isActive: true })
-      .select('_id role')
-      .lean();
-
-    if (!user) {
-      throw new AppError('User not found or deactivated', 404);
-    }
-
-    if (user.role === UserRole.Admin) {
-      throw new AppError('Access to admin profiles is forbidden', 403);
-    }
-
-    const userId = user._id.toString();
-    const now = new Date();
-
-    let stats: any = {};
-
-    if (user.role === UserRole.Volunteer) {
-      const { EventModel } = await import('../models/Event.model.ts');
-      const { RegistrationModel, RegistrationStatus } = await import('../models/Registration.model.ts');
-      const { EventStatus } = await import('../models/Event.model.ts');
-
-      const registrations = await RegistrationModel.find({
-        volunteerId: userId,
-        status: RegistrationStatus.APPROVED
-      }).select('eventId').lean();
-
-      const eventIds = registrations.map(r => r.eventId);
-
-      if (eventIds.length > 0) {
-        const activeEvents = await EventModel.countDocuments({
-          _id: { $in: eventIds },
-          status: EventStatus.APPROVED
-        });
-
-        const completedEvents = await EventModel.countDocuments({
-          _id: { $in: eventIds },
-          status: EventStatus.FINISHED
-        });
-
-        stats = {
-          activeEvents,
-          completedEvents
-        };
-      } else {
-        stats = {
-          activeEvents: 0,
-          completedEvents: 0
-        };
-      }
-    } else if (user.role === UserRole.Manager) {
-      const { EventModel, EventStatus } = await import('../models/Event.model.ts');
-
-      const activeEvents = await EventModel.countDocuments({
-        managerId: userId,
-        status: EventStatus.APPROVED
-      });
-
-      const eventsOrganized = await EventModel.countDocuments({
-        managerId: userId,
-        status: EventStatus.FINISHED
-      });
-
-      stats = {
-        activeEvents,
-        eventsOrganized
-      };
-    }
-
-    const userWithFriends = await UserModel.findById(userId).select('friends').lean();
-    const friendsCount = (userWithFriends && (userWithFriends as any).friends) ? (userWithFriends as any).friends.length : 0;
-
-    stats.friends = friendsCount;
+    const data = await userService.getUserStatsService(username as string);
 
     return res.status(200).json({
       status: 'success',
-      data: {
-        role: user.role,
-        stats
-      }
+      data
     });
   } catch (error) {
     next(error);
@@ -413,46 +328,7 @@ export async function getUserEvents(req: AuthenticatedRequest, res: Response, ne
     const { username } = req.params;
     if (!username) throw new AppError('Username parameter required', 400);
 
-    const user = await UserModel.findOne({ username: username as string, isActive: true })
-      .select('_id role')
-      .lean();
-
-    if (!user) {
-      throw new AppError('User not found or deactivated', 404);
-    }
-
-    if (user.role === UserRole.Admin) {
-      throw new AppError('Access to admin profiles is forbidden', 403);
-    }
-
-    const userId = user._id.toString();
-    const { EventModel } = await import('../models/Event.model.ts');
-    const { RegistrationModel, RegistrationStatus } = await import('../models/Registration.model.ts');
-
-    let events: any[] = [];
-
-    if (user.role === UserRole.Volunteer) {
-      const registrations = await RegistrationModel.find({
-        volunteerId: userId,
-        status: RegistrationStatus.APPROVED
-      }).select('eventId').lean();
-
-      const eventIds = registrations.map(r => r.eventId);
-
-      if (eventIds.length > 0) {
-        events = await EventModel.find({
-          _id: { $in: eventIds }
-        })
-          .select('_id title image startAt endAt location currentMembers tags description status')
-          .lean();
-      }
-    } else if (user.role === UserRole.Manager) {
-      events = await EventModel.find({
-        managerId: userId
-      })
-        .select('_id title image startAt endAt location currentMembers tags description status')
-        .lean();
-    }
+    const events = await userService.getUserEventsService(username as string);
 
     return res.status(200).json({
       status: 'success',
@@ -468,23 +344,7 @@ export async function getUserFriendsList(req: AuthenticatedRequest, res: Respons
     const { username } = req.params;
     if (!username) throw new AppError('Username parameter required', 400);
 
-    const user = await UserModel.findOne({ username: username as string, isActive: true })
-      .select('_id role friends')
-      .populate({
-        path: 'friends',
-        select: 'username name profilePicture role'
-      })
-      .lean();
-
-    if (!user) {
-      throw new AppError('User not found or deactivated', 404);
-    }
-
-    if (user.role === UserRole.Admin) {
-      throw new AppError('Access to admin profiles is forbidden', 403);
-    }
-
-    const friends = (user as any).friends || [];
+    const friends = await userService.getUserFriendsListService(username as string);
 
     return res.status(200).json({
       status: 'success',

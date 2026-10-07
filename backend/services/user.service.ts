@@ -2,6 +2,8 @@ import type { UpdateProfileData, IUser } from '../types/user.ts';
 import { UserRole } from '../types/user.ts';
 import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
+import { EventModel, EventStatus } from '../models/Event.model.ts';
+import { RegistrationModel, RegistrationStatus } from '../models/Registration.model.ts';
 import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
 import FriendRequestModel, { FriendRequestStatus } from '../models/FriendRequest.model.ts';
 import * as notificationService from './notification.service.ts';
@@ -623,4 +625,132 @@ export const rejectFriendRequestService = async (userId: string, requestId: stri
 
   await FriendRequestModel.findByIdAndDelete(requestId);
   return { message: 'Friend request rejected successfully' };
+};
+
+export const findUserById = (id: string) => UserModel.findById(id);
+
+export const getPublicProfileByUsername = async (username: string) => {
+  const user = await UserModel.findOne({ username, isActive: true })
+    .select('username name birthdate profilePicture role createdAt')
+    .lean();
+
+  if (!user) {
+    throw new AppError('User not found or deactivated', 404);
+  }
+  return user;
+};
+
+// Profile pages are public, but admin profiles are not.
+const findViewableProfileUser = async (username: string, select: string) => {
+  const user = await UserModel.findOne({ username, isActive: true })
+    .select(select)
+    .lean();
+
+  if (!user) {
+    throw new AppError('User not found or deactivated', 404);
+  }
+  if (user.role === UserRole.Admin) {
+    throw new AppError('Access to admin profiles is forbidden', 403);
+  }
+  return user;
+};
+
+export const getUserStatsService = async (username: string) => {
+  const user = await findViewableProfileUser(username, '_id role');
+  const userId = user._id.toString();
+
+  let stats: any = {};
+
+  if (user.role === UserRole.Volunteer) {
+    const registrations = await RegistrationModel.find({
+      volunteerId: userId,
+      status: RegistrationStatus.APPROVED
+    }).select('eventId').lean();
+
+    const eventIds = registrations.map(r => r.eventId);
+
+    if (eventIds.length > 0) {
+      const activeEvents = await EventModel.countDocuments({
+        _id: { $in: eventIds },
+        status: EventStatus.APPROVED
+      });
+
+      const completedEvents = await EventModel.countDocuments({
+        _id: { $in: eventIds },
+        status: EventStatus.FINISHED
+      });
+
+      stats = { activeEvents, completedEvents };
+    } else {
+      stats = { activeEvents: 0, completedEvents: 0 };
+    }
+  } else if (user.role === UserRole.Manager) {
+    const activeEvents = await EventModel.countDocuments({
+      managerId: userId,
+      status: EventStatus.APPROVED
+    });
+
+    const eventsOrganized = await EventModel.countDocuments({
+      managerId: userId,
+      status: EventStatus.FINISHED
+    });
+
+    stats = { activeEvents, eventsOrganized };
+  }
+
+  const userWithFriends = await UserModel.findById(userId).select('friends').lean();
+  stats.friends = (userWithFriends && (userWithFriends as any).friends)
+    ? (userWithFriends as any).friends.length
+    : 0;
+
+  return { role: user.role, stats };
+};
+
+const PROFILE_EVENT_FIELDS = '_id title image startAt endAt location currentMembers tags description status';
+
+export const getUserEventsService = async (username: string) => {
+  const user = await findViewableProfileUser(username, '_id role');
+  const userId = user._id.toString();
+
+  let events: any[] = [];
+
+  if (user.role === UserRole.Volunteer) {
+    const registrations = await RegistrationModel.find({
+      volunteerId: userId,
+      status: RegistrationStatus.APPROVED
+    }).select('eventId').lean();
+
+    const eventIds = registrations.map(r => r.eventId);
+
+    if (eventIds.length > 0) {
+      events = await EventModel.find({ _id: { $in: eventIds } })
+        .select(PROFILE_EVENT_FIELDS)
+        .lean();
+    }
+  } else if (user.role === UserRole.Manager) {
+    events = await EventModel.find({ managerId: userId })
+      .select(PROFILE_EVENT_FIELDS)
+      .lean();
+  }
+
+  return events;
+};
+
+export const getUserFriendsListService = async (username: string) => {
+  const user = await UserModel.findOne({ username, isActive: true })
+    .select('_id role friends')
+    .populate({
+      path: 'friends',
+      select: 'username name profilePicture role'
+    })
+    .lean();
+
+  if (!user) {
+    throw new AppError('User not found or deactivated', 404);
+  }
+  if (user.role === UserRole.Admin) {
+    throw new AppError('Access to admin profiles is forbidden', 403);
+  }
+
+  return (user as any).friends || [];
 };

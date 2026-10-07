@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
 import jwt from "jsonwebtoken";
-import User from "../models/User.model.ts";
+import { findUserById } from "../services/user.service.ts";
 import { type IUserDocument } from "../types/user.ts";
 import { isBanned, banMessage } from "../utils/ban.util.ts";
 
@@ -29,7 +29,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
             return next(createHttpError(401, "Invalid or expired token"));
         }
 
-        const user = await User.findById(decoded.id);
+        const user = await findUserById(decoded.id);
 
         if (!user) {
             return next(createHttpError(401, "User no longer exists"));
@@ -67,7 +67,7 @@ export async function optionalAuthMiddleware(req: Request, res: Response, next: 
             console.error("JWT verification failed:", err.name, err.message);
             return next();
         }
-        const user = await User.findById(decoded.id);
+        const user = await findUserById(decoded.id);
 
         // A banned user stays anonymous here rather than being rejected: these
         // routes are public, they just lose the personalised view.

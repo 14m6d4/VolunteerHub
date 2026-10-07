@@ -25,6 +25,16 @@ function assertMayManageEvent(event: { managerId: Types.ObjectId }, actorId: Typ
 }
 
 export const EventService = {
+    async syncIndexes() {
+        await EventModel.syncIndexes();
+    },
+
+    /** The event's manager id, or null when the event does not exist. */
+    async getManagerId(eventId: string) {
+        const event = await EventModel.findById(eventId).select('managerId');
+        return event ? event.managerId : null;
+    },
+
     async getAllEvents() {
         return EventModel.find({}).sort({ createdAt: -1 });
     },

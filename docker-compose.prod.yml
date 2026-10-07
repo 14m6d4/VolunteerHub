@@ -64,7 +64,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vh-api.rule=Host(`volunteerhub.l4mbd4.me`) && (PathPrefix(`/api`) || PathPrefix(`/file`) || PathPrefix(`/uploads`))"
+      - "traefik.http.routers.vh-api.rule=Host(`volunteerhub.l4mbd4.me`) && (PathPrefix(`/api`) || PathPrefix(`/uploads`))"
       - "traefik.http.routers.vh-api.entrypoints=websecure"
       - "traefik.http.routers.vh-api.priority=100"
       - "traefik.http.services.vh-api.loadbalancer.server.port=5000"
