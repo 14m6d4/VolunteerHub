@@ -15,6 +15,13 @@
       "when": 1791345013510,
       "tag": "0001_users_and_push_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791363467778,
+      "tag": "0002_events_and_registrations",
+      "breakpoints": true
     }
   ]
 }
