@@ -14,6 +14,7 @@
     "check:users": "tsx scripts/users-check.ts",
     "check:events": "tsx scripts/events-check.ts",
     "check:social": "tsx scripts/social-check.ts",
+    "check:notifications": "tsx scripts/notifications-check.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx db/migrate.ts"
   },
