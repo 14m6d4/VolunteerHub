@@ -1,11 +1,13 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, date, index, integer, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["volunteer", "manager", "admin"]);
 export const eventStatus = pgEnum("event_status", ["draft", "pending", "approved", "cancelled", "finished"]);
 export const registrationStatus = pgEnum("registration_status", ["pending", "approved", "rejected", "cancelled", "completed"]);
 export const authProvider = pgEnum("auth_provider", ["local", "google"]);
 export const friendRequestStatus = pgEnum("friend_request_status", ["pending", "accepted", "declined"]);
+export const reportTargetType = pgEnum("report_target_type", ["user", "event", "post"]);
+export const reportStatus = pgEnum("report_status", ["pending", "resolved", "rejected"]);
 
 export const users = pgTable("users", {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -169,4 +171,38 @@ export const friendships = pgTable("friendships", {
     primaryKey({ columns: [t.userLow, t.userHigh] }),
     check("friendships_ordered_check", sql`${t.userLow} < ${t.userHigh}`),
     index("friendships_user_high_idx").on(t.userHigh),
+]);
+
+// `type` is free text (types/notification.ts lists today's values) so a new kind of
+// notification never needs a migration. `data` is whatever the kind wants to carry.
+export const notifications = pgTable("notifications", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    data: jsonb("data"),
+    isRead: boolean("is_read").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+    index("notifications_user_id_created_at_idx").on(t.userId, t.createdAt),
+]);
+
+// target_id points at a user, event or post depending on target_type, so it has no foreign
+// key: a report outlives what it reported, as it always did.
+export const reports = pgTable("reports", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reporterId: uuid("reporter_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    targetId: uuid("target_id").notNull(),
+    targetType: reportTargetType("target_type").notNull(),
+    reason: text("reason").notNull(),
+    description: text("description"),
+    status: reportStatus("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+    index("reports_target_idx").on(t.targetType, t.targetId),
+    index("reports_reporter_id_idx").on(t.reporterId),
 ]);
