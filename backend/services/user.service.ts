@@ -4,16 +4,17 @@ import { UserRole } from '../types/user.ts';
 import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
 import { db } from '../db/client.ts';
-import { events, registrations, users } from '../db/schema.ts';
+import { events, friendRequests, friendships, registrations, users } from '../db/schema.ts';
 import { EventStatus } from '../models/Event.model.ts';
 import { RegistrationStatus } from '../models/Registration.model.ts';
 import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
-import FriendRequestModel, { FriendRequestStatus } from '../models/FriendRequest.model.ts';
+import { FriendRequestStatus } from '../models/FriendRequest.model.ts';
 import * as notificationService from './notification.service.ts';
 import { NotificationType } from '../models/Notification.model.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
 import { isUniqueViolation, isUuid, normalizeEmail, toLean, toUser } from '../utils/user.util.ts';
 import { containsPattern } from '../utils/sql.util.ts';
+import { areFriends, friendIdsOf, friendPair, involving, listFriends } from '../utils/friend.util.ts';
 
 const getRow = async (id: string) => {
   if (!isUuid(id)) return undefined;
@@ -190,73 +191,78 @@ export const searchUsersService = async (query: string, limit: number = 10) => {
   return rows.map(toLean);
 };
 
-// Friends, friend requests and reports below still run on MongoDB and don't
-// work on this branch until the social ticket (09) moves them.
+// Reports below still run on MongoDB until the notifications and reports ticket (10).
 export const addFriendService = async (userId: string, friendId: string) => {
   if (userId === friendId) throw new AppError('Cannot add yourself', 400);
+  if (!(await getRow(friendId))) throw new AppError('User not found', 404);
+  if (await areFriends(userId, friendId)) throw new AppError('Already friends', 400);
 
-  const user = await UserModel.findById(userId);
-  if (user?.friends?.includes(friendId as any)) {
-    throw new AppError('Already friends', 400);
-  }
-
-  await UserModel.findByIdAndUpdate(userId, { $addToSet: { friends: friendId } });
-  await UserModel.findByIdAndUpdate(friendId, { $addToSet: { friends: userId } });
-
+  await db.insert(friendships).values(friendPair(userId, friendId)).onConflictDoNothing();
   return { success: true };
 };
 
 export const removeFriendService = async (userId: string, friendId: string) => {
   if (userId === friendId) throw new AppError('Cannot remove yourself', 400);
 
-  const user = await UserModel.findById(userId);
-  if (!user) throw new AppError('User not found', 404);
-
-  if (!((user as any).friends || []).map((f: any) => f.toString()).includes(friendId)) {
-    throw new AppError('Not friends', 400);
-  }
-
-  await UserModel.findByIdAndUpdate(userId, { $pull: { friends: friendId } });
-  await UserModel.findByIdAndUpdate(friendId, { $pull: { friends: userId } });
-
+  const pair = friendPair(userId, friendId);
+  const removed = isUuid(friendId)
+    ? await db.delete(friendships)
+      .where(and(eq(friendships.userLow, pair.userLow), eq(friendships.userHigh, pair.userHigh)))
+      .returning({ userLow: friendships.userLow })
+    : [];
+  if (!removed.length) throw new AppError('Not friends', 400);
   return { success: true };
 };
 
 export const reportUserService = async (reporterId: string, targetId: string, reason: string, description?: string) => {
   return await ReportModel.create({
     reporter: reporterId as any,
-    targetId: targetId as any,
+    targetId,
     targetType: ReportTargetType.User,
     reason,
     description
   } as any);
 };
 
+const FRIEND_COLUMNS = { id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture };
+
+/** Row -> the shape the API has always returned: sender/receiver are ids, or populated users. */
+const toFriendRequest = (row: typeof friendRequests.$inferSelect, populated?: { sender?: unknown; receiver?: unknown }) => {
+  const { senderId, receiverId, ...rest } = row;
+  return { ...toLean(rest), sender: senderId, receiver: receiverId, ...populated };
+};
+
+const getRequestRow = async (requestId: string) => {
+  if (!isUuid(requestId)) return undefined;
+  const [row] = await db.select().from(friendRequests).where(eq(friendRequests.id, requestId));
+  return row;
+};
+
 export const sendFriendRequestService = async (senderId: string, receiverId: string) => {
   if (senderId === receiverId) throw new AppError('Cannot add yourself', 400);
 
-  const sender = await UserModel.findById(senderId);
-  if (sender?.friends?.includes(receiverId as any)) {
-    throw new AppError('Already friends', 400);
+  const receiver = await getRow(receiverId);
+  if (!receiver) throw new AppError('User not found', 404);
+  if (await areFriends(senderId, receiverId)) throw new AppError('Already friends', 400);
+
+  const [existing] = await db.select().from(friendRequests)
+    .where(and(eq(friendRequests.senderId, senderId), eq(friendRequests.receiverId, receiverId)));
+  if (existing) {
+    if (existing.status === FriendRequestStatus.Pending) throw new AppError('Request already sent', 400);
+    await db.delete(friendRequests).where(eq(friendRequests.id, existing.id));
   }
 
-  const existingRequest = await FriendRequestModel.findOne({
-    sender: senderId as any,
-    receiver: receiverId as any
-  });
-
-  if (existingRequest) {
-    if (existingRequest.status === FriendRequestStatus.Pending) {
-      throw new AppError('Request already sent', 400);
-    }
-    await FriendRequestModel.deleteOne({ _id: existingRequest._id });
+  let created;
+  try {
+    [created] = await db.insert(friendRequests).values({ senderId, receiverId }).returning();
+  } catch (err) {
+    // Two clicks at once: the unique (sender, receiver) pair lets only one through.
+    if (isUniqueViolation(err)) throw new AppError('Request already sent', 400);
+    throw err;
   }
-
-  const created = await FriendRequestModel.create({ sender: senderId as any, receiver: receiverId as any } as any);
 
   try {
-    const receiver = await UserModel.findById(receiverId).select('notificationsEnabled');
-    if (receiver && (receiver as any).notificationsEnabled !== false) {
+    if (receiver.notificationsEnabled) {
       await notificationService.createNotification({
         userId: receiverId,
         actorId: senderId,
@@ -270,13 +276,13 @@ export const sendFriendRequestService = async (senderId: string, receiverId: str
     console.error('Failed to create friend request notification:', err);
   }
 
-  return created;
+  return toFriendRequest(created!);
 };
 
 export const acceptFriendRequestService = async (requestId: string, currentUserId: string) => {
-  const request = await FriendRequestModel.findById(requestId);
+  const request = await getRequestRow(requestId);
 
-  if (!request || request.receiver.toString() !== currentUserId) {
+  if (!request || request.receiverId !== currentUserId) {
     throw new AppError('Request not found or unauthorized', 404);
   }
 
@@ -284,16 +290,18 @@ export const acceptFriendRequestService = async (requestId: string, currentUserI
     throw new AppError('Request is no longer pending', 400);
   }
 
-  request.status = FriendRequestStatus.Accepted;
-  await request.save();
-
-  await UserModel.findByIdAndUpdate(request.sender, { $addToSet: { friends: request.receiver } });
-  await UserModel.findByIdAndUpdate(request.receiver, { $addToSet: { friends: request.sender } });
+  await db.transaction(async (tx) => {
+    const accepted = await tx.update(friendRequests)
+      .set({ status: FriendRequestStatus.Accepted, updatedAt: new Date() })
+      .where(and(eq(friendRequests.id, request.id), eq(friendRequests.status, FriendRequestStatus.Pending)))
+      .returning({ id: friendRequests.id });
+    if (!accepted.length) throw new AppError('Request is no longer pending', 400);
+    await tx.insert(friendships).values(friendPair(request.senderId, request.receiverId)).onConflictDoNothing();
+  });
 
   try {
-    const sender = request.sender.toString();
     await notificationService.createNotification({
-      userId: sender,
+      userId: request.senderId,
       actorId: currentUserId,
       type: NotificationType.FRIEND_REQUEST_ACCEPTED,
       title: 'Friend request accepted',
@@ -308,45 +316,33 @@ export const acceptFriendRequestService = async (requestId: string, currentUserI
 };
 
 export const listIncomingFriendRequestsService = async (userId: string) => {
-  return await FriendRequestModel.find({ receiver: userId, status: FriendRequestStatus.Pending })
-    .populate('sender', 'username name profilePicture')
-    .lean();
+  const rows = await db.select({ request: friendRequests, sender: FRIEND_COLUMNS }).from(friendRequests)
+    .innerJoin(users, eq(users.id, friendRequests.senderId))
+    .where(and(eq(friendRequests.receiverId, userId), eq(friendRequests.status, FriendRequestStatus.Pending)))
+    .orderBy(asc(friendRequests.createdAt), asc(friendRequests.id));
+  return rows.map((r) => toFriendRequest(r.request, { sender: toLean(r.sender) }));
 };
 
-export const listFriendsService = async (userId: string) => {
-  const doc = await UserModel.findById(userId)
-    .select('friends')
-    .populate({ path: 'friends', select: 'username name profilePicture' })
-    .lean();
-
-  return (doc && (doc as any).friends) || [];
-};
-
+export const listFriendsService = (userId: string) => listFriends(userId);
 
 export const getRelationsForTargets = async (userId: string, targets: string[]) => {
-  const user = await UserModel.findById(userId).select('friends').lean();
-  const friendSet = new Set(
-    ((user && (user as any).friends) || []).map((id: any) => id.toString())
-  );
+  const friendSet = new Set(await friendIdsOf(userId));
+  const ids = targets.filter(isUuid);
 
-  const pending = await FriendRequestModel.find({
-    $or: [
-      { sender: userId as any, receiver: { $in: targets as any }, status: FriendRequestStatus.Pending },
-      { receiver: userId as any, sender: { $in: targets as any }, status: FriendRequestStatus.Pending }
-    ]
-  } as any).lean();
+  const pending = ids.length ? await db.select().from(friendRequests).where(and(
+    eq(friendRequests.status, FriendRequestStatus.Pending),
+    or(
+      and(eq(friendRequests.senderId, userId), inArray(friendRequests.receiverId, ids)),
+      and(eq(friendRequests.receiverId, userId), inArray(friendRequests.senderId, ids)),
+    ),
+  )) : [];
 
   const map: Record<string, string> = {};
-  for (const t of targets) {
-    if (friendSet.has(t)) map[t] = 'friends';
-    else map[t] = 'none';
-  }
+  for (const t of targets) map[t] = friendSet.has(t) ? 'friends' : 'none';
 
   for (const p of pending) {
-    const s = p.sender.toString();
-    const r = p.receiver.toString();
-    if (s === userId) map[r] = 'pending_sent';
-    if (r === userId) map[s] = 'pending_received';
+    if (p.senderId === userId) map[p.receiverId] = 'pending_sent';
+    if (p.receiverId === userId) map[p.senderId] = 'pending_received';
   }
 
   return map;
@@ -502,68 +498,41 @@ export const unbanUserService = async (userId: string) => {
   return toUser(row);
 };
 
+// Candidates are everyone who is not an admin, banned, inactive, yourself or already a friend,
+// ranked by friends in common. ponytail: scans every friendship per call; index or cache if that grows.
 export const getFriendSuggestionsService = async (userId: string, limit: number = 10) => {
-  const currentUser = await UserModel.findById(userId).select('friends').lean();
-  if (!currentUser) throw new AppError('User not found', 404);
-
-  const myFriends = (currentUser as any).friends || [];
-
-  return await UserModel.aggregate([
-    {
-      $match: {
-        _id: {
-          $ne: currentUser._id,
-          $nin: myFriends
-        },
-        role: { $ne: 'admin' },
-        isActive: true,
-        isBanned: false
-      }
-    },
-    {
-      $addFields: {
-        mutualFriendsCount: {
-          $size: {
-            $setIntersection: [
-              { $ifNull: ["$friends", []] },
-              myFriends
-            ]
-          }
-        }
-      }
-    },
-    {
-      $sort: { mutualFriendsCount: -1, createdAt: -1 }
-    },
-    {
-      $limit: limit
-    },
-    {
-      $project: {
-        _id: 1,
-        username: 1,
-        name: 1,
-        profilePicture: 1,
-        mutualFriends: "$mutualFriendsCount"
-      }
-    }
-  ]);
+  const rows = await db.execute<{ id: string; username: string; name: string; profilePicture: string | null; mutualFriends: number }>(sql`
+    with edges as (
+      select user_low as a, user_high as b from friendships
+      union all
+      select user_high, user_low from friendships
+    ), mine as (select b as id from edges where a = ${userId})
+    select u.id, u.username, u.name, u.profile_picture as "profilePicture",
+      (select count(*)::int from edges e where e.a = u.id and e.b in (select id from mine)) as "mutualFriends"
+    from users u
+    where u.id <> ${userId} and u.id not in (select id from mine)
+      and u.role <> 'admin' and u.is_active and not u.is_banned
+    order by "mutualFriends" desc, u.created_at desc, u.id
+    limit ${limit}`);
+  return rows.map(toLean);
 };
 
 export const listOutgoingFriendRequestsService = async (userId: string) => {
-  return await FriendRequestModel.find({ sender: userId, status: FriendRequestStatus.Pending })
-    .populate('receiver', 'username name profilePicture')
-    .lean();
+  const rows = await db.select({ request: friendRequests, receiver: FRIEND_COLUMNS }).from(friendRequests)
+    .innerJoin(users, eq(users.id, friendRequests.receiverId))
+    .where(and(eq(friendRequests.senderId, userId), eq(friendRequests.status, FriendRequestStatus.Pending)))
+    .orderBy(asc(friendRequests.createdAt), asc(friendRequests.id));
+  return rows.map((r) => toFriendRequest(r.request, { receiver: toLean(r.receiver) }));
 };
 
 export const cancelFriendRequestService = async (userId: string, requestId: string) => {
-  const request = await FriendRequestModel.findById(requestId);
+  const request = await getRequestRow(requestId);
 
   if (!request) {
     throw new AppError('Friend request not found', 404);
   }
 
-  if (request.sender.toString() !== userId) {
+  if (request.senderId !== userId) {
     throw new AppError('Unauthorized to cancel this request', 403);
   }
 
@@ -571,18 +540,18 @@ export const cancelFriendRequestService = async (userId: string, requestId: stri
     throw new AppError('Can only cancel pending requests', 400);
   }
 
-  await FriendRequestModel.findByIdAndDelete(requestId);
+  await db.delete(friendRequests).where(eq(friendRequests.id, request.id));
   return { message: 'Friend request cancelled successfully' };
 };
 
 export const rejectFriendRequestService = async (userId: string, requestId: string) => {
-  const request = await FriendRequestModel.findById(requestId);
+  const request = await getRequestRow(requestId);
 
   if (!request) {
     throw new AppError('Friend request not found', 404);
   }
 
-  if (request.receiver.toString() !== userId) {
+  if (request.receiverId !== userId) {
     throw new AppError('Unauthorized to reject this request', 403);
   }
 
@@ -590,7 +559,7 @@ export const rejectFriendRequestService = async (userId: string, requestId: stri
     throw new AppError('Can only reject pending requests', 400);
   }
 
-  await FriendRequestModel.findByIdAndDelete(requestId);
+  await db.delete(friendRequests).where(eq(friendRequests.id, request.id));
   return { message: 'Friend request rejected successfully' };
 };
 
@@ -617,7 +586,7 @@ const findViewableProfileUser = async (username: string) => {
   if (user.role === UserRole.Admin) {
     throw new AppError('Access to admin profiles is forbidden', 403);
   }
-  return toLean(user);
+  return user;
 };
 
 export const getUserStatsService = async (username: string) => {
@@ -648,8 +617,7 @@ export const getUserStatsService = async (username: string) => {
     };
   }
 
-  // Friends arrive with the social ticket (09).
-  stats.friends = 0;
+  stats.friends = await db.$count(friendships, involving(user.id));
 
   return { role: user.role, stats };
 };
@@ -682,10 +650,8 @@ export const getUserEventsService = async (username: string) => {
 };
 
 export const getUserFriendsListService = async (username: string) => {
-  await findViewableProfileUser(username);
-
-  // Friends arrive with the social ticket (09).
-  return [];
+  const user = await findViewableProfileUser(username);
+  return listFriends(user.id, true);
 };
 
 // Seeds a single admin from env, and only while no admin exists yet. With the

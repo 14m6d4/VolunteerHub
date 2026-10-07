@@ -71,6 +71,8 @@ const admin = await mkUser('admin', 'admin');
 const mgr = await mkUser('mgr', 'manager');
 const vol = await mkUser('vol', 'volunteer');
 const vol2 = await mkUser('vol2', 'volunteer');
+const vol3 = await mkUser('vol3', 'volunteer');
+const vol4 = await mkUser('vol4', 'volunteer');
 
 const DAY = 864e5;
 const inDays = (d: number) => new Date(Date.now() + d * DAY).toISOString();
@@ -299,6 +301,128 @@ await check('approving an event opens its discussion once; posts can join it; de
   assert.equal((await call('DELETE', `/api/events/${id}`, undefined, mgr.token)).status, 200);
   assert.equal((await db.select().from(discussions).where(eq(discussions.eventId, id))).length, 0, 'discussion went with the event');
   assert.equal((await db.select().from(posts).where(eq(posts.id, joined))).length, 0, 'and so did its posts');
+});
+
+// --- friends --------------------------------------------------------------
+
+const friendsOf = async (token: string) => (await call('GET', '/api/users/friends', undefined, token)).data.data;
+const relations = async (token: string, ids: string[]) =>
+  (await call('POST', '/api/users/friends/status', { ids }, token)).data.data;
+
+await check('a friend request is sent, seen by both sides, accepted, and the two become friends', async () => {
+  const sent = await call('POST', '/api/users/friends/request', { receiverId: vol2.id }, vol.token);
+  assert.equal(sent.status, 201, JSON.stringify(sent.data));
+  const r = sent.data.data;
+  assert.ok(r._id);
+  assert.equal(r.sender, vol.id);
+  assert.equal(r.receiver, vol2.id);
+  assert.equal(r.status, 'pending');
+  assert.ok(r.createdAt);
+
+  assert.equal((await call('POST', '/api/users/friends/request', { receiverId: vol2.id })).status, 401, 'anonymous');
+  assert.equal((await call('POST', '/api/users/friends/request', { receiverId: vol.id }, vol.token)).status, 400, 'yourself');
+  assert.equal((await call('POST', '/api/users/friends/request', { receiverId: vol2.id }, vol.token)).status, 400, 'twice');
+  assert.equal((await call('POST', '/api/users/friends/request', { receiverId: NO_SUCH_ID }, vol.token)).status, 404, 'unknown user');
+
+  const incoming = await call('GET', '/api/users/friends/requests', undefined, vol2.token);
+  assert.equal(incoming.status, 200, JSON.stringify(incoming.data));
+  assert.equal(incoming.data.data.length, 1);
+  assert.equal(incoming.data.data[0]._id, r._id);
+  assert.equal(incoming.data.data[0].sender._id, vol.id, 'sender is populated');
+  assert.equal(incoming.data.data[0].sender.username, `zz_vol_${stamp}`);
+  assert.equal(incoming.data.data[0].sender.name, 'vol');
+  assert.equal(incoming.data.data[0].status, 'pending');
+  const outgoing = await call('GET', '/api/users/friends/sent', undefined, vol.token);
+  assert.equal(outgoing.data.data[0]._id, r._id);
+  assert.equal(outgoing.data.data[0].receiver._id, vol2.id, 'receiver is populated');
+  assert.deepEqual((await call('GET', '/api/users/friends/requests', undefined, vol.token)).data.data, [], 'the sender has nothing incoming');
+
+  assert.deepEqual(await relations(vol.token, [vol2.id, vol3.id]), { [vol2.id]: 'pending_sent', [vol3.id]: 'none' });
+  assert.deepEqual(await relations(vol2.token, [vol.id]), { [vol.id]: 'pending_received' });
+  assert.equal((await call('POST', '/api/users/friends/status', { ids: [] }, vol.token)).status, 400);
+
+  assert.equal((await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol.token)).status, 404, 'the sender cannot accept');
+  const accepted = await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol2.token);
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+  assert.equal((await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol2.token)).status, 400, 'no longer pending');
+  assert.equal((await call('POST', '/api/users/friends/accept', { requestId: NO_SUCH_ID }, vol2.token)).status, 404);
+  assert.deepEqual((await call('GET', '/api/users/friends/requests', undefined, vol2.token)).data.data, []);
+  assert.deepEqual((await call('GET', '/api/users/friends/sent', undefined, vol.token)).data.data, []);
+
+  const mine = await friendsOf(vol.token);
+  assert.deepEqual(mine.map((f: any) => [f._id, f.username, f.name]), [[vol2.id, `zz_vol2_${stamp}`, 'vol2']]);
+  assert.deepEqual((await friendsOf(vol2.token)).map((f: any) => f._id), [vol.id], 'friendship goes both ways');
+  assert.deepEqual(await relations(vol.token, [vol2.id]), { [vol2.id]: 'friends' });
+  assert.equal((await call('POST', '/api/users/friends/request', { receiverId: vol2.id }, vol.token)).status, 400, 'already friends');
+});
+
+await check('unfriending works once, and a request can be sent again afterwards', async () => {
+  assert.equal((await call('POST', '/api/users/friends/remove', { friendId: vol2.id }, vol.token)).status, 200);
+  assert.deepEqual(await friendsOf(vol.token), []);
+  assert.deepEqual(await friendsOf(vol2.token), []);
+  assert.equal((await call('POST', '/api/users/friends/remove', { friendId: vol2.id }, vol.token)).status, 400, 'not friends any more');
+  assert.equal((await call('POST', '/api/users/friends/remove', { friendId: vol.id }, vol.token)).status, 400, 'yourself');
+
+  const again = await call('POST', '/api/users/friends/request', { receiverId: vol2.id }, vol.token);
+  assert.equal(again.status, 201, 'the accepted request is replaced, not a conflict');
+  assert.equal(again.data.data.status, 'pending');
+  assert.equal((await call('POST', '/api/users/friends/accept', { requestId: again.data.data._id }, vol2.token)).status, 200);
+  assert.deepEqual((await friendsOf(vol.token)).map((f: any) => f._id), [vol2.id]);
+});
+
+await check('a request is rejected by its receiver or cancelled by its sender, and nobody else may', async () => {
+  const toRejecting = (await call('POST', '/api/users/friends/request', { receiverId: vol3.id }, vol.token)).data.data._id;
+  assert.equal((await call('POST', '/api/users/friends/reject', { requestId: toRejecting }, vol.token)).status, 403, 'the sender cannot reject');
+  assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: toRejecting }, vol3.token)).status, 403, 'the receiver cannot cancel');
+  assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: toRejecting }, vol2.token)).status, 403, 'a stranger cannot cancel');
+  assert.equal((await call('POST', '/api/users/friends/reject', { requestId: toRejecting }, vol3.token)).status, 200);
+  assert.equal((await call('POST', '/api/users/friends/reject', { requestId: toRejecting }, vol3.token)).status, 404, 'already gone');
+  assert.deepEqual(await relations(vol.token, [vol3.id]), { [vol3.id]: 'none' });
+
+  const toCancelling = (await call('POST', '/api/users/friends/request', { receiverId: vol3.id }, vol.token)).data.data._id;
+  assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: toCancelling }, vol.token)).status, 200);
+  assert.deepEqual((await call('GET', '/api/users/friends/requests', undefined, vol3.token)).data.data, []);
+  assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: NO_SUCH_ID }, vol.token)).status, 404);
+});
+
+await check('adding a friend directly is symmetric and refuses doubles', async () => {
+  assert.equal((await call('POST', '/api/users/friends/add', { friendId: vol3.id }, vol2.token)).status, 200);
+  assert.equal((await call('POST', '/api/users/friends/add', { friendId: vol3.id }, vol2.token)).status, 400, 'already friends');
+  assert.equal((await call('POST', '/api/users/friends/add', { friendId: vol2.id }, vol3.token)).status, 400, 'from the other side too');
+  assert.equal((await call('POST', '/api/users/friends/add', { friendId: vol2.id }, vol2.token)).status, 400, 'yourself');
+  assert.equal((await call('POST', '/api/users/friends/add', { friendId: NO_SUCH_ID }, vol2.token)).status, 404, 'unknown user');
+  assert.deepEqual((await friendsOf(vol3.token)).map((f: any) => f._id), [vol2.id]);
+  assert.deepEqual((await friendsOf(vol2.token)).map((f: any) => f._id).sort(), [vol.id, vol3.id].sort());
+});
+
+await check('suggestions rank by mutual friends; profiles show a friend count and list; deleting a user drops their friendships', async () => {
+  // vol - vol2 - vol3: vol3 is a friend of a friend of vol, vol4 is nobody's.
+  const suggested = (await call('GET', '/api/users/friends/suggestions', undefined, vol.token)).data.data;
+  const ids = suggested.map((u: any) => u._id);
+  assert.ok(!ids.includes(vol.id), 'not yourself');
+  assert.ok(!ids.includes(vol2.id), 'not a current friend');
+  assert.ok(!ids.includes(admin.id), 'not an admin');
+  const three = suggested.find((u: any) => u._id === vol3.id);
+  assert.ok(three, 'friend of a friend is suggested');
+  assert.equal(three.mutualFriends, 1);
+  assert.equal(three.username, `zz_vol3_${stamp}`);
+  assert.equal(three.name, 'vol3');
+  assert.equal(ids.indexOf(vol3.id), 0, 'the only candidate with a mutual friend comes first');
+
+  const stats = await call('GET', `/api/users/zz_vol2_${stamp}/stats`);
+  assert.equal(stats.status, 200, JSON.stringify(stats.data));
+  assert.equal(stats.data.data.stats.friends, 2);
+  const list = await call('GET', `/api/users/zz_vol2_${stamp}/friends`);
+  assert.equal(list.status, 200, JSON.stringify(list.data));
+  assert.deepEqual(list.data.data.map((f: any) => [f._id, f.role]).sort(), [[vol.id, 'volunteer'], [vol3.id, 'volunteer']].sort());
+  assert.equal((await call('GET', `/api/users/zz_admin_${stamp}/friends`)).status, 403, 'admin profiles stay private');
+
+  const doomed = await mkUser('doomedfriend', 'volunteer');
+  assert.equal((await call('POST', '/api/users/friends/add', { friendId: doomed.id }, vol4.token)).status, 200);
+  assert.equal((await call('POST', '/api/users/friends/request', { receiverId: doomed.id }, vol3.token)).status, 201);
+  assert.equal((await call('DELETE', `/api/users/admin/${doomed.id}`, undefined, admin.token)).status, 200);
+  assert.deepEqual(await friendsOf(vol4.token), [], 'friendship went with the user');
+  assert.deepEqual((await call('GET', '/api/users/friends/sent', undefined, vol3.token)).data.data, [], 'and so did the request');
 });
 
 out.forEach((line) => console.log(line));
