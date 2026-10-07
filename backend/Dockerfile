@@ -17,6 +17,8 @@ RUN npm run build
 FROM base AS prod
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
+# SQL migrations, applied by the `migrate` compose service (node dist/db/migrate.js).
+COPY --from=build /app/drizzle ./drizzle
 USER node
 EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --start-interval=2s --retries=3 \
