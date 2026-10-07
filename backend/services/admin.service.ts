@@ -1,167 +1,90 @@
-import User from '../models/User.model.ts';
-import { EventModel, EventStatus } from '../models/Event.model.ts';
-import { RegistrationModel, RegistrationStatus } from '../models/Registration.model.ts';
-import { ReportModel } from '../models/Report.model.ts';
+import { and, count, desc, eq, gte, isNull, lt, or, sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { db } from '../db/client.ts';
-import { posts } from '../db/schema.ts';
+import { events, posts, registrations, reports, users } from '../db/schema.ts';
+import { EventStatus } from '../types/event.ts';
+import { RegistrationStatus } from '../types/registration.ts';
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** The last 12 calendar months, oldest first, each as [label, first instant, first instant of the next month]. */
+function lastTwelveMonths(now: Date) {
+    return Array.from({ length: 12 }, (_, k) => {
+        const start = new Date(now.getFullYear(), now.getMonth() - (11 - k), 1);
+        const next = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+        return { month: MONTH_NAMES[start.getMonth()]!, start, next };
+    });
+}
 
 export async function getAnalytics() {
     const now = new Date();
+    const months = lastTwelveMonths(now);
 
-    const totalUsers = await User.countDocuments();
+    const inMonth = (column: AnyPgColumn, m: { start: Date; next: Date }) =>
+        and(gte(column, m.start), lt(column, m.next));
+    const eventsWith = (status: EventStatus) => db.$count(events, eq(events.status, status));
 
-    const totalEvents = await EventModel.countDocuments();
+    const [activeVolunteers] = await db.select({ n: sql<number>`count(distinct ${registrations.volunteerId})`.mapWith(Number) })
+        .from(registrations)
+        .innerJoin(events, eq(events.id, registrations.eventId))
+        .where(and(
+            eq(events.status, EventStatus.APPROVED),
+            or(gte(events.endAt, now), isNull(events.endAt)),
+            eq(registrations.status, RegistrationStatus.APPROVED),
+        ));
 
-    const ongoingEvents = await EventModel.find({
-        status: EventStatus.APPROVED,
-        $or: [
-            { endAt: { $gte: now } },
-            { endAt: null }
-        ]
-    }).select('_id');
-
-    const ongoingEventIds = ongoingEvents.map(event => event._id);
-
-    let activeVolunteers = 0;
-    if (ongoingEventIds.length > 0) {
-        const distinctVolunteers = await RegistrationModel.distinct('volunteerId', {
-            eventId: { $in: ongoingEventIds },
-            status: RegistrationStatus.APPROVED
-        });
-        activeVolunteers = distinctVolunteers.length;
-    }
-
-    const completedEvents = await EventModel.countDocuments({
-        status: EventStatus.FINISHED
-    });
-
-    const pendingReports = await ReportModel.countDocuments({
-        status: 'pending'
-    });
-
-    const totalPosts = await db.$count(posts);
-
-    const userGrowth = [];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    for (let i = 11; i >= 0; i--) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const year = date.getFullYear();
-        const month = date.getMonth();
-
-        const startOfMonth = new Date(year, month, 1);
-        const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
-
-        const count = await User.countDocuments({
-            createdAt: {
-                $gte: startOfMonth,
-                $lte: endOfMonth
-            }
-        });
-
-        userGrowth.push({
-            month: monthNames[month],
-            users: count
-        });
-    }
-
-    const eventsPerMonth = [];
-
-    for (let i = 11; i >= 0; i--) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const year = date.getFullYear();
-        const month = date.getMonth();
-
-        const startOfMonth = new Date(year, month, 1);
-        const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
-
-        const count = await EventModel.countDocuments({
-            createdAt: {
-                $gte: startOfMonth,
-                $lte: endOfMonth
-            }
-        });
-
-        eventsPerMonth.push({
-            month: monthNames[month],
-            events: count
-        });
-    }
-
-    const activeEventsCount = await EventModel.countDocuments({ status: EventStatus.APPROVED });
-    const completedEventsCount = await EventModel.countDocuments({ status: EventStatus.FINISHED });
-    const pendingEventsCount = await EventModel.countDocuments({ status: EventStatus.PENDING });
-
-    const eventsByStatus = [
-        { name: 'Active', value: activeEventsCount },
-        { name: 'Completed', value: completedEventsCount },
-        { name: 'Pending', value: pendingEventsCount }
-    ];
-    const volunteerParticipation = [];
-
-    for (let i = 11; i >= 0; i--) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const year = date.getFullYear();
-        const month = date.getMonth();
-
-        const startOfMonth = new Date(year, month, 1);
-        const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
-
-        const count = await RegistrationModel.countDocuments({
-            status: RegistrationStatus.APPROVED,
-            createdAt: {
-                $gte: startOfMonth,
-                $lte: endOfMonth
-            }
-        });
-
-        volunteerParticipation.push({
-            month: monthNames[month],
-            volunteers: count
-        });
-    }
-
-    const categoryAggregation = await EventModel.aggregate([
-        { $unwind: '$tags' },
-        { $group: { _id: '$tags', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $limit: 5 }
+    const [totalUsers, totalEvents, completedEvents, pendingReports, totalPosts, activeEvents, pendingEvents] = await Promise.all([
+        db.$count(users),
+        db.$count(events),
+        eventsWith(EventStatus.FINISHED),
+        db.$count(reports, eq(reports.status, 'pending')),
+        db.$count(posts),
+        eventsWith(EventStatus.APPROVED),
+        eventsWith(EventStatus.PENDING),
     ]);
 
-    const topEventCategories = categoryAggregation.map((item: any) => ({
-        category: item._id,
-        count: item.count
-    }));
+    const userGrowth = await Promise.all(months.map(async (m) => ({
+        month: m.month, users: await db.$count(users, inMonth(users.createdAt, m)),
+    })));
+    const eventsPerMonth = await Promise.all(months.map(async (m) => ({
+        month: m.month, events: await db.$count(events, inMonth(events.createdAt, m)),
+    })));
+    const volunteerParticipation = await Promise.all(months.map(async (m) => ({
+        month: m.month,
+        volunteers: await db.$count(registrations, and(eq(registrations.status, RegistrationStatus.APPROVED), inMonth(registrations.createdAt, m))),
+    })));
 
-    const reasonAggregation = await ReportModel.aggregate([
-        { $group: { _id: '$reason', count: { $sum: 1 } } },
-        { $sort: { count: -1 } }
-    ]);
+    const tag = sql<string>`unnest(${events.tags})`;
+    const topTags = db.select({ category: tag.as('category') }).from(events).as('tags');
+    const topEventCategories = await db.select({ category: topTags.category, count: count().as('count') })
+        .from(topTags)
+        .groupBy(topTags.category)
+        .orderBy(desc(count()), topTags.category)
+        .limit(5);
 
-    const reportsDistribution = reasonAggregation.map((item: any) => ({
-        type: item._id,
-        count: item.count
-    }));
+    const reportsDistribution = await db.select({ type: reports.reason, count: count() })
+        .from(reports)
+        .groupBy(reports.reason)
+        .orderBy(desc(count()), reports.reason);
 
-    const data = {
+    return {
         statistics: {
             totalUsers,
             totalEvents,
-            activeVolunteers,
+            activeVolunteers: activeVolunteers?.n ?? 0,
             completedEvents,
             pendingReports,
-            totalPosts
+            totalPosts,
         },
         userGrowth,
         eventsPerMonth,
-        eventsByStatus,
+        eventsByStatus: [
+            { name: 'Active', value: activeEvents },
+            { name: 'Completed', value: completedEvents },
+            { name: 'Pending', value: pendingEvents },
+        ],
         volunteerParticipation,
         topEventCategories,
-        reportsDistribution
+        reportsDistribution,
     };
-
-    return data;
 }

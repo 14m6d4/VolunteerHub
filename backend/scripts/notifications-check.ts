@@ -313,6 +313,65 @@ await check('resolving or rejecting a report tells the reporter; a resolved post
   assert.equal(hit.bannedReason, `Banned due to Report #${userReport._id}: abuse`);
 });
 
+// --- admin analytics ------------------------------------------------------
+
+const analytics = async () => {
+  const res = await call('GET', '/api/admin/analytics', undefined, admin.token);
+  assert.equal(res.status, 200, JSON.stringify(res.data));
+  assert.equal(res.data.status, 'success');
+  return res.data.data;
+};
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+await check('analytics count what the platform holds, per month for the last year, and are for admins only', async () => {
+  assert.equal((await call('GET', '/api/admin/analytics')).status, 401);
+  assert.equal((await call('GET', '/api/admin/analytics', undefined, mgr.token)).status, 403);
+
+  const before = await analytics();
+  const fresh = await mkUser('analytics', 'volunteer');
+  const shown = await mkApprovedEvent('analytics_a');
+  const waiting = await call('POST', '/api/events', {
+    title: `zz_analytics_b_${stamp}`, startAt: inDays(3), endAt: inDays(4), location: 'Hanoi',
+  }, mgr.token);
+  assert.equal(waiting.status, 201);
+  const reg = await call('POST', `/api/register/${shown}`, undefined, fresh.token);
+  assert.equal(reg.status, 201, JSON.stringify(reg.data));
+  assert.equal((await call('POST', `/api/register/${reg.data.data._id}/approve`, undefined, mgr.token)).status, 200);
+  await mkPost(shown, fresh.token);
+  const reason = `zz_reason_${stamp}`;
+  assert.equal((await call('POST', '/api/report/event', { eventId: shown, reason }, fresh.token)).status, 201);
+
+  const after = await analytics();
+  const delta = (pick: (a: any) => number) => pick(after) - pick(before);
+  assert.equal(delta((a) => a.statistics.totalUsers), 1);
+  assert.equal(delta((a) => a.statistics.totalEvents), 2);
+  assert.equal(delta((a) => a.statistics.activeVolunteers), 1, 'approved in an event that is still on');
+  assert.equal(delta((a) => a.statistics.completedEvents), 0);
+  assert.equal(delta((a) => a.statistics.pendingReports), 1);
+  assert.equal(delta((a) => a.statistics.totalPosts), 1);
+
+  assert.equal(after.userGrowth.length, 12);
+  assert.equal(after.userGrowth[11].month, monthNames[new Date().getMonth()], 'ends with this month');
+  assert.equal(delta((a) => a.userGrowth[11].users), 1);
+  assert.equal(after.eventsPerMonth.length, 12);
+  assert.equal(delta((a) => a.eventsPerMonth[11].events), 2);
+  assert.equal(after.volunteerParticipation.length, 12);
+  assert.equal(delta((a) => a.volunteerParticipation[11].volunteers), 2, 'the volunteer, and the manager who joins their event on approval');
+
+  assert.deepEqual(after.eventsByStatus.map((s: any) => s.name), ['Active', 'Completed', 'Pending']);
+  assert.equal(delta((a) => a.eventsByStatus[0].value), 1);
+  assert.equal(delta((a) => a.eventsByStatus[2].value), 1);
+
+  assert.ok(after.reportsDistribution.some((r: any) => r.type === reason && r.count === 1));
+  const counts = after.reportsDistribution.map((r: any) => r.count);
+  assert.deepEqual(counts, counts.slice().sort((a: number, b: number) => b - a), 'most common reason first');
+
+  assert.ok(after.topEventCategories.length <= 5);
+  assert.ok(after.topEventCategories.every((c: any) => typeof c.category === 'string' && c.count > 0));
+  const categoryCounts = after.topEventCategories.map((c: any) => c.count);
+  assert.deepEqual(categoryCounts, categoryCounts.slice().sort((a: number, b: number) => b - a));
+});
+
 out.forEach((line) => console.log(line));
 console.log(process.exitCode ? 'NOTIFICATIONS CHECK FAILED' : 'NOTIFICATIONS CHECK PASSED');
 
