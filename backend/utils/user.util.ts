@@ -17,7 +17,7 @@ export const normalizeEmail = (email: string) => email.trim().toLowerCase();
  */
 export function toUser(row: UserRow): IUser {
   const { passwordHash, otp, otpExpiresAt, ...rest } = row;
-  // Old documents always carried `friends`; they live on Mongo until the social ticket (09).
+  // Old documents always carried `friends`; friendships are their own table now, so it stays empty here (see friend.util).
   return { ...toLean(rest), friends: [] } as unknown as IUser;
 }
 

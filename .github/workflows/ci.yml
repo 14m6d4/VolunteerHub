@@ -87,6 +87,7 @@ jobs:
       - run: npm run smoke:security
       - run: npm run check:users
       - run: npm run check:events
+      - run: npm run check:social
       - run: npm run check:authz
 
   frontend:

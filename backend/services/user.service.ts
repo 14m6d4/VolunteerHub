@@ -8,7 +8,6 @@ import { events, friendRequests, friendships, registrations, users } from '../db
 import { EventStatus } from '../models/Event.model.ts';
 import { RegistrationStatus } from '../models/Registration.model.ts';
 import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
-import { FriendRequestStatus } from '../models/FriendRequest.model.ts';
 import * as notificationService from './notification.service.ts';
 import { NotificationType } from '../models/Notification.model.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
@@ -248,7 +247,7 @@ export const sendFriendRequestService = async (senderId: string, receiverId: str
   const [existing] = await db.select().from(friendRequests)
     .where(and(eq(friendRequests.senderId, senderId), eq(friendRequests.receiverId, receiverId)));
   if (existing) {
-    if (existing.status === FriendRequestStatus.Pending) throw new AppError('Request already sent', 400);
+    if (existing.status === 'pending') throw new AppError('Request already sent', 400);
     await db.delete(friendRequests).where(eq(friendRequests.id, existing.id));
   }
 
@@ -286,14 +285,14 @@ export const acceptFriendRequestService = async (requestId: string, currentUserI
     throw new AppError('Request not found or unauthorized', 404);
   }
 
-  if (request.status !== FriendRequestStatus.Pending) {
+  if (request.status !== 'pending') {
     throw new AppError('Request is no longer pending', 400);
   }
 
   await db.transaction(async (tx) => {
     const accepted = await tx.update(friendRequests)
-      .set({ status: FriendRequestStatus.Accepted, updatedAt: new Date() })
-      .where(and(eq(friendRequests.id, request.id), eq(friendRequests.status, FriendRequestStatus.Pending)))
+      .set({ status: 'accepted', updatedAt: new Date() })
+      .where(and(eq(friendRequests.id, request.id), eq(friendRequests.status, 'pending')))
       .returning({ id: friendRequests.id });
     if (!accepted.length) throw new AppError('Request is no longer pending', 400);
     await tx.insert(friendships).values(friendPair(request.senderId, request.receiverId)).onConflictDoNothing();
@@ -318,7 +317,7 @@ export const acceptFriendRequestService = async (requestId: string, currentUserI
 export const listIncomingFriendRequestsService = async (userId: string) => {
   const rows = await db.select({ request: friendRequests, sender: FRIEND_COLUMNS }).from(friendRequests)
     .innerJoin(users, eq(users.id, friendRequests.senderId))
-    .where(and(eq(friendRequests.receiverId, userId), eq(friendRequests.status, FriendRequestStatus.Pending)))
+    .where(and(eq(friendRequests.receiverId, userId), eq(friendRequests.status, 'pending')))
     .orderBy(asc(friendRequests.createdAt), asc(friendRequests.id));
   return rows.map((r) => toFriendRequest(r.request, { sender: toLean(r.sender) }));
 };
@@ -330,7 +329,7 @@ export const getRelationsForTargets = async (userId: string, targets: string[]) 
   const ids = targets.filter(isUuid);
 
   const pending = ids.length ? await db.select().from(friendRequests).where(and(
-    eq(friendRequests.status, FriendRequestStatus.Pending),
+    eq(friendRequests.status, 'pending'),
     or(
       and(eq(friendRequests.senderId, userId), inArray(friendRequests.receiverId, ids)),
       and(eq(friendRequests.receiverId, userId), inArray(friendRequests.senderId, ids)),
@@ -520,7 +519,7 @@ export const getFriendSuggestionsService = async (userId: string, limit: number 
 export const listOutgoingFriendRequestsService = async (userId: string) => {
   const rows = await db.select({ request: friendRequests, receiver: FRIEND_COLUMNS }).from(friendRequests)
     .innerJoin(users, eq(users.id, friendRequests.receiverId))
-    .where(and(eq(friendRequests.senderId, userId), eq(friendRequests.status, FriendRequestStatus.Pending)))
+    .where(and(eq(friendRequests.senderId, userId), eq(friendRequests.status, 'pending')))
     .orderBy(asc(friendRequests.createdAt), asc(friendRequests.id));
   return rows.map((r) => toFriendRequest(r.request, { receiver: toLean(r.receiver) }));
 };
@@ -536,7 +535,7 @@ export const cancelFriendRequestService = async (userId: string, requestId: stri
     throw new AppError('Unauthorized to cancel this request', 403);
   }
 
-  if (request.status !== FriendRequestStatus.Pending) {
+  if (request.status !== 'pending') {
     throw new AppError('Can only cancel pending requests', 400);
   }
 
@@ -555,7 +554,7 @@ export const rejectFriendRequestService = async (userId: string, requestId: stri
     throw new AppError('Unauthorized to reject this request', 403);
   }
 
-  if (request.status !== FriendRequestStatus.Pending) {
+  if (request.status !== 'pending') {
     throw new AppError('Can only reject pending requests', 400);
   }
 
