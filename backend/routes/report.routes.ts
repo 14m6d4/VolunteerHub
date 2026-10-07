@@ -97,7 +97,7 @@ router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
         if (user.role !== UserRole.Admin) {
             const managerId = await EventService.getManagerId(eventId);
             if (!managerId) return res.status(404).json({ message: "Event not found" });
-            if (user.role !== UserRole.Manager || !managerId.equals(user._id)) {
+            if (user.role !== UserRole.Manager || managerId !== user._id) {
                 return res.status(403).json({ message: "Forbidden" });
             }
         }

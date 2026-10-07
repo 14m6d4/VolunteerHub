@@ -244,7 +244,7 @@ const seed = async () => {
                 createdAt: twoYearsAgo,
                 updatedAt: new Date()
             });
-            await DiscussionModel.create({ eventId: id });
+            await DiscussionModel.create({ eventId: String(id) });
         }
 
         // --- FORCE CREATE FUTURE EVENTS (Visible in Discover) ---
@@ -271,7 +271,7 @@ const seed = async () => {
                 createdAt: twoYearsAgo,
                 updatedAt: new Date()
             });
-            await DiscussionModel.create({ eventId: id });
+            await DiscussionModel.create({ eventId: String(id) });
         }
 
         for (let i = 0; i < 90; i++) { // Create 90 random events (Total 100)
@@ -318,7 +318,7 @@ const seed = async () => {
             });
 
             // Discussion for each event
-            await DiscussionModel.create({ eventId: id });
+            await DiscussionModel.create({ eventId: String(id) });
         }
 
         await EventModel.insertMany(events);

@@ -73,6 +73,9 @@ export const EventController = {
         try {
             const user = req.user as any;
             const status = req.query.status as string | undefined;
+            // Express 5 rebuilds req.query on every read, so a value assigned into it
+            // is lost; the scoping has to travel in a variable of its own.
+            let managerId = req.query.managerId as string | undefined;
             console.log("List Events - User:", user ? { id: user._id, role: user.role } : null);
 
             if (status === "pending") {
@@ -80,7 +83,7 @@ export const EventController = {
                     return res.status(403).json({ success: false, message: "Forbidden" });
                 }
                 if (user.role === "manager") {
-                    req.query.managerId = user._id.toString();
+                    managerId = user._id;
                 } else if (user.role !== "admin") {
                     return res.status(403).json({ success: false, message: "Forbidden" });
                 }
@@ -92,7 +95,7 @@ export const EventController = {
                 status: status === 'all' ? undefined : status, // Don't filter if status is 'all'
                 startFrom: req.query.startFrom as string | undefined,
                 includeDrafts: req.query.includeDrafts === "true",
-                managerId: req.query.managerId as string | undefined,
+                managerId,
             };
 
             const page = Number(req.query.page || 1);

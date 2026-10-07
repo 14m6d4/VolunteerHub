@@ -1,18 +1,19 @@
-import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm';
 import type { UpdateProfileData, IUser } from '../types/user.ts';
 import { UserRole } from '../types/user.ts';
 import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
 import { db } from '../db/client.ts';
-import { users } from '../db/schema.ts';
-import { EventModel, EventStatus } from '../models/Event.model.ts';
-import { RegistrationModel, RegistrationStatus } from '../models/Registration.model.ts';
+import { events, registrations, users } from '../db/schema.ts';
+import { EventStatus } from '../models/Event.model.ts';
+import { RegistrationStatus } from '../models/Registration.model.ts';
 import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
 import FriendRequestModel, { FriendRequestStatus } from '../models/FriendRequest.model.ts';
 import * as notificationService from './notification.service.ts';
 import { NotificationType } from '../models/Notification.model.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
 import { isUniqueViolation, isUuid, normalizeEmail, toLean, toUser } from '../utils/user.util.ts';
+import { containsPattern } from '../utils/sql.util.ts';
 
 const getRow = async (id: string) => {
   if (!isUuid(id)) return undefined;
@@ -174,13 +175,6 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
 
   return username;
 }
-
-/**
- * User input goes into ILIKE in a few places. Unescaped, % and _ are wildcards:
- * a filter bypass on a public, anonymous endpoint. Escaping turns the value back
- * into a literal substring.
- */
-const containsPattern = (value: string) => `%${String(value ?? '').replace(/[\\%_]/g, '\\$&')}%`;
 
 export const searchUsersService = async (query: string, limit: number = 10) => {
   const pattern = containsPattern(query);
@@ -628,45 +622,30 @@ const findViewableProfileUser = async (username: string) => {
 
 export const getUserStatsService = async (username: string) => {
   const user = await findViewableProfileUser(username);
-  const userId = user._id;
 
   let stats: any = {};
 
   if ((user.role as UserRole) === UserRole.Volunteer) {
-    const registrations = await RegistrationModel.find({
-      volunteerId: userId,
-      status: RegistrationStatus.APPROVED
-    }).select('eventId').lean();
-
-    const eventIds = registrations.map(r => r.eventId);
-
-    if (eventIds.length > 0) {
-      const activeEvents = await EventModel.countDocuments({
-        _id: { $in: eventIds },
-        status: EventStatus.APPROVED
-      });
-
-      const completedEvents = await EventModel.countDocuments({
-        _id: { $in: eventIds },
-        status: EventStatus.FINISHED
-      });
-
-      stats = { activeEvents, completedEvents };
-    } else {
-      stats = { activeEvents: 0, completedEvents: 0 };
-    }
+    // Events the volunteer has been approved into, by the event's own status.
+    const countJoined = (status: EventStatus) => db.$count(
+      registrations,
+      and(
+        eq(registrations.volunteerId, user.id),
+        eq(registrations.status, RegistrationStatus.APPROVED),
+        inArray(registrations.eventId, db.select({ id: events.id }).from(events).where(eq(events.status, status))),
+      ),
+    );
+    stats = {
+      activeEvents: await countJoined(EventStatus.APPROVED),
+      completedEvents: await countJoined(EventStatus.FINISHED),
+    };
   } else if ((user.role as UserRole) === UserRole.Manager) {
-    const activeEvents = await EventModel.countDocuments({
-      managerId: userId,
-      status: EventStatus.APPROVED
-    });
-
-    const eventsOrganized = await EventModel.countDocuments({
-      managerId: userId,
-      status: EventStatus.FINISHED
-    });
-
-    stats = { activeEvents, eventsOrganized };
+    const countManaged = (status: EventStatus) =>
+      db.$count(events, and(eq(events.managerId, user.id), eq(events.status, status)));
+    stats = {
+      activeEvents: await countManaged(EventStatus.APPROVED),
+      eventsOrganized: await countManaged(EventStatus.FINISHED),
+    };
   }
 
   // Friends arrive with the social ticket (09).
@@ -675,34 +654,31 @@ export const getUserStatsService = async (username: string) => {
   return { role: user.role, stats };
 };
 
-const PROFILE_EVENT_FIELDS = '_id title image startAt endAt location currentMembers tags description status';
+const PROFILE_EVENT_COLUMNS = {
+  id: events.id, title: events.title, image: events.image, startAt: events.startAt, endAt: events.endAt,
+  location: events.location, currentMembers: events.currentMembers, tags: events.tags,
+  description: events.description, status: events.status,
+};
 
 export const getUserEventsService = async (username: string) => {
   const user = await findViewableProfileUser(username);
-  const userId = user._id;
 
-  let events: any[] = [];
+  let rows: { id: string }[] = [];
 
   if ((user.role as UserRole) === UserRole.Volunteer) {
-    const registrations = await RegistrationModel.find({
-      volunteerId: userId,
-      status: RegistrationStatus.APPROVED
-    }).select('eventId').lean();
-
-    const eventIds = registrations.map(r => r.eventId);
-
-    if (eventIds.length > 0) {
-      events = await EventModel.find({ _id: { $in: eventIds } })
-        .select(PROFILE_EVENT_FIELDS)
-        .lean();
-    }
+    rows = await db.select(PROFILE_EVENT_COLUMNS).from(events)
+      .where(inArray(events.id, db.select({ id: registrations.eventId }).from(registrations).where(and(
+        eq(registrations.volunteerId, user.id),
+        eq(registrations.status, RegistrationStatus.APPROVED),
+      ))))
+      .orderBy(asc(events.createdAt), asc(events.id));
   } else if ((user.role as UserRole) === UserRole.Manager) {
-    events = await EventModel.find({ managerId: userId })
-      .select(PROFILE_EVENT_FIELDS)
-      .lean();
+    rows = await db.select(PROFILE_EVENT_COLUMNS).from(events)
+      .where(eq(events.managerId, user.id))
+      .orderBy(asc(events.createdAt), asc(events.id));
   }
 
-  return events;
+  return rows.map(toLean);
 };
 
 export const getUserFriendsListService = async (username: string) => {

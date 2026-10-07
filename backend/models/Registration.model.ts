@@ -1,3 +1,5 @@
+// Legacy MongoDB model: events now live in Postgres (db/schema.ts). Kept only for the enums and for
+// feed.service / admin.service / report.service, which move in tickets 09 and 10, and seed.ts (ticket 11).
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export enum RegistrationStatus {

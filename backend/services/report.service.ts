@@ -1,5 +1,9 @@
 import { ReportModel, ReportTargetType } from "../models/Report.model.ts";
 import { EventModel } from "../models/Event.model.ts";
+import { eq } from "drizzle-orm";
+import { db } from "../db/client.ts";
+import { events } from "../db/schema.ts";
+import { isUuid } from "../utils/user.util.ts";
 import { PostModel } from "../models/Post.model.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
@@ -48,9 +52,12 @@ export const ReportService = {
         });
 
         if (post.eventId) {
-            const event = await EventModel.findById(post.eventId);
+            // The post's event lives in Postgres now.
+            const [event] = isUuid(post.eventId)
+                ? await db.select({ managerId: events.managerId }).from(events).where(eq(events.id, post.eventId))
+                : [];
             if (event) {
-                NotificationService.notify(event.managerId.toString(), {
+                NotificationService.notify(event.managerId, {
                     type: NotificationType.POST_REPORTED,
                     title: "Post Reported",
                     body: `Post has been reported for the following reason: ${reason}`,
@@ -127,8 +134,8 @@ export const ReportService = {
     },
 
     async getReportsForManager(managerId: string) {
-        const events = await EventModel.find({ managerId }).select('_id');
-        const eventIds = events.map(e => e._id);
+        const managed = await db.select({ id: events.id }).from(events).where(eq(events.managerId, managerId));
+        const eventIds = managed.map(e => e.id);
 
         if (eventIds.length === 0) return [];
 

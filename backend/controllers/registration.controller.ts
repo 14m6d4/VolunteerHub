@@ -72,13 +72,12 @@ export const RegistrationController = {
             const managerId = await EventService.getManagerId(eventId);
             if (!managerId) throw createHttpError(404, "Event not found");
             const runsThisEvent = user.role === UserRole.Admin ||
-                (user.role === UserRole.Manager && managerId.equals(user._id));
+                (user.role === UserRole.Manager && managerId === user._id);
 
-            if (!runsThisEvent) {
-                req.query.status = 'approved';
-            }
+            // Not assigned into req.query: Express 5 rebuilds it on every read.
+            const filters = runsThisEvent ? req.query : { ...req.query, status: 'approved' };
 
-            const items = await RegistrationService.getRegistrationsForEvent(eventId, req.query, runsThisEvent);
+            const items = await RegistrationService.getRegistrationsForEvent(eventId, filters, runsThisEvent);
             return res.json({ success: true, data: items });
         } catch (err) {
             next(err);

@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IPost extends Document {
     discussionId?: mongoose.Types.ObjectId;
-    eventId?: mongoose.Types.ObjectId;
+    eventId?: string; // a Postgres event id (uuid) since ticket 08
     authorId: mongoose.Types.ObjectId;
 
     content?: string;
@@ -18,7 +18,7 @@ export interface IPost extends Document {
 const PostSchema = new Schema<IPost>(
     {
         discussionId: { type: Schema.Types.ObjectId, ref: "Discussion", required: false, index: true },
-        eventId: { type: Schema.Types.ObjectId, ref: "Event", required: false, index: true },
+        eventId: { type: String, required: false, index: true },
         authorId: { type: Schema.Types.ObjectId, ref: "User", required: true },
 
         content: { type: String, required: false },

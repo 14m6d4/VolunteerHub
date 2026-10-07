@@ -7,18 +7,20 @@
  *   - horizontal: a manager must not act on another manager's event. Passing
  *                 roleMiddleware only proves the caller is *a* manager.
  *
- * Needs a running MongoDB. Run with: npm run check:authz
+ * Needs a migrated PostgreSQL (DATABASE_URL) and, until the last domain moves,
+ * a MongoDB (MONGO_URI) for notifications. Run with: npm run check:authz
  * Test accounts and events are prefixed zz_ and removed afterwards.
  */
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import 'dotenv/config';
+import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
-import User from '../models/User.model.ts';
-import { EventModel, EventStatus } from '../models/Event.model.ts';
-import { RegistrationModel, RegistrationStatus } from '../models/Registration.model.ts';
+import { closeDb, db } from '../db/client.ts';
+import { events, registrations, users } from '../db/schema.ts';
 import { UserRole } from '../types/user.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
+import { comparePassword, hashPassword } from '../utils/password.util.ts';
 
 if (!process.env.MONGO_URI) {
   console.error('MONGO_URI is not set.');
@@ -27,47 +29,53 @@ if (!process.env.MONGO_URI) {
 await mongoose.connect(process.env.MONGO_URI as string);
 
 const stamp = Date.now();
-const mkUser = (n: string, role: UserRole, password = 'Passw0rdLong1') => User.create({
-  username: `zz_${n}_${stamp}`,
-  email: `zz_${n}_${stamp}@test.local`,
-  passwordHash: password,
-  name: n,
-  birthdate: new Date('1990-01-01'),
-  role,
-  isVerified: true,
-  isActive: true,
-  authProvider: 'local',
-});
+const mkUser = async (n: string, role: UserRole, password = 'Passw0rdLong1') => {
+  const [row] = await db.insert(users).values({
+    username: `zz_${n}_${stamp}`,
+    email: `zz_${n}_${stamp}@test.local`,
+    passwordHash: await hashPassword(password),
+    name: n,
+    birthdate: new Date('1990-01-01'),
+    role,
+    isVerified: true,
+    isActive: true,
+    authProvider: 'local',
+  }).returning();
+  return row!;
+};
+const userRow = async (id: string) => (await db.select().from(users).where(eq(users.id, id)))[0];
+const eventRow = async (id: string) => (await db.select().from(events).where(eq(events.id, id)))[0];
+const regRow = async (id: string) => (await db.select().from(registrations).where(eq(registrations.id, id)))[0];
 
 const victimAdmin = await mkUser('admin', UserRole.Admin, 'OriginalAdminPw1');
 const attacker = await mkUser('vol', UserRole.Volunteer);
 const victimMgr = await mkUser('victimmgr', UserRole.Manager);
 const evilMgr = await mkUser('evilmgr', UserRole.Manager);
 
-const victimEvent = await EventModel.create({
+const [victimEvent] = await db.insert(events).values({
   title: 'Victim Event',
   description: 'd',
   location: 'l',
   startAt: new Date(Date.now() + 864e5),
   endAt: new Date(Date.now() + 9e7),
-  managerId: victimMgr._id,
-  status: EventStatus.PENDING,
+  managerId: victimMgr.id,
+  status: 'pending',
   isPublic: true,
-});
-const victimReg = await RegistrationModel.create({
-  eventId: victimEvent._id,
-  volunteerId: attacker._id,
-  status: RegistrationStatus.PENDING,
-});
+}).returning();
+const [victimReg] = await db.insert(registrations).values({
+  eventId: victimEvent!.id,
+  volunteerId: attacker.id,
+  status: 'pending',
+}).returning();
 
 const server = app.listen(0);
 await new Promise((r) => server.once('listening', r));
 const { port } = server.address() as { port: number };
 const base = `http://127.0.0.1:${port}`;
 
-const auth = (u: any) => ({
+const auth = (u: typeof attacker) => ({
   'Content-Type': 'application/json',
-  Authorization: `Bearer ${createAccessToken({ id: u._id.toString(), email: u.email, role: u.role })}`,
+  Authorization: `Bearer ${createAccessToken({ id: u.id, email: u.email, role: u.role as UserRole })}`,
 });
 const H = auth(attacker);
 const EH = auth(evilMgr);
@@ -86,30 +94,30 @@ const check = async (name: string, fn: () => Promise<void>) => {
 // --- vertical: volunteer against the admin routes ------------------------
 
 await check('volunteer cannot promote itself to admin', async () => {
-  const res = await fetch(`${base}/api/users/admin/${attacker._id}`, {
+  const res = await fetch(`${base}/api/users/admin/${attacker.id}`, {
     method: 'PUT', headers: H, body: JSON.stringify({ role: 'admin' }),
   });
   assert.equal(res.status, 403);
-  const after = await User.findById(attacker._id);
+  const after = await userRow(attacker.id);
   assert.ok(after);
   assert.equal(after.role, UserRole.Volunteer, 'role changed in the database');
 });
 
 await check("volunteer cannot reset an admin's password", async () => {
-  const res = await fetch(`${base}/api/users/admin/${victimAdmin._id}`, {
+  const res = await fetch(`${base}/api/users/admin/${victimAdmin.id}`, {
     method: 'PUT', headers: H, body: JSON.stringify({ password: 'HackedPassword1' }),
   });
   assert.equal(res.status, 403);
-  const after = await User.findById(victimAdmin._id).select('+passwordHash');
+  const after = await userRow(victimAdmin.id);
   assert.ok(after);
-  assert.equal(await after.comparePassword('HackedPassword1'), false, 'password was changed');
-  assert.equal(await after.comparePassword('OriginalAdminPw1'), true, 'original password broken');
+  assert.equal(await comparePassword('HackedPassword1', after.passwordHash), false, 'password was changed');
+  assert.equal(await comparePassword('OriginalAdminPw1', after.passwordHash), true, 'original password broken');
 });
 
 await check('volunteer cannot delete another account', async () => {
-  const res = await fetch(`${base}/api/users/admin/${victimAdmin._id}`, { method: 'DELETE', headers: H });
+  const res = await fetch(`${base}/api/users/admin/${victimAdmin.id}`, { method: 'DELETE', headers: H });
   assert.equal(res.status, 403);
-  assert.ok(await User.findById(victimAdmin._id), 'admin was deleted');
+  assert.ok(await userRow(victimAdmin.id), 'admin was deleted');
 });
 
 await check('volunteer cannot mint a new admin', async () => {
@@ -121,54 +129,75 @@ await check('volunteer cannot mint a new admin', async () => {
     }),
   });
   assert.equal(res.status, 403);
-  assert.equal(await User.findOne({ username: `zz_new_${stamp}` }), null, 'account was created');
+  assert.equal((await db.select().from(users).where(eq(users.username, `zz_new_${stamp}`))).length, 0, 'account was created');
 });
 
 // --- horizontal: manager against another manager's event -----------------
 
 await check("manager cannot edit another manager's event", async () => {
-  const res = await fetch(`${base}/api/events/${victimEvent._id}`, {
+  const res = await fetch(`${base}/api/events/${victimEvent!.id}`, {
     method: 'PUT', headers: EH, body: JSON.stringify({ title: 'HIJACKED' }),
   });
   assert.equal(res.status, 403);
-  const after = await EventModel.findById(victimEvent._id);
+  const after = await eventRow(victimEvent!.id);
   assert.ok(after);
   assert.equal(after.title, 'Victim Event', 'title was changed');
 });
 
 await check('manager cannot approve an event via PUT', async () => {
-  const res = await fetch(`${base}/api/events/${victimEvent._id}`, {
+  const res = await fetch(`${base}/api/events/${victimEvent!.id}`, {
     method: 'PUT', headers: EH, body: JSON.stringify({ status: 'approved' }),
   });
   assert.ok(res.status >= 400, `expected a rejection, got ${res.status}`);
-  const after = await EventModel.findById(victimEvent._id);
+  const after = await eventRow(victimEvent!.id);
   assert.ok(after);
-  assert.equal(after.status, EventStatus.PENDING, 'event was approved without an admin');
+  assert.equal(after.status, 'pending', 'event was approved without an admin');
 });
 
 await check("manager cannot moderate registrations on another's event", async () => {
-  const res = await fetch(`${base}/api/register/${victimReg._id}/approve`, { method: 'POST', headers: EH });
+  const res = await fetch(`${base}/api/register/${victimReg!.id}/approve`, { method: 'POST', headers: EH });
   assert.equal(res.status, 403);
-  const after = await RegistrationModel.findById(victimReg._id);
+  const after = await regRow(victimReg!.id);
   assert.ok(after);
-  assert.equal(after.status, RegistrationStatus.PENDING, 'registration was approved');
+  assert.equal(after.status, 'pending', 'registration was approved');
 });
 
-await check("manager cannot delete another manager's event", async () => {
-  const res = await fetch(`${base}/api/events/${victimEvent._id}`, { method: 'DELETE', headers: EH });
-  assert.equal(res.status, 403);
-  assert.ok(await EventModel.findById(victimEvent._id), 'event was deleted');
+await check("manager cannot reject or kick on another's event", async () => {
+  for (const action of ['reject', 'kick']) {
+    const res = await fetch(`${base}/api/register/${victimReg!.id}/${action}`, { method: 'POST', headers: EH });
+    assert.equal(res.status, 403, action);
+  }
+  assert.equal((await regRow(victimReg!.id))?.status, 'pending');
+});
+
+await check("manager cannot complete, delete or read stats of another manager's event", async () => {
+  const complete = await fetch(`${base}/api/events/${victimEvent!.id}/complete`, { method: 'PATCH', headers: EH });
+  assert.equal(complete.status, 403, 'complete');
+  const stats = await fetch(`${base}/api/events/${victimEvent!.id}/stats`, { headers: EH });
+  assert.equal(stats.status, 403, 'stats');
+  const del = await fetch(`${base}/api/events/${victimEvent!.id}`, { method: 'DELETE', headers: EH });
+  assert.equal(del.status, 403, 'delete');
+  const after = await eventRow(victimEvent!.id);
+  assert.ok(after, 'event was deleted');
+  assert.equal(after.status, 'pending', 'event was completed');
 });
 
 await check('member list does not leak emails to non-organisers', async () => {
   // The roster must actually contain an approved member, otherwise an empty
   // list would pass this check without proving anything.
-  await RegistrationModel.findByIdAndUpdate(victimReg._id, { status: RegistrationStatus.APPROVED });
-  const res = await fetch(`${base}/api/register/${victimEvent._id}`, { headers: H });
+  await db.update(registrations).set({ status: 'approved' }).where(eq(registrations.id, victimReg!.id));
+  const res = await fetch(`${base}/api/register/${victimEvent!.id}`, { headers: H });
   const body = await res.text();
   assert.ok(body.includes(`zz_vol_${stamp}`), 'the approved member should still be listed');
   assert.ok(!body.includes('@test.local'), 'an email address was exposed');
-  await RegistrationModel.findByIdAndUpdate(victimReg._id, { status: RegistrationStatus.PENDING });
+  await db.update(registrations).set({ status: 'pending' }).where(eq(registrations.id, victimReg!.id));
+});
+
+await check("another manager's event listing hides another manager's pending events", async () => {
+  const res = await fetch(`${base}/api/events?status=pending&q=Victim%20Event`, { headers: EH });
+  assert.equal(res.status, 200);
+  const body = await res.json() as { items: { _id: string }[] };
+  assert.ok(!body.items.some((e) => e._id === victimEvent!.id), "another manager's pending event was listed");
 });
 
 // --- bans apply to tokens issued before the ban --------------------------
@@ -176,7 +205,7 @@ await check('member list does not leak emails to non-organisers', async () => {
 await check('banned user is rejected mid-session', async () => {
   const ok = await fetch(`${base}/api/auth/me`, { headers: H });
   assert.equal(ok.status, 200, 'valid token should work before the ban');
-  await User.findByIdAndUpdate(attacker._id, { isBanned: true, bannedReason: 'test' });
+  await db.update(users).set({ isBanned: true, bannedReason: 'test' }).where(eq(users.id, attacker.id));
   const res = await fetch(`${base}/api/notifications`, { headers: H });
   assert.equal(res.status, 403, 'existing token still worked after the ban');
 });
@@ -184,8 +213,9 @@ await check('banned user is rejected mid-session', async () => {
 out.forEach((line) => console.log(line));
 console.log(process.exitCode ? 'AUTHZ CHECK FAILED' : 'AUTHZ CHECK PASSED');
 
-await RegistrationModel.deleteMany({ eventId: victimEvent._id });
-await EventModel.deleteMany({ managerId: { $in: [victimMgr._id, evilMgr._id] } });
-await User.deleteMany({ username: { $regex: `^zz_.*_${stamp}$` } });
+// Events and registrations go with their managers and volunteers.
+await db.delete(users).where(like(users.username, `zz\\_%\\_${stamp}`));
 server.close();
 await mongoose.disconnect();
+await closeDb();
+process.exit();
