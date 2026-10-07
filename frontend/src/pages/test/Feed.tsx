@@ -6,7 +6,6 @@ interface FeedItemData {
     _id?: string;
     authorId?: { name?: string; username?: string; profilePicture?: string };
     content?: string;
-    image?: { fileId?: string };
     likes?: unknown[];
     [key: string]: unknown;
 }
@@ -230,17 +229,6 @@ const Feed = () => {
                                     {post.content && (
                                         <div className="px-4 py-2 text-gray-800 whitespace-pre-wrap">
                                             {post.content}
-                                        </div>
-                                    )}
-
-                                    {/* Post Image */}
-                                    {post.image && (
-                                        <div className="mt-2">
-                                            <img
-                                                src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '')}/file/${post.image.fileId}`}
-                                                alt="Post content"
-                                                className="w-full h-auto object-cover max-h-[600px] bg-gray-50"
-                                            />
                                         </div>
                                     )}
 

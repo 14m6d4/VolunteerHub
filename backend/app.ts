@@ -17,7 +17,6 @@ import passport from "./config/passport.ts";
 import postRoutes from "./routes/post.routes.ts";
 import notificationRoutes from "./routes/notification.routes.ts";
 import reportRoutes from "./routes/report.routes.ts"
-import fileRoutes from "./routes/file.routes.ts"
 import feedRoutes from "./routes/feed.routes.ts";
 import commentRoutes from "./routes/comment.routes.ts"
 import adminRoutes from "./routes/admin.routes.ts"
@@ -89,7 +88,6 @@ app.use("/api/posts", postRoutes)
 app.use("/api/report", reportRoutes)
 app.use("/api/feed", feedRoutes)
 app.use("/api/comments", commentRoutes)
-app.use("/file", fileRoutes)
 app.use("/api/admin", adminRoutes)
 app.use("/uploads", express.static("uploads"));
 
