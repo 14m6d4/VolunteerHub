@@ -425,6 +425,102 @@ await check('suggestions rank by mutual friends; profiles show a friend count an
   assert.deepEqual((await call('GET', '/api/users/friends/sent', undefined, vol3.token)).data.data, [], 'and so did the request');
 });
 
+// --- feed -----------------------------------------------------------------
+
+const feedOf = async (token?: string, query = '') => {
+  const res = await call('GET', `/api/feed${query}`, undefined, token);
+  assert.equal(res.status, 200, JSON.stringify(res.data));
+  return res.data.data as any[];
+};
+const join = async (eventId: string, who: { token: string }) => {
+  const reg = await call('POST', `/api/register/${eventId}`, undefined, who.token);
+  assert.equal(reg.status, 201, JSON.stringify(reg.data));
+  assert.equal((await call('POST', `/api/register/${reg.data.data._id}/approve`, undefined, mgr.token)).status, 200);
+};
+
+// vol joins A; vol2 (vol's friend) joins A and B; B and C are not vol's.
+const feedA = await mkApprovedEvent('feedA');
+const feedB = await mkApprovedEvent('feedB');
+const feedPendingRes = await call('POST', '/api/events', {
+  title: `zz_feedPending_${stamp}`, startAt: inDays(3), endAt: inDays(4), location: 'Hanoi',
+}, mgr.token);
+assert.equal(feedPendingRes.status, 201);
+await join(feedA, vol);
+await join(feedA, vol2);
+await join(feedB, vol2);
+
+const oldest = await mkPost(feedA, vol2.token, 'oldest');
+const middle = await mkPost(feedA, vol2.token, 'middle');
+const newest = await mkPost(feedA, vol2.token, 'newest');
+const inB = await mkPost(feedB, vol2.token, 'in B');
+assert.equal((await call('POST', `/api/posts/${oldest}/like`, undefined, vol.token)).status, 200);
+for (const liker of [vol3, vol2, vol4]) {
+  assert.equal((await call('POST', `/api/posts/${oldest}/like`, undefined, liker.token)).status, 200);
+}
+for (const text of ['c1', 'c2', 'c3']) {
+  assert.equal((await call('POST', `/api/comments/post/${middle}`, { content: text }, vol.token)).status, 201);
+}
+assert.equal((await call('POST', `/api/comments/post/${inB}`, { content: 'in B' }, vol.token)).status, 201);
+
+await check('a member sees posts of their events, ranked by engagement, with comments and friends', async () => {
+  const posts = (await feedOf(vol.token)).filter((i) => i.type === 'post');
+  assert.deepEqual(posts.map((i) => i.data.content), ['oldest', 'middle', 'newest'], 'four likes beat three comments beat none');
+  assert.ok(posts.every((i) => i.data.eventId._id === feedA), 'only events vol joined');
+  assert.equal(posts.find((i) => i.data.content === 'in B'), undefined);
+
+  const [first, second, third] = posts;
+  assert.ok(first.score > second.score && second.score > third.score);
+  assert.ok(first.createdAt);
+  assert.equal(first.friendCount, 1, 'vol2 is a friend in this event');
+  assert.deepEqual(first.data.likes.slice().sort(), [vol.id, vol2.id, vol3.id, vol4.id].sort());
+  assert.equal(first.data._id, oldest);
+  assert.equal(first.data.authorId._id, vol2.id);
+  assert.equal(first.data.authorId.username, `zz_vol2_${stamp}`);
+  assert.equal(first.data.authorId.role, 'volunteer');
+  assert.equal(first.data.eventId.title, `zz_feedA_${stamp}`);
+  assert.equal(first.data.commentCount, 0);
+  assert.deepEqual(first.data.comments, []);
+  assert.equal(second.data.commentCount, 3);
+  assert.deepEqual(second.data.comments.map((c: any) => c.content), ['c3', 'c2'], 'the latest two, newest first');
+  assert.equal(second.data.comments[0].authorId._id, vol.id);
+  assert.equal(second.data.comments[0].authorId.username, `zz_vol_${stamp}`);
+});
+
+await check('pages are cut from the newest posts before ranking', async () => {
+  const page1 = (await feedOf(vol.token, '?limit=2&page=1')).filter((i) => i.type === 'post');
+  assert.deepEqual(page1.map((i) => i.data.content).sort(), ['middle', 'newest']);
+  const page2 = (await feedOf(vol.token, '?limit=2&page=2')).filter((i) => i.type === 'post');
+  assert.deepEqual(page2.map((i) => i.data.content), ['oldest']);
+});
+
+await check('events a member has not joined trend, with activity and friends; pending ones do not', async () => {
+  const trending = (await feedOf(vol.token)).filter((i) => i.type === 'trending');
+  const b = trending.find((i) => i.data._id === feedB);
+  assert.ok(b, 'B is offered to vol');
+  assert.equal(b.data.title, `zz_feedB_${stamp}`);
+  assert.equal(b.data.postCount, 1);
+  assert.equal(b.data.friendCount, 1);
+  assert.equal(b.friendCount, 1);
+  assert.deepEqual(b.data.bestFeature, { type: 'active_community', count: 1, days: 1, score: 40 });
+  assert.ok(b.score > 0 && b.createdAt);
+  assert.equal(trending.find((i) => i.data._id === feedA), undefined, 'A is already vol\'s');
+  assert.equal(trending.find((i) => i.data.title === `zz_feedPending_${stamp}`), undefined, 'not approved');
+});
+
+await check('anonymous visitors and members of nothing only get trending events; managers see their own events\' posts', async () => {
+  for (const token of [undefined, vol3.token]) {
+    const items = await feedOf(token);
+    assert.ok(items.every((i) => i.type === 'trending'));
+    const ids = items.map((i) => i.data._id);
+    assert.ok(ids.includes(feedA) && ids.includes(feedB));
+    assert.equal(items.find((i) => i.data._id === feedA).friendCount, token ? 1 : 0, 'vol3 is a friend of vol2');
+  }
+  const mine = await feedOf(mgr.token);
+  assert.equal(mine.filter((i) => i.type === 'post' && [feedA, feedB].includes(i.data.eventId._id)).length, 4, 'posts of both managed events');
+  assert.equal(mine.find((i) => i.type === 'trending' && [feedA, feedB].includes(i.data._id)), undefined);
+  assert.equal(mine.find((i) => i.type === 'post' && i.data.content === 'in B').data.authorId.role, 'volunteer');
+});
+
 out.forEach((line) => console.log(line));
 console.log(process.exitCode ? 'SOCIAL CHECK FAILED' : 'SOCIAL CHECK PASSED');
 
