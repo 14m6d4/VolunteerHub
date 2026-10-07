@@ -7,9 +7,9 @@ import { isUuid } from "../utils/user.util.ts";
 export const WebPushService = {
     async sendToUser(userId: string, payload: unknown) {
         // A malformed id has no subscriptions.
-        if (!isUuid(String(userId))) return;
+        if (!isUuid(userId)) return;
 
-        const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, String(userId)));
+        const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
 
         await Promise.allSettled(
             subs.map(sub =>

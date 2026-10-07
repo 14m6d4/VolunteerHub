@@ -36,7 +36,7 @@ First-time setup: `npm i` in both `backend/` and `frontend/`, configure `backend
 
 `frontend/.env`: `VITE_API_URL` is the API base used by `services/api.ts` (falls back to `/api`). Point it at the backend, e.g. `http://localhost:5000/api`.
 
-On every DB connect, `config/db.ts` seeds a single admin from `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`, and only if no admin exists yet. Leave those two vars unset (the default) and seeding is skipped entirely — never hardcode credentials here. For a populated dev database use `npm run seed` instead.
+On every DB connect, `config/db.ts` seeds a single admin from `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`, and only if no admin exists yet. Leave those two vars unset (the default) and seeding is skipped entirely — never hardcode credentials here.
 
 ## Backend architecture
 
