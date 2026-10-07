@@ -1,10 +1,9 @@
 import { and, arrayContains, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
-import { eventStatus, events, posts, registrations, users } from "../db/schema.ts";
+import { discussions, eventStatus, events, posts, registrations, users } from "../db/schema.ts";
 import { EventStatus } from "../models/Event.model.ts";
 import { RegistrationStatus } from "../models/Registration.model.ts";
-import { DiscussionModel } from "../models/Discussion.model.ts";
 import { ReportModel, ReportTargetType } from "../models/Report.model.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
@@ -236,11 +235,7 @@ export const EventService = {
             return row!;
         });
 
-        await DiscussionModel.findOneAndUpdate(
-            { eventId: approved.id },
-            { eventId: approved.id },
-            { upsert: true, new: true }
-        );
+        await db.insert(discussions).values({ eventId: approved.id }).onConflictDoNothing();
 
         NotificationService.notify(approved.managerId, {
             type: NotificationType.EVENT_APPROVED,

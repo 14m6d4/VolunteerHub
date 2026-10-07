@@ -15,7 +15,7 @@ import mongoose from 'mongoose';
 import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
-import { events, posts, users } from '../db/schema.ts';
+import { discussions, events, posts, users } from '../db/schema.ts';
 import { hashPassword } from '../utils/password.util.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
@@ -276,6 +276,29 @@ await check('liking a comment toggles, and deleting is for its author, managers 
   await call('POST', `/api/comments/post/${post}`, { content: 'orphan?' }, vol.token);
   assert.equal((await call('DELETE', `/api/posts/${post}`, undefined, vol.token)).status, 200);
   assert.deepEqual((await call('GET', `/api/comments/post/${post}`)).data.data, []);
+});
+
+// --- discussions ----------------------------------------------------------
+
+await check('approving an event opens its discussion once; posts can join it; deleting the event removes both', async () => {
+  const id = await mkApprovedEvent('discussion');
+  const found = await db.select().from(discussions).where(eq(discussions.eventId, id));
+  assert.equal(found.length, 1, 'approval opened a discussion');
+  assert.equal(found[0]!.locked, false);
+  const discussionId = found[0]!.id;
+
+  assert.equal((await call('PATCH', `/api/events/${id}/approve`, undefined, admin.token)).status, 200, 'approving again is fine');
+  assert.equal((await db.select().from(discussions).where(eq(discussions.eventId, id))).length, 1, 'still one discussion');
+
+  const res = await call('POST', '/api/posts', { discussionId, content: 'In the group' }, vol.token);
+  assert.equal(res.status, 201, JSON.stringify(res.data));
+  assert.equal(res.data.data.discussionId, discussionId);
+  const joined = res.data.data._id;
+  assert.equal((await call('POST', '/api/posts', { discussionId: NO_SUCH_ID, content: 'x' }, vol.token)).status, 404, 'unknown discussion');
+
+  assert.equal((await call('DELETE', `/api/events/${id}`, undefined, mgr.token)).status, 200);
+  assert.equal((await db.select().from(discussions).where(eq(discussions.eventId, id))).length, 0, 'discussion went with the event');
+  assert.equal((await db.select().from(posts).where(eq(posts.id, joined))).length, 0, 'and so did its posts');
 });
 
 out.forEach((line) => console.log(line));
