@@ -9,6 +9,24 @@ services:
     volumes:
       - mongo-data:/data/db
 
+  # Dev-only credentials. Matches DATABASE_URL in backend/.env.example.
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: volunteerhub
+      POSTGRES_PASSWORD: volunteerhub
+      POSTGRES_DB: volunteerhub
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U volunteerhub -d volunteerhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build:
       context: ./backend
@@ -40,3 +58,4 @@ services:
 
 volumes:
   mongo-data:
+  pg-data:
