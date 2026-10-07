@@ -1,16 +1,16 @@
 import { and, arrayContains, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
-import { eventStatus, events, registrations, users } from "../db/schema.ts";
+import { eventStatus, events, posts, registrations, users } from "../db/schema.ts";
 import { EventStatus } from "../models/Event.model.ts";
 import { RegistrationStatus } from "../models/Registration.model.ts";
 import { DiscussionModel } from "../models/Discussion.model.ts";
-import { PostModel } from "../models/Post.model.ts";
 import { ReportModel, ReportTargetType } from "../models/Report.model.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
 import { UserRole } from "../types/user.ts";
 import { assertMayManageEvent, getEventRow, toEvent } from "../utils/event.util.ts";
+import { getPostRow, postLikerIds, toPost } from "../utils/post.util.ts";
 import { containsPattern } from "../utils/sql.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
 
@@ -40,16 +40,14 @@ const approvedMemberIds = async (eventId: string) =>
         .where(and(eq(registrations.eventId, eventId), eq(registrations.status, RegistrationStatus.APPROVED))))
         .map((r) => r.id);
 
-/**
- * Posts and reports are still on MongoDB until the social ticket (09) and the
- * reports ticket (10); their ids are Mongo ObjectIds, the event ids here are not.
- */
+/** Reports are still on MongoDB until the reports ticket (10); they point at posts by id. */
 async function countPendingPostReports(eventIds: string[]) {
     const counts = new Map<string, number>();
     if (!eventIds.length) return counts;
 
-    const posts = await PostModel.find({ eventId: { $in: eventIds } }).select("_id eventId").lean();
-    const eventOfPost = new Map(posts.map((p) => [String(p._id), String(p.eventId)]));
+    const eventPosts = await db.select({ id: posts.id, eventId: posts.eventId }).from(posts)
+        .where(inArray(posts.eventId, eventIds));
+    const eventOfPost = new Map(eventPosts.map((p) => [p.id, p.eventId!]));
     if (!eventOfPost.size) return counts;
 
     const reports = await ReportModel.find({
@@ -274,19 +272,23 @@ export const EventService = {
         return toEvent(cancelled!);
     },
 
-    // The post is still a MongoDB document (ticket 09); the pinned post is its `pinned` flag.
+    // The event's pinned post is the one with the `pinned` flag; pinning one unpins the rest.
     async pinPostOnEvent(eventId: string, postId: string, managerId: string, managerRole: string) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
         assertMayManageEvent(event, managerId, managerRole);
 
-        const post = await PostModel.findById(postId);
+        const post = await getPostRow(postId);
         if (!post) throw createHttpError(404, "Post not found");
         if (post.eventId !== event.id) throw createHttpError(400, "Post does not belong to event");
-        await PostModel.updateMany({ eventId: event.id, pinned: true }, { pinned: false });
-        post.pinned = true;
-        await post.save();
-        return post;
+        const pinned = await db.transaction(async (tx) => {
+            await tx.update(posts).set({ pinned: false })
+                .where(and(eq(posts.eventId, event.id), eq(posts.pinned, true)));
+            const [row] = await tx.update(posts).set({ pinned: true, updatedAt: new Date() })
+                .where(eq(posts.id, post.id)).returning();
+            return row!;
+        });
+        return toPost(pinned, (await postLikerIds([pinned.id])).get(pinned.id) ?? []);
     },
 
     async getEventStats(eventId: string, actorId: string, actorRole: string) {
@@ -294,7 +296,7 @@ export const EventService = {
         if (!event) throw createHttpError(404, "Event not found");
         assertMayManageEvent(event, actorId, actorRole);
         const [postsCount, regsCount] = await Promise.all([
-            PostModel.countDocuments({ eventId: event.id }),
+            db.$count(posts, eq(posts.eventId, event.id)),
             db.$count(registrations, eq(registrations.eventId, event.id)),
         ]);
         return {
@@ -312,13 +314,8 @@ export const EventService = {
         assertMayManageEvent(event, actorId, actorRole);
 
         try {
-            // The registrations go with the event (foreign key); posts and the
-            // discussion are still MongoDB documents.
+            // The registrations, posts and discussion go with the event (foreign keys).
             await db.delete(events).where(eq(events.id, event.id));
-            await Promise.all([
-                DiscussionModel.deleteOne({ eventId: event.id }),
-                PostModel.deleteMany({ eventId: event.id }),
-            ]);
 
             return { message: "Event deleted successfully" };
         } catch (err) {

@@ -8,7 +8,7 @@ export enum ReportTargetType {
 
 export interface IReport extends Document {
   reporter: Types.ObjectId; // User who reports
-  targetId: Types.ObjectId; // ID of the user/event/post being reported
+  targetId: string; // ID of the user/event/post being reported (a uuid since users, events and posts moved to PostgreSQL)
   targetType: ReportTargetType;
   reason: string;
   description?: string;
@@ -18,7 +18,7 @@ export interface IReport extends Document {
 
 const ReportSchema = new Schema<IReport>({
   reporter: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  targetId: { type: Schema.Types.ObjectId, required: true },
+  targetId: { type: String, required: true },
   targetType: { type: String, enum: Object.values(ReportTargetType), required: true },
   reason: { type: String, required: true },
   description: { type: String },

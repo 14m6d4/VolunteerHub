@@ -1,10 +1,10 @@
 import { ReportModel, ReportTargetType } from "../models/Report.model.ts";
 import { EventModel } from "../models/Event.model.ts";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "../db/client.ts";
-import { events } from "../db/schema.ts";
+import { events, posts } from "../db/schema.ts";
 import { isUuid } from "../utils/user.util.ts";
-import { PostModel } from "../models/Post.model.ts";
+import { getPostRow } from "../utils/post.util.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../models/Notification.model.ts";
 import createHttpError from "http-errors";
@@ -18,7 +18,7 @@ export const ReportService = {
 
         const report = await ReportModel.create({
             reporter: reporterId,
-            targetId: event._id,
+            targetId: String(event._id),
             targetType: ReportTargetType.Event,
             reason,
             ...(description ? { description } : {}),
@@ -39,12 +39,12 @@ export const ReportService = {
     },
 
     async reportPost(reporterId: string, postId: string, reason: string, description?: string) {
-        const post = await PostModel.findById(postId);
+        const post = await getPostRow(postId);
         if (!post) throw createHttpError(404, "Post not found");
 
         const report = await ReportModel.create({
             reporter: reporterId,
-            targetId: post._id,
+            targetId: post.id,
             targetType: ReportTargetType.Post,
             reason,
             ...(description ? { description } : {}),
@@ -61,7 +61,7 @@ export const ReportService = {
                     type: NotificationType.POST_REPORTED,
                     title: "Post Reported",
                     body: `Post has been reported for the following reason: ${reason}`,
-                    data: { postId: post._id, reportId: report._id }
+                    data: { postId: post.id, reportId: report._id }
                 });
             }
         }
@@ -75,7 +75,7 @@ export const ReportService = {
 
         const report = await ReportModel.create({
             reporter: reporterId,
-            targetId: targetUser._id,
+            targetId: String(targetUser._id),
             targetType: ReportTargetType.User,
             reason,
             ...(description ? { description } : {}),
@@ -115,7 +115,7 @@ export const ReportService = {
                     const event = await EventModel.findById(report.targetId).select('title').lean();
                     targetDetails = event ? { title: event.title } : null;
                 } else if (report.targetType === ReportTargetType.Post) {
-                    const post = await PostModel.findById(report.targetId).select('content').lean();
+                    const post = await getPostRow(report.targetId);
                     targetDetails = post ? { contentPreview: post.content?.substring(0, 50) } : null;
                 }
 
@@ -139,8 +139,7 @@ export const ReportService = {
 
         if (eventIds.length === 0) return [];
 
-        const posts = await PostModel.find({ eventId: { $in: eventIds } }).select('_id');
-        const postIds = posts.map(p => p._id);
+        const postIds = (await db.select({ id: posts.id }).from(posts).where(inArray(posts.eventId, eventIds))).map(p => p.id);
 
         if (postIds.length === 0) return [];
 
@@ -153,8 +152,9 @@ export const ReportService = {
     },
 
     async getReportsForEvent(eventId: string) {
-        const posts = await PostModel.find({ eventId }).select('_id');
-        const postIds = posts.map(p => p._id);
+        const postIds = isUuid(eventId)
+            ? (await db.select({ id: posts.id }).from(posts).where(eq(posts.eventId, eventId))).map(p => p.id)
+            : [];
 
         if (postIds.length === 0) return [];
 
@@ -184,10 +184,10 @@ export const ReportService = {
             let notificationData: any = { reportId: report._id.toString(), targetType: report.targetType, targetId: report.targetId.toString() };
 
             if (report.targetType === ReportTargetType.Post) {
-                const post = await PostModel.findById(report.targetId);
+                const post = await getPostRow(report.targetId);
                 if (post && post.eventId) {
-                    notificationData.eventId = post.eventId.toString();
-                    notificationData.postId = post._id.toString();
+                    notificationData.eventId = post.eventId;
+                    notificationData.postId = post.id;
                 }
             } else if (report.targetType === ReportTargetType.Event) {
                 notificationData.eventId = report.targetId.toString();
@@ -205,7 +205,7 @@ export const ReportService = {
 
         if (status === 'resolved' && report.targetType === ReportTargetType.Post) {
             try {
-                await PostModel.findByIdAndDelete(report.targetId);
+                await db.delete(posts).where(eq(posts.id, report.targetId));
                 console.log(`[ReportService] Deleted post ${report.targetId} due to resolved report #${report._id}`);
             } catch (err) {
                 console.error("Failed to delete post after report resolve:", err);

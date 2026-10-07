@@ -2,7 +2,8 @@ import User from '../models/User.model.ts';
 import { EventModel, EventStatus } from '../models/Event.model.ts';
 import { RegistrationModel, RegistrationStatus } from '../models/Registration.model.ts';
 import { ReportModel } from '../models/Report.model.ts';
-import { PostModel } from '../models/Post.model.ts';
+import { db } from '../db/client.ts';
+import { posts } from '../db/schema.ts';
 
 export async function getAnalytics() {
     const now = new Date();
@@ -38,7 +39,7 @@ export async function getAnalytics() {
         status: 'pending'
     });
 
-    const totalPosts = await PostModel.countDocuments();
+    const totalPosts = await db.$count(posts);
 
     const userGrowth = [];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
