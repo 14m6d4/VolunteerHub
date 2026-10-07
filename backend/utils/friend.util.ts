@@ -4,8 +4,10 @@ import { friendships, users } from '../db/schema.ts';
 import { isUuid, toLean } from './user.util.ts';
 
 /** A friendship is stored once, smaller id first. */
-export const friendPair = (a: string, b: string) =>
-  a < b ? { userLow: a, userHigh: b } : { userLow: b, userHigh: a };
+export const friendPair = (a: string, b: string) => {
+  [a, b] = [a.toLowerCase(), b.toLowerCase()]; // isUuid accepts uppercase; the stored order is lowercase
+  return a < b ? { userLow: a, userHigh: b } : { userLow: b, userHigh: a };
+};
 
 export async function areFriends(a: string, b: string) {
   if (!isUuid(a) || !isUuid(b)) return false;

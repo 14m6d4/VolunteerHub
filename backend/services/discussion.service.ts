@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { discussions } from "../db/schema.ts";
-import { isUuid, toLean } from "../utils/user.util.ts";
+import createHttpError from "http-errors";
+import { getEventRow } from "../utils/event.util.ts";
+import { isUniqueViolation, isUuid, toLean } from "../utils/user.util.ts";
 import { PostService } from "./post.service.ts";
 
 type DiscussionRow = typeof discussions.$inferSelect;
@@ -15,8 +17,14 @@ const setLocked = async (discussionId: string, locked: boolean) => {
 
 export const DiscussionService = {
     async createDiscussion(eventId: string) {
-        const [row] = await db.insert(discussions).values({ eventId }).returning();
-        return toLean(row as DiscussionRow);
+        if (!(await getEventRow(eventId))) throw createHttpError(404, "Event not found");
+        try {
+            const [row] = await db.insert(discussions).values({ eventId }).returning();
+            return toLean(row as DiscussionRow);
+        } catch (err) {
+            if (isUniqueViolation(err)) throw createHttpError(400, "Discussion already exists");
+            throw err;
+        }
     },
 
     async getByEventId(eventId: string) {
