@@ -2,18 +2,14 @@
  * Boots the Express app on an ephemeral port and asserts the security
  * middleware actually applies. Every case is rejected by middleware, but the
  * login attempts that run up the rate limit reach the handler first. Without a
- * database each of those waits out Mongoose's 10s buffer, so CI runs a MongoDB
- * service container and connects to it. Locally it stays database-free: .env's
- * MONGO_URI may point at a real or unreachable database.
+ * database each of those fails on the connection, so it needs a migrated
+ * PostgreSQL (DATABASE_URL).
  *
  * Run with: npm run smoke:security
  */
 import assert from 'node:assert/strict';
-import mongoose from 'mongoose';
 import app from '../app.ts';
 import { closeDb } from '../db/client.ts';
-
-if (process.env.CI) await mongoose.connect(process.env.MONGO_URI!);
 
 const server = app.listen(0);
 await new Promise((r) => server.once('listening', r));
@@ -129,5 +125,4 @@ await check('rotating X-Forwarded-For does not reset the limit', async () => {
 console.log(results.join('\n'));
 console.log(process.exitCode ? '\nSECURITY SMOKE FAILED' : '\nSECURITY SMOKE PASSED');
 server.close();
-await mongoose.disconnect();
 await closeDb();

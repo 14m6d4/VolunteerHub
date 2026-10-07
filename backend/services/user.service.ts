@@ -1,13 +1,11 @@
 import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm';
 import type { UpdateProfileData, IUser } from '../types/user.ts';
 import { UserRole } from '../types/user.ts';
-import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
 import { db } from '../db/client.ts';
 import { events, friendRequests, friendships, registrations, users } from '../db/schema.ts';
 import { EventStatus } from '../types/event.ts';
 import { RegistrationStatus } from '../types/registration.ts';
-import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
 import * as notificationService from './notification.service.ts';
 import { NotificationType } from '../types/notification.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';

@@ -5,13 +5,11 @@
  * ephemeral port and assert on HTTP responses. Cross-user authorization lives in
  * authz-check.
  *
- * Needs a migrated PostgreSQL (DATABASE_URL) and, until the last domain moves, a
- * MongoDB (MONGO_URI) for notifications and reports. Run with: npm run check:social
+ * Needs a migrated PostgreSQL (DATABASE_URL). Run with: npm run check:social
  * Fixtures are prefixed zz_ and removed afterwards.
  */
 import assert from 'node:assert/strict';
 import 'dotenv/config';
-import mongoose from 'mongoose';
 import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
@@ -19,9 +17,6 @@ import { discussions, events, posts, users } from '../db/schema.ts';
 import { hashPassword } from '../utils/password.util.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
-
-// Notifications and reports are still on MongoDB until ticket 10.
-await mongoose.connect(process.env.MONGO_URI as string);
 
 const stamp = Date.now();
 const server = app.listen(0);
@@ -527,6 +522,5 @@ console.log(process.exitCode ? 'SOCIAL CHECK FAILED' : 'SOCIAL CHECK PASSED');
 // Posts, comments and friendships go with their events and users.
 await db.delete(users).where(like(users.username, `zz\\_%\\_${stamp}`));
 server.close();
-await mongoose.disconnect();
 await closeDb();
 process.exit();

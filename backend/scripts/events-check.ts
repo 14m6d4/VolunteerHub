@@ -5,13 +5,11 @@
  * shape as users-check: boot the exported app on an ephemeral port and assert on
  * HTTP responses. Cross-user authorization lives in authz-check.
  *
- * Needs a migrated PostgreSQL (DATABASE_URL) and, until the last domain moves, a
- * MongoDB (MONGO_URI). Run with: npm run check:events
+ * Needs a migrated PostgreSQL (DATABASE_URL). Run with: npm run check:events
  * Fixtures are prefixed zz_ and removed afterwards.
  */
 import assert from 'node:assert/strict';
 import 'dotenv/config';
-import mongoose from 'mongoose';
 import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
@@ -20,10 +18,6 @@ import { EventService } from '../services/event.service.ts';
 import { hashPassword } from '../utils/password.util.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
-
-// Posts, reports and notifications are still on MongoDB until tickets 09 and 10,
-// and the event endpoints touch them (listing counts reported posts).
-await mongoose.connect(process.env.MONGO_URI as string);
 
 const stamp = Date.now();
 const server = app.listen(0);
@@ -391,6 +385,5 @@ console.log(process.exitCode ? 'EVENTS CHECK FAILED' : 'EVENTS CHECK PASSED');
 // Events and registrations go with their managers and volunteers.
 await db.delete(users).where(like(users.username, `zz\\_%\\_${stamp}`));
 server.close();
-await mongoose.disconnect();
 await closeDb();
 process.exit();

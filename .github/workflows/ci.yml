@@ -40,13 +40,6 @@ jobs:
         working-directory: backend
     # Throwaway database for the security and authorization checks below.
     services:
-      mongo:
-        image: mongo:7
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1})'"
-          --health-interval 5s --health-timeout 5s --health-retries 12
       # Empty on every run: the migrations must build the schema from nothing.
       postgres:
         image: postgres:17-alpine
@@ -61,7 +54,6 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 12
     # Just enough for the app to boot; none of these are real credentials.
     env:
-      MONGO_URI: mongodb://localhost:27017/volunteerhub-ci
       DATABASE_URL: postgres://ci:ci@localhost:5432/volunteerhub
       JWT_SECRET: ci-only-not-a-secret
       GOOGLE_CLIENT_ID: ci-dummy
@@ -88,6 +80,7 @@ jobs:
       - run: npm run check:users
       - run: npm run check:events
       - run: npm run check:social
+      - run: npm run check:notifications
       - run: npm run check:authz
 
   frontend:

@@ -7,12 +7,10 @@
  *   - horizontal: a manager must not act on another manager's event. Passing
  *                 roleMiddleware only proves the caller is *a* manager.
  *
- * Needs a migrated PostgreSQL (DATABASE_URL) and, until the last domain moves,
- * a MongoDB (MONGO_URI) for notifications. Run with: npm run check:authz
+ * Needs a migrated PostgreSQL (DATABASE_URL). Run with: npm run check:authz
  * Test accounts and events are prefixed zz_ and removed afterwards.
  */
 import assert from 'node:assert/strict';
-import mongoose from 'mongoose';
 import 'dotenv/config';
 import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
@@ -22,11 +20,6 @@ import { UserRole } from '../types/user.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
 
-if (!process.env.MONGO_URI) {
-  console.error('MONGO_URI is not set.');
-  process.exit(1);
-}
-await mongoose.connect(process.env.MONGO_URI as string);
 
 const stamp = Date.now();
 const mkUser = async (n: string, role: UserRole, password = 'Passw0rdLong1') => {
@@ -225,6 +218,5 @@ console.log(process.exitCode ? 'AUTHZ CHECK FAILED' : 'AUTHZ CHECK PASSED');
 // Events and registrations go with their managers and volunteers.
 await db.delete(users).where(like(users.username, `zz\\_%\\_${stamp}`));
 server.close();
-await mongoose.disconnect();
 await closeDb();
 process.exit();

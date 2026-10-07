@@ -8,7 +8,6 @@
     "dev": "tsx watch server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "seed": "tsx seed.ts",
     "smoke:security": "tsx scripts/security-smoke.ts",
     "check:authz": "tsx scripts/authz-check.ts",
     "check:users": "tsx scripts/users-check.ts",
