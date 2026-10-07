@@ -214,6 +214,70 @@ await check('deleting an event removes its posts, and deleting an author removes
   assert.equal((await db.select().from(posts).where(eq(posts.id, orphan))).length, 0, 'no orphaned post');
 });
 
+// --- comments -------------------------------------------------------------
+
+await check('comments are created, listed newest first with their author, and need a post', async () => {
+  const id = await mkApprovedEvent('comments');
+  const post = await mkPost(id, vol.token, 'Discuss');
+
+  const first = await call('POST', `/api/comments/post/${post}`, { content: 'first!' }, vol2.token);
+  assert.equal(first.status, 201, JSON.stringify(first.data));
+  const c = first.data.data;
+  assert.ok(c._id);
+  assert.equal(c.postId, post);
+  assert.equal(c.authorId, vol2.id, 'author is the caller, unpopulated');
+  assert.equal(c.content, 'first!');
+  assert.deepEqual(c.likes, []);
+  assert.ok(c.createdAt && c.updatedAt);
+  const second = await call('POST', `/api/comments/post/${post}`, { content: 'second' }, vol.token);
+  assert.equal(second.status, 201, JSON.stringify(second.data));
+
+  assert.equal((await call('POST', `/api/comments/post/${post}`, { content: 'x' })).status, 401, 'anonymous');
+  assert.equal((await call('POST', `/api/comments/post/${post}`, {}, vol.token)).status, 400, 'no content');
+  assert.equal((await call('POST', `/api/comments/post/${NO_SUCH_ID}`, { content: 'x' }, vol.token)).status, 404, 'unknown post');
+
+  const list = await call('GET', `/api/comments/post/${post}`);
+  assert.equal(list.status, 200, JSON.stringify(list.data));
+  assert.deepEqual(list.data.data.map((x: any) => x.content), ['second', 'first!'], 'newest first');
+  assert.equal(list.data.data[1].authorId._id, vol2.id, 'author is populated');
+  assert.equal(list.data.data[1].authorId.name, 'vol2');
+  assert.equal(list.data.data[1].authorId.username, `zz_vol2_${stamp}`);
+  assert.deepEqual((await call('GET', `/api/comments/post/${NO_SUCH_ID}`)).data.data, []);
+  assert.deepEqual((await call('GET', '/api/comments/post/not-an-id')).data.data, []);
+});
+
+await check('liking a comment toggles, and deleting is for its author, managers and admins', async () => {
+  const post = await mkPost(evId, vol.token, 'More talk');
+  const made = await call('POST', `/api/comments/post/${post}`, { content: 'like me' }, vol.token);
+  const commentId: string = made.data.data._id;
+
+  const liked = await call('POST', `/api/comments/like/${commentId}`, undefined, vol2.token);
+  assert.equal(liked.status, 200, JSON.stringify(liked.data));
+  assert.deepEqual(liked.data.data.likes, [vol2.id]);
+  const both = await call('POST', `/api/comments/like/${commentId}`, undefined, vol.token);
+  assert.deepEqual(both.data.data.likes, [vol2.id, vol.id], 'likes keep the order they were made in');
+  const unliked = await call('POST', `/api/comments/like/${commentId}`, undefined, vol2.token);
+  assert.deepEqual(unliked.data.data.likes, [vol.id]);
+  assert.deepEqual((await call('GET', `/api/comments/post/${post}`)).data.data[0].likes, [vol.id]);
+  assert.equal((await call('POST', `/api/comments/like/${NO_SUCH_ID}`, undefined, vol.token)).status, 404);
+
+  assert.equal((await call('DELETE', `/api/comments/${commentId}`, undefined, vol2.token)).status, 403, 'another volunteer');
+  const del = await call('DELETE', `/api/comments/${commentId}`, undefined, vol.token);
+  assert.equal(del.status, 200, JSON.stringify(del.data));
+  assert.equal(del.data.data._id, commentId, 'the deleted comment is returned');
+  assert.equal((await call('DELETE', `/api/comments/${commentId}`, undefined, vol.token)).status, 404, 'already gone');
+
+  const byManager = (await call('POST', `/api/comments/post/${post}`, { content: 'm' }, vol.token)).data.data._id;
+  assert.equal((await call('DELETE', `/api/comments/${byManager}`, undefined, mgr.token)).status, 200);
+  const byAdmin = (await call('POST', `/api/comments/post/${post}`, { content: 'a' }, vol.token)).data.data._id;
+  assert.equal((await call('DELETE', `/api/comments/${byAdmin}`, undefined, admin.token)).status, 200);
+
+  // A post takes its comments with it.
+  await call('POST', `/api/comments/post/${post}`, { content: 'orphan?' }, vol.token);
+  assert.equal((await call('DELETE', `/api/posts/${post}`, undefined, vol.token)).status, 200);
+  assert.deepEqual((await call('GET', `/api/comments/post/${post}`)).data.data, []);
+});
+
 out.forEach((line) => console.log(line));
 console.log(process.exitCode ? 'SOCIAL CHECK FAILED' : 'SOCIAL CHECK PASSED');
 

@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client.ts';
-import { commentLikes, postLikes, posts, users } from '../db/schema.ts';
+import { commentLikes, comments, postLikes, posts, users } from '../db/schema.ts';
 import { isUuid, toLean } from './user.util.ts';
 
 export type PostRow = typeof posts.$inferSelect;
@@ -48,3 +48,13 @@ export async function commentLikerIds(commentIds: string[]) {
     .where(inArray(commentLikes.commentId, commentIds)).orderBy(asc(commentLikes.createdAt), asc(commentLikes.userId));
   return groupBy(rows.map((r) => ({ key: r.commentId, value: r.userId })));
 }
+
+export const getCommentRow = async (commentId: unknown) => {
+  if (!isUuid(commentId)) return undefined;
+  const [row] = await db.select().from(comments).where(eq(comments.id, commentId));
+  return row;
+};
+
+export type CommentRow = typeof comments.$inferSelect;
+
+export const toComment = (row: CommentRow, likes: string[]) => ({ ...toLean(row), likes });
