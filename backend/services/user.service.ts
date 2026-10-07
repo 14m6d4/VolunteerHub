@@ -190,7 +190,6 @@ export const searchUsersService = async (query: string, limit: number = 10) => {
   return rows.map(toLean);
 };
 
-// Reports below still run on MongoDB until the notifications and reports ticket (10).
 export const addFriendService = async (userId: string, friendId: string) => {
   if (userId === friendId) throw new AppError('Cannot add yourself', 400);
   if (!(await getRow(friendId))) throw new AppError('User not found', 404);
@@ -211,16 +210,6 @@ export const removeFriendService = async (userId: string, friendId: string) => {
     : [];
   if (!removed.length) throw new AppError('Not friends', 400);
   return { success: true };
-};
-
-export const reportUserService = async (reporterId: string, targetId: string, reason: string, description?: string) => {
-  return await ReportModel.create({
-    reporter: reporterId as any,
-    targetId,
-    targetType: ReportTargetType.User,
-    reason,
-    description
-  } as any);
 };
 
 const FRIEND_COLUMNS = { id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture };

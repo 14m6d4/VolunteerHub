@@ -166,6 +166,153 @@ await check('system notifications carry no actor, and deleting is for their owne
   assert.equal((await mine(vol.token)).length, 1, 'but not vol\'s');
 });
 
+// --- reports --------------------------------------------------------------
+
+const mgr2 = await mkUser('mgr2', 'manager');
+const reportEv = await mkApprovedEvent('reported');
+const reportedPost = await mkPost(reportEv, vol.token, 'a post that will be reported for being long enough to be cut in a preview of fifty characters');
+const heard = async (token: string, type: string, reportId: string) => {
+  const found = (await mine(token, '?limit=100')).find((n) => n.type === type && n.data?.reportId === reportId);
+  assert.ok(found, `${type} for report ${reportId}`);
+  return found;
+};
+
+let eventReport: any;
+let userReport: any;
+let postReport: any;
+await check('events, users and posts can be reported, and the people who act on them are told', async () => {
+  const ev = await call('POST', '/api/report/event', { eventId: reportEv, reason: 'spam', description: 'looks fake' }, vol2.token);
+  assert.equal(ev.status, 201, JSON.stringify(ev.data));
+  eventReport = ev.data;
+  assert.ok(eventReport._id);
+  assert.equal(eventReport.reporter, vol2.id);
+  assert.equal(eventReport.targetId, reportEv);
+  assert.equal(eventReport.targetType, 'event');
+  assert.equal(eventReport.reason, 'spam');
+  assert.equal(eventReport.description, 'looks fake');
+  assert.equal(eventReport.status, 'pending');
+  assert.ok(eventReport.createdAt && eventReport.updatedAt);
+
+  const us = await call('POST', '/api/report/user', { targetId: vol3.id, reason: 'abuse' }, vol2.token);
+  assert.equal(us.status, 201, JSON.stringify(us.data));
+  userReport = us.data;
+  assert.equal(userReport.targetType, 'user');
+  assert.equal(userReport.targetId, vol3.id);
+  assert.equal(userReport.description, undefined, 'no description, no key');
+
+  const po = await call('POST', '/api/report/post', { postId: reportedPost, reason: 'offensive' }, vol2.token);
+  assert.equal(po.status, 201, JSON.stringify(po.data));
+  postReport = po.data;
+  assert.equal(postReport.targetType, 'post');
+  assert.equal(postReport.targetId, reportedPost);
+
+  assert.equal((await call('POST', '/api/report/event', { eventId: reportEv, reason: 'x' })).status, 401, 'anonymous');
+  const noEvent = await call('POST', '/api/report/event', { eventId: NO_SUCH_ID, reason: 'x' }, vol2.token);
+  assert.equal(noEvent.status, 400);
+  assert.equal(noEvent.data.message, 'Event not found');
+  assert.equal((await call('POST', '/api/report/event', { eventId: 'nope', reason: 'x' }, vol2.token)).status, 400);
+  assert.equal((await call('POST', '/api/report/user', { targetId: NO_SUCH_ID, reason: 'x' }, vol2.token)).data.message, 'User not found');
+  assert.equal((await call('POST', '/api/report/post', { postId: NO_SUCH_ID, reason: 'x' }, vol2.token)).data.message, 'Post not found');
+  assert.equal((await call('POST', '/api/report/user', { targetId: 'nope', reason: 'x' }, vol2.token)).status, 400);
+  const viaUsers = await call('POST', '/api/users/report-user', { targetId: vol3.id, reason: 'again' }, vol2.token);
+  assert.equal(viaUsers.status, 201, JSON.stringify(viaUsers.data));
+  assert.equal((await call('POST', '/api/users/report-user', { targetId: NO_SUCH_ID, reason: 'x' }, vol2.token)).status, 404);
+
+  const adminHeard = await heard(admin.token, 'event_report', eventReport._id);
+  assert.equal(adminHeard.title, 'Event Reported');
+  assert.equal(adminHeard.body, `Event zz_reported_${stamp} has been reported for the following reason: spam`);
+  assert.equal(adminHeard.data.eventId, reportEv);
+  const userHeard = await heard(admin.token, 'user_report', userReport._id);
+  assert.equal(userHeard.title, 'User Reported');
+  assert.equal(userHeard.body, `User zz_vol3_${stamp} has been reported. Reason: abuse`);
+  assert.equal(userHeard.data.targetUserId, vol3.id);
+  const managerHeard = await heard(mgr.token, 'post_report', postReport._id);
+  assert.equal(managerHeard.title, 'Post Reported');
+  assert.equal(managerHeard.data.postId, reportedPost);
+});
+
+await check('admins list user and event reports, managers the reports on their posts; others are turned away', async () => {
+  const adminList = await call('GET', '/api/report/admin/all', undefined, admin.token);
+  assert.equal(adminList.status, 200, JSON.stringify(adminList.data));
+  const ours = adminList.data.filter((r: any) => r.reporter._id === vol2.id && r.reason !== 'again');
+  assert.deepEqual(ours.map((r: any) => r._id), [userReport._id, eventReport._id], 'newest first, no post reports');
+  assert.equal(ours[0].reporter.username, `zz_vol2_${stamp}`);
+  assert.equal(ours[0].reporter.name, 'vol2');
+  assert.deepEqual(ours[0].targetDetails, { username: `zz_vol3_${stamp}`, name: 'vol3' });
+  assert.deepEqual(ours[1].targetDetails, { title: `zz_reported_${stamp}` });
+  assert.equal(ours[1].status, 'pending');
+  assert.equal(ours[1].targetId, reportEv);
+
+  const onlyUsers = (await call('GET', '/api/report/admin/all?type=user', undefined, admin.token)).data;
+  assert.ok(onlyUsers.length >= 1 && onlyUsers.every((r: any) => r.targetType === 'user'));
+  const resolved = (await call('GET', '/api/report/admin/all?status=resolved', undefined, admin.token)).data;
+  assert.ok(!resolved.some((r: any) => r._id === eventReport._id));
+  const pending = (await call('GET', '/api/report/admin/all?status=pending&type=all', undefined, admin.token)).data;
+  assert.ok(pending.some((r: any) => r._id === eventReport._id));
+
+  const managerList = await call('GET', '/api/report/admin/all', undefined, mgr.token);
+  assert.equal(managerList.status, 200, JSON.stringify(managerList.data));
+  assert.deepEqual(managerList.data.map((r: any) => [r._id, r.targetType, r.reporter.username]), [[postReport._id, 'post', `zz_vol2_${stamp}`]]);
+  assert.deepEqual((await call('GET', '/api/report/admin/all?status=resolved', undefined, mgr.token)).data, []);
+  assert.deepEqual((await call('GET', '/api/report/admin/all', undefined, mgr2.token)).data, [], 'another manager sees none of them');
+
+  assert.equal((await call('GET', '/api/report/admin/all', undefined, vol.token)).status, 403);
+  assert.equal((await call('GET', '/api/report/admin/all')).status, 401);
+});
+
+await check('an event\'s post reports go to its manager and admins; by-target lookups are admin-only', async () => {
+  const forManager = await call('GET', `/api/report/event/${reportEv}/reports`, undefined, mgr.token);
+  assert.equal(forManager.status, 200, JSON.stringify(forManager.data));
+  assert.deepEqual(forManager.data.map((r: any) => r._id), [postReport._id]);
+  assert.equal(forManager.data[0].reporter.username, `zz_vol2_${stamp}`);
+  assert.deepEqual((await call('GET', `/api/report/event/${reportEv}/reports`, undefined, admin.token)).data.map((r: any) => r._id), [postReport._id]);
+  assert.equal((await call('GET', `/api/report/event/${reportEv}/reports`, undefined, mgr2.token)).status, 403, 'not their event');
+  assert.equal((await call('GET', `/api/report/event/${reportEv}/reports`, undefined, vol.token)).status, 403);
+  assert.equal((await call('GET', `/api/report/event/${NO_SUCH_ID}/reports`, undefined, mgr.token)).status, 404);
+  assert.deepEqual((await call('GET', `/api/report/event/${NO_SUCH_ID}/reports`, undefined, admin.token)).data, []);
+
+  const byEvent = await call('GET', `/api/report/event/${reportEv}`, undefined, admin.token);
+  assert.equal(byEvent.status, 200, JSON.stringify(byEvent.data));
+  assert.deepEqual(byEvent.data.map((r: any) => r._id), [eventReport._id]);
+  assert.deepEqual((await call('GET', `/api/report/post/${reportedPost}`, undefined, admin.token)).data.map((r: any) => r._id), [postReport._id]);
+  assert.equal((await call('GET', `/api/report/event/${reportEv}`, undefined, mgr.token)).status, 403);
+
+  const listing = await call('GET', `/api/events?q=${encodeURIComponent(`zz_reported_${stamp}`)}`, undefined, mgr.token);
+  assert.equal(listing.status, 200, JSON.stringify(listing.data));
+  assert.equal(listing.data.items[0].pendingReportsCount, 1, 'the event list counts pending post reports');
+});
+
+await check('resolving or rejecting a report tells the reporter; a resolved post report deletes the post and a user report bans', async () => {
+  assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'resolved' }, mgr.token)).status, 403, 'managers do not resolve');
+  assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'resolved' })).status, 401);
+  assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'pending' }, admin.token)).status, 400, 'only resolved or rejected');
+  assert.equal((await call('PATCH', `/api/report/${NO_SUCH_ID}`, { status: 'resolved' }, admin.token)).status, 400, 'unknown report');
+
+  const rejected = await call('PATCH', `/api/report/${eventReport._id}`, { status: 'rejected' }, admin.token);
+  assert.equal(rejected.status, 200, JSON.stringify(rejected.data));
+  assert.equal(rejected.data.status, 'rejected');
+  assert.equal(rejected.data.reporter._id, vol2.id, 'the reporter comes back populated');
+  assert.equal(rejected.data.reporter.username, `zz_vol2_${stamp}`);
+  const noWord = await heard(vol2.token, 'report_rejected', eventReport._id);
+  assert.equal(noWord.title, 'Report Rejected');
+  assert.deepEqual(noWord.data, { reportId: eventReport._id, targetType: 'event', targetId: reportEv, eventId: reportEv });
+
+  const resolvedPost = await call('PATCH', `/api/report/${postReport._id}`, { status: 'resolved' }, admin.token);
+  assert.equal(resolvedPost.status, 200, JSON.stringify(resolvedPost.data));
+  assert.equal(resolvedPost.data.status, 'resolved');
+  const told = await heard(vol2.token, 'report_resolved', postReport._id);
+  assert.equal(told.title, 'Report Resolved');
+  assert.deepEqual(told.data, { reportId: postReport._id, targetType: 'post', targetId: reportedPost, eventId: reportEv, postId: reportedPost });
+  assert.equal((await call('GET', `/api/posts/${reportedPost}`, undefined, vol.token)).status, 404, 'the post is gone');
+  assert.deepEqual((await call('GET', `/api/report/post/${reportedPost}`, undefined, admin.token)).data.map((r: any) => r.status), ['resolved'], 'the report outlives the post');
+
+  assert.equal((await call('PATCH', `/api/report/${userReport._id}`, { status: 'resolved' }, admin.token)).status, 200);
+  const banned = await call('GET', '/api/users/admin/banned', undefined, admin.token);
+  const hit = banned.data.data.find((u: any) => u._id === vol3.id);
+  assert.ok(hit, 'the reported user is banned');
+  assert.equal(hit.bannedReason, `Banned due to Report #${userReport._id}: abuse`);
+});
+
 out.forEach((line) => console.log(line));
 console.log(process.exitCode ? 'NOTIFICATIONS CHECK FAILED' : 'NOTIFICATIONS CHECK PASSED');
 

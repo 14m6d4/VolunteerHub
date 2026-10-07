@@ -1,10 +1,10 @@
 import { and, arrayContains, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
-import { discussions, eventStatus, events, posts, registrations, users } from "../db/schema.ts";
+import { discussions, eventStatus, events, posts, registrations, reports, users } from "../db/schema.ts";
 import { EventStatus } from "../types/event.ts";
 import { RegistrationStatus } from "../types/registration.ts";
-import { ReportModel, ReportTargetType } from "../models/Report.model.ts";
+import { ReportTargetType } from "../types/report.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { UserRole } from "../types/user.ts";
@@ -39,7 +39,7 @@ const approvedMemberIds = async (eventId: string) =>
         .where(and(eq(registrations.eventId, eventId), eq(registrations.status, RegistrationStatus.APPROVED))))
         .map((r) => r.id);
 
-/** Reports are still on MongoDB until the reports ticket (10); they point at posts by id. */
+/** Pending reports on the posts of each event. */
 async function countPendingPostReports(eventIds: string[]) {
     const counts = new Map<string, number>();
     if (!eventIds.length) return counts;
@@ -49,13 +49,13 @@ async function countPendingPostReports(eventIds: string[]) {
     const eventOfPost = new Map(eventPosts.map((p) => [p.id, p.eventId!]));
     if (!eventOfPost.size) return counts;
 
-    const reports = await ReportModel.find({
-        targetType: ReportTargetType.Post,
-        targetId: { $in: [...eventOfPost.keys()] },
-        status: "pending",
-    }).select("targetId").lean();
-    for (const r of reports) {
-        const eventId = eventOfPost.get(String(r.targetId));
+    const pending = await db.select({ targetId: reports.targetId }).from(reports).where(and(
+        eq(reports.targetType, ReportTargetType.Post),
+        eq(reports.status, "pending"),
+        inArray(reports.targetId, [...eventOfPost.keys()]),
+    ));
+    for (const r of pending) {
+        const eventId = eventOfPost.get(r.targetId);
         if (eventId) counts.set(eventId, (counts.get(eventId) ?? 0) + 1);
     }
     return counts;

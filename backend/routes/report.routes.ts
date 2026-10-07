@@ -61,17 +61,15 @@ router.get("/admin/all", authMiddleware, async (req, res) => {
         let reports: any[] = [];
 
         if (user.role === 'admin') {
-            const filter: any = { targetType: { $in: [ReportTargetType.User, ReportTargetType.Event] } };
+            // Post reports are the managers' to handle.
+            const targetTypes = type === ReportTargetType.User || type === ReportTargetType.Event
+                ? [type]
+                : [ReportTargetType.User, ReportTargetType.Event];
 
-            if (status && status !== 'all') {
-                filter.status = status;
-            }
-
-            if (type && type !== 'all' && (type === ReportTargetType.User || type === ReportTargetType.Event)) {
-                filter.targetType = type;
-            }
-
-            reports = await ReportService.getAllReports(filter);
+            reports = await ReportService.getAllReports({
+                targetTypes,
+                ...(status && status !== 'all' ? { status: String(status) } : {}),
+            });
         } else if (user.role === 'manager') {
             reports = await ReportService.getReportsForManager(user._id.toString());
             if (status && status !== 'all') {
