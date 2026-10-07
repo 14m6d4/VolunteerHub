@@ -11,6 +11,7 @@
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import app from '../app.ts';
+import { closeDb } from '../db/client.ts';
 
 if (process.env.CI) await mongoose.connect(process.env.MONGO_URI!);
 
@@ -129,3 +130,4 @@ console.log(results.join('\n'));
 console.log(process.exitCode ? '\nSECURITY SMOKE FAILED' : '\nSECURITY SMOKE PASSED');
 server.close();
 await mongoose.disconnect();
+await closeDb();

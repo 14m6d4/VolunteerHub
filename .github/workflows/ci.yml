@@ -85,6 +85,7 @@ jobs:
           console.log('VAPID_PUBLIC_KEY=' + k.publicKey + '\nVAPID_PRIVATE_KEY=' + k.privateKey)"
           >> "$GITHUB_ENV"
       - run: npm run smoke:security
+      - run: npm run check:users
       - run: npm run check:authz
 
   frontend:
