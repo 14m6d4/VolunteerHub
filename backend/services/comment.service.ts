@@ -3,7 +3,7 @@ import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
 import { commentLikes, comments, users } from "../db/schema.ts";
 import { NotificationService } from "./notification.service.ts";
-import { NotificationType } from "../models/Notification.model.ts";
+import { NotificationType } from "../types/notification.ts";
 import { commentLikerIds, getCommentRow, getPostRow, toComment } from "../utils/post.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
 

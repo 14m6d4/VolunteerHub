@@ -4,7 +4,7 @@ import { db } from "../db/client.ts";
 import { discussions, postLikes, posts, users } from "../db/schema.ts";
 import { uploadToImgBB } from "./imgbb.service.ts";
 import { NotificationService } from "./notification.service.ts";
-import { NotificationType } from "../models/Notification.model.ts";
+import { NotificationType } from "../types/notification.ts";
 import { getEventRow } from "../utils/event.util.ts";
 import { getPostRow, postLikerIds, postLikers, toPost } from "../utils/post.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";

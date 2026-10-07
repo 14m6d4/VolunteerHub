@@ -6,7 +6,7 @@ import { events, posts } from "../db/schema.ts";
 import { isUuid } from "../utils/user.util.ts";
 import { getPostRow } from "../utils/post.util.ts";
 import { NotificationService } from "./notification.service.ts";
-import { NotificationType } from "../models/Notification.model.ts";
+import { NotificationType } from "../types/notification.ts";
 import createHttpError from "http-errors";
 import User from "../models/User.model.ts";
 import { UserRole } from "../types/user.ts";

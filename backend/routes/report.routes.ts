@@ -1,6 +1,6 @@
 import express from "express";
 import { ReportService } from "../services/report.service.ts";
-import { ReportTargetType } from "../models/Report.model.ts";
+import { ReportTargetType } from "../types/report.ts";
 import { authMiddleware, type AuthenticatedRequest } from "../middlewares/auth.middleware.ts";
 import { roleMiddleware } from "../middlewares/role.middleware.ts";
 import { UserRole } from "../types/user.ts";

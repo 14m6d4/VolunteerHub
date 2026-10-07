@@ -2,10 +2,10 @@ import { and, asc, eq, ne, sql } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
 import { events, registrationStatus, registrations, users } from "../db/schema.ts";
-import { EventStatus } from "../models/Event.model.ts";
-import { RegistrationStatus } from "../models/Registration.model.ts";
+import { EventStatus } from "../types/event.ts";
+import { RegistrationStatus } from "../types/registration.ts";
 import { NotificationService } from "./notification.service.ts";
-import { NotificationType } from "../models/Notification.model.ts";
+import { NotificationType } from "../types/notification.ts";
 import { assertMayManageEvent, getEventRow, toEvent, toRegistration } from "../utils/event.util.ts";
 import { isUniqueViolation, isUuid, toLean } from "../utils/user.util.ts";
 

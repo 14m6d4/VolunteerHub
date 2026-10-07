@@ -1,8 +1,8 @@
 import { and, asc, count, desc, eq, gte, inArray, notInArray } from "drizzle-orm";
 import { db } from "../db/client.ts";
 import { comments, events, posts, registrations, users } from "../db/schema.ts";
-import { EventStatus } from "../models/Event.model.ts";
-import { RegistrationStatus } from "../models/Registration.model.ts";
+import { EventStatus } from "../types/event.ts";
+import { RegistrationStatus } from "../types/registration.ts";
 import { toEvent } from "../utils/event.util.ts";
 import { friendIdsOf } from "../utils/friend.util.ts";
 import { commentLikerIds, postLikerIds, toComment, toPost } from "../utils/post.util.ts";

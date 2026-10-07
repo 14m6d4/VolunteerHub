@@ -2,11 +2,11 @@ import { and, arrayContains, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or,
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
 import { discussions, eventStatus, events, posts, registrations, users } from "../db/schema.ts";
-import { EventStatus } from "../models/Event.model.ts";
-import { RegistrationStatus } from "../models/Registration.model.ts";
+import { EventStatus } from "../types/event.ts";
+import { RegistrationStatus } from "../types/registration.ts";
 import { ReportModel, ReportTargetType } from "../models/Report.model.ts";
 import { NotificationService } from "./notification.service.ts";
-import { NotificationType } from "../models/Notification.model.ts";
+import { NotificationType } from "../types/notification.ts";
 import { UserRole } from "../types/user.ts";
 import { assertMayManageEvent, getEventRow, toEvent } from "../utils/event.util.ts";
 import { getPostRow, postLikerIds, toPost } from "../utils/post.util.ts";
