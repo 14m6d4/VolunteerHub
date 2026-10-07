@@ -1,10 +1,11 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, date, index, integer, pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, date, index, integer, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["volunteer", "manager", "admin"]);
 export const eventStatus = pgEnum("event_status", ["draft", "pending", "approved", "cancelled", "finished"]);
 export const registrationStatus = pgEnum("registration_status", ["pending", "approved", "rejected", "cancelled", "completed"]);
 export const authProvider = pgEnum("auth_provider", ["local", "google"]);
+export const friendRequestStatus = pgEnum("friend_request_status", ["pending", "accepted", "declined"]);
 
 export const users = pgTable("users", {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -44,7 +45,7 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("push_subscriptions_user_id_idx").on(t.userId)]);
 
-// pinned_post_id arrives with the posts table (ticket 09), where it can be a real foreign key.
+// A post's pinned flag lives on the post itself, so events carry no pinned_post_id.
 export const events = pgTable("events", {
     id: uuid("id").primaryKey().defaultRandom(),
     title: text("title").notNull(),
@@ -85,4 +86,87 @@ export const registrations = pgTable("registrations", {
     // One registration per volunteer per event; its index also serves "who is in this event".
     unique("registrations_event_volunteer_unique").on(t.eventId, t.volunteerId),
     index("registrations_volunteer_id_idx").on(t.volunteerId),
+]);
+
+// One discussion per event; it goes with the event.
+export const discussions = pgTable("discussions", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull().unique().references(() => events.id, { onDelete: "cascade" }),
+    locked: boolean("locked").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// A post belongs to an event, a discussion, or (as before) neither; either parent takes its posts with it.
+export const posts = pgTable("posts", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").references(() => events.id, { onDelete: "cascade" }),
+    discussionId: uuid("discussion_id").references(() => discussions.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    content: text("content"),
+    // ImgBB URL.
+    image: text("image"),
+    pinned: boolean("pinned").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+    index("posts_event_id_created_at_idx").on(t.eventId, t.createdAt),
+    index("posts_discussion_id_idx").on(t.discussionId),
+    index("posts_author_id_idx").on(t.authorId),
+]);
+
+// createdAt keeps the order in which people liked, which is the order the API lists them in.
+export const postLikes = pgTable("post_likes", {
+    postId: uuid("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+    primaryKey({ columns: [t.postId, t.userId] }),
+    index("post_likes_user_id_idx").on(t.userId),
+]);
+
+export const comments = pgTable("comments", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    postId: uuid("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+    index("comments_post_id_created_at_idx").on(t.postId, t.createdAt),
+    index("comments_author_id_idx").on(t.authorId),
+]);
+
+export const commentLikes = pgTable("comment_likes", {
+    commentId: uuid("comment_id").notNull().references(() => comments.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+    primaryKey({ columns: [t.commentId, t.userId] }),
+    index("comment_likes_user_id_idx").on(t.userId),
+]);
+
+// One request per direction; a declined or accepted one is replaced when sent again.
+export const friendRequests = pgTable("friend_requests", {
+    id: uuid("id").primaryKey().defaultRandom(),
+    senderId: uuid("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    receiverId: uuid("receiver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    status: friendRequestStatus("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+    unique("friend_requests_sender_receiver_unique").on(t.senderId, t.receiverId),
+    check("friend_requests_not_self_check", sql`${t.senderId} <> ${t.receiverId}`),
+    index("friend_requests_receiver_id_idx").on(t.receiverId),
+]);
+
+// One row per pair, smaller id first, so "A and B are friends" has a single spelling.
+export const friendships = pgTable("friendships", {
+    userLow: uuid("user_low").notNull().references(() => users.id, { onDelete: "cascade" }),
+    userHigh: uuid("user_high").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+    primaryKey({ columns: [t.userLow, t.userHigh] }),
+    check("friendships_ordered_check", sql`${t.userLow} < ${t.userHigh}`),
+    index("friendships_user_high_idx").on(t.userHigh),
 ]);

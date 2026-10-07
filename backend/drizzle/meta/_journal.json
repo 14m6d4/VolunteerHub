@@ -22,6 +22,13 @@
       "when": 1791363467778,
       "tag": "0002_events_and_registrations",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791399579397,
+      "tag": "0003_social",
+      "breakpoints": true
     }
   ]
 }
