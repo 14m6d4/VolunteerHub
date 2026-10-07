@@ -18,6 +18,8 @@ Backend (`cd backend`):
 - `npm run build` — `tsc` typecheck + emit to `dist/` (`.ts` import specifiers rewritten to `.js`).
 - `npm start` — run compiled `dist/server.js`. This is what the prod Docker image runs (no `tsx` in prod).
 - `npm run seed` — run `seed.ts` to populate the DB with sample data.
+- `npm run db:generate` — drizzle-kit: turn `db/schema.ts` changes into a new SQL migration in `backend/drizzle/`.
+- `npm run db:migrate` — apply pending migrations to `DATABASE_URL` (via `tsx`). Prod runs the compiled `node dist/db/migrate.js` as the one-shot `migrate` compose service.
 
 Frontend (`cd frontend`):
 - `npm run dev` — Vite dev server (default port 5173).
@@ -31,7 +33,7 @@ First-time setup: `npm i` in both `backend/` and `frontend/`, configure `backend
 
 ## Environment
 
-`backend/.env` (required keys): `PORT`, `BACKEND_URL`, `FRONTEND_URL`, `MONGO_URI`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (web-push), `EMAIL_USERNAME`/`EMAIL_PASSWORD` (nodemailer OTP), `IMGBB_API_KEY` (image hosting).
+`backend/.env` (required keys): `PORT`, `BACKEND_URL`, `FRONTEND_URL`, `MONGO_URI`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (web-push), `EMAIL_USERNAME`/`EMAIL_PASSWORD` (nodemailer OTP), `IMGBB_API_KEY` (image hosting), `DATABASE_URL` + `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (PostgreSQL; the prod `postgres` container reads the trio from this same file, so they must agree with `DATABASE_URL`).
 
 `frontend/.env`: `VITE_API_URL` is the API base used by `services/api.ts` (falls back to `/api`). Point it at the backend, e.g. `http://localhost:5000/api`.
 
@@ -62,6 +64,14 @@ Auth specifics: JWT-only (no server sessions, `session: false`). Local login + e
 ### TypeScript / ESM quirk (important)
 
 The backend runs as native ESM under `tsx` with `nodenext` resolution and `rewriteRelativeImportExtensions`. **Intra-project imports must include the explicit `.ts` extension** (e.g. `import { EventService } from "../services/event.service.ts"`). Follow this in new files or module resolution breaks. There is no compile step in dev — `tsx` executes the `.ts` sources directly; prod runs the `tsc` output.
+
+## Database migrations (PostgreSQL, Drizzle)
+
+PostgreSQL is being introduced alongside MongoDB (see `docs/adr/0001-move-from-mongodb-to-postgresql.md`); the app does not read it yet. The schema lives in `backend/db/schema.ts`; migrations are plain SQL in `backend/drizzle/`, generated with `npm run db:generate` and committed. Never hand-edit an already-committed migration or the `drizzle/meta/` snapshots.
+
+**Expand/contract rule (mandatory).** Every migration must be backward-compatible with the previous release, because the deploy automatically rolls back to the last known-good image on a failed smoke test, and the old image then runs against the already-migrated schema. So a release may only *expand*: add tables, add nullable columns or columns with a default, add indexes, add enum values. Anything destructive or incompatible (drop/rename a column or table, add a NOT NULL column without a default, narrow a type, drop an enum value) is a *contract* step and ships in a **later** release, after no deployed code uses the old shape. To rename: add the new column, dual-write and backfill, switch reads, and only then drop the old one, each in its own release. Before committing a migration, read the generated SQL and check it against this rule; if it breaks the rule, split it.
+
+The app never migrates on startup: the `migrate` compose service applies migrations before the backend starts, and a failing migration fails the deploy.
 
 ## Frontend architecture
 
