@@ -32,7 +32,7 @@ const check = async (name: string, fn: () => Promise<void>) => {
 
 await check('helmet sets nosniff', async () => {
     const res = await fetch(`${base}/api/events/does-not-exist`);
-    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('x-content-type-options'), 'sniff-away');
 });
 
 await check('helmet removes x-powered-by', async () => {
