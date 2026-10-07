@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { userRole } from '../db/schema.ts';
 
 // --- Login Schema ---
 export const loginSchema = z.object({
@@ -107,7 +108,7 @@ export const adminCreateUserSchema = z.object({
   email: z.string().email('Email must be valid.'),
   password: z.string().min(8, 'Password must be at least 8 characters long.'),
   name: z.string().min(1, 'Name cannot be empty').max(100, 'Name too long').optional(),
-  role: z.enum(['volunteer', 'manager', 'admin']).optional(),
+  role: z.enum(userRole.enumValues).optional(),
   birthdate: z.union([z.string(), z.date()]).optional(),
 });
 
@@ -120,7 +121,7 @@ export const adminUpdateUserSchema = z.object({
   email: z.string().email('Email must be valid.').optional(),
   password: z.string().min(8, 'Password must be at least 8 characters long.').or(z.literal('')).optional(),
   name: z.string().min(1, 'Name cannot be empty').max(100, 'Name too long').optional(),
-  role: z.enum(['volunteer', 'manager', 'admin']).optional(),
+  role: z.enum(userRole.enumValues).optional(),
   isActive: z.boolean().optional(),
   birthdate: z.union([z.string(), z.date()]).optional(),
 });

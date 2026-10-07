@@ -179,7 +179,7 @@ export const googleAuthCallback = (req: Request, res: Response, next: NextFuncti
 
   const redirectUrl = new URL(frontendUrl);
   redirectUrl.searchParams.set('accessToken', token);
-  if (user?.id) redirectUrl.searchParams.set('userId', user.id);
+  if (user?._id) redirectUrl.searchParams.set('userId', user._id);
 
   console.log('[googleAuthCallback] Redirecting to:', redirectUrl.toString());
   res.redirect(redirectUrl.toString());

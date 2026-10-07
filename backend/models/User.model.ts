@@ -1,9 +1,13 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
-import type { IUser, IUserDocument } from '../types/user.ts';
+import type { IUser } from '../types/user.ts';
 import { UserRole } from '../types/user.ts';
 
-
+// Legacy MongoDB shape: only the friends code and the not-yet-ported fixtures
+// use this model now; users themselves live in PostgreSQL.
+interface IUserDocument extends Omit<IUser, '_id'>, Document {
+    comparePassword: (candidatePassword: string) => Promise<boolean>;
+}
 
 const UserSchema: Schema<IUserDocument> = new Schema<IUserDocument>({
     username: {

@@ -1,10 +1,15 @@
+import { eq, or } from 'drizzle-orm';
 import { type ITokenPayload, type IUserDocument, UserRole, type ILoginDTO, type IRegisterDTO } from '../types/user.ts';
 import { createAccessToken, createRefreshToken } from '../utils/jwt.util.ts';
 import AppError from '../utils/appError.ts';
-import User from '../models/User.model.ts';
+import { db } from '../db/client.ts';
+import { users } from '../db/schema.ts';
 import { generateOTP, getOTPExpiration } from '../utils/otp.util.ts';
 import { isBanned, banMessage } from '../utils/ban.util.ts';
+import { comparePassword, hashPassword } from '../utils/password.util.ts';
+import { isUniqueViolation, normalizeEmail, toUser } from '../utils/user.util.ts';
 import { sendVerificationEmail, sendResetPasswordEmail } from './email.service.ts';
+import { findUserById } from './user.service.ts';
 
 interface IAuthResponse {
   accessToken: string;
@@ -17,6 +22,20 @@ interface IAuthResponse {
   };
 }
 
+const findByEmail = async (email: string) => {
+  const [row] = await db.select().from(users).where(eq(users.email, normalizeEmail(email)));
+  return row;
+};
+
+const assertOtp = (user: { otp: string | null; otpExpiresAt: Date | null }, otp: string) => {
+  if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+    throw new AppError('OTP has expired or is invalid. Please request a new one.', 400);
+  }
+
+  if (user.otp !== otp) {
+    throw new AppError('Invalid OTP code.', 401);
+  }
+};
 
 export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
   const { email, username, password } = data;
@@ -25,36 +44,29 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
     throw new AppError('Must provide either email or username to log in.', 400);
   }
 
+  const [row] = await db.select().from(users)
+    .where(email ? eq(users.email, normalizeEmail(email)) : eq(users.username, username!));
 
-  let query: object;
-
-  if (email) {
-    query = { email: email! };
-  } else {
-    query = { username: username! };
-  }
-  const user: IUserDocument | null = await User.findOne(query).select('+passwordHash');
-
-  if (!user || !(await user.comparePassword(password))) {
+  if (!row || !(await comparePassword(password, row.passwordHash))) {
     throw new AppError('Invalid email/username or password.', 401);
   }
 
-  if (!user.isVerified) {
+  if (!row.isVerified) {
     throw new AppError('Account is not verified. Please verify your email before logging in.', 403);
   }
 
-  if (!user.isActive) {
+  if (!row.isActive) {
     throw new AppError('Account is inactive. Please contact support.', 403);
   }
 
-  if (isBanned(user)) {
-    throw new AppError(banMessage(user), 403);
+  if (isBanned(row)) {
+    throw new AppError(banMessage(row), 403);
   }
 
   const payload: ITokenPayload = {
-    id: user._id.toString(),
-    email: user.email,
-    role: user.role,
+    id: row.id,
+    email: row.email,
+    role: row.role as UserRole,
   };
 
   const accessToken = createAccessToken(payload);
@@ -64,137 +76,111 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
     accessToken,
     refreshToken,
     user: {
-      id: user._id.toString(),
-      email: user.email,
-      role: user.role,
-      name: (user.name as string) || user.username,
+      id: row.id,
+      email: row.email,
+      role: row.role as UserRole,
+      name: row.name || row.username,
     },
   };
 }
 
 export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
-  const { username, email, password, birthdate, role, name } = data;
+  const { username, password, birthdate, role, name } = data;
+  const email = normalizeEmail(data.email);
 
-  const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-  if (existingUser) {
+  const [existing] = await db.select({ id: users.id }).from(users)
+    .where(or(eq(users.email, email), eq(users.username, username)));
+  if (existing) {
     throw new AppError('Email or username already in use.', 409); // Conflict
   }
 
   const otpCode = generateOTP();
-  const otpExpiresAt = getOTPExpiration(10);
 
-  const createData: any = {
-    username,
-    email,
-    passwordHash: password,
-    birthdate,
-    role: role || UserRole.Volunteer,
-    isVerified: false,
-    otp: otpCode,
-    otpExpiresAt: otpExpiresAt,
+  let row;
+  try {
+    [row] = await db.insert(users).values({
+      username,
+      email,
+      passwordHash: await hashPassword(password),
+      birthdate: new Date(birthdate),
+      role: role || UserRole.Volunteer,
+      isVerified: false,
+      otp: otpCode,
+      otpExpiresAt: getOTPExpiration(10),
+      ...(name ? { name } : {}),
+    }).returning();
+  } catch (err) {
+    // Two sign-ups racing past the check above land on the unique constraints.
+    if (isUniqueViolation(err)) throw new AppError('Email or username already in use.', 409);
+    throw err;
   }
 
-  if (name) createData.name = name
-
-  const newUserDoc = await User.create(createData) as unknown as IUserDocument;
-
-  sendVerificationEmail(newUserDoc, otpCode);
-
-  const userResponse = (newUserDoc as any).toObject();
-  delete userResponse.passwordHash;
-  delete userResponse.otp;
-  delete userResponse.otpExpiresAt;
-
-
-  return userResponse as IUserDocument;
-}
-
-export async function verifyUserOTP(email: string, otp: string): Promise<IUserDocument> {
-  // 1. Find user, ensure to select OTP fields
-  const user = await User.findOne({ email }).select('+otp +otpExpiresAt');
-
-  if (!user) {
-    throw new AppError('User not found.', 404);
-  }
-
-  if (user.isVerified) {
-    throw new AppError('Account is already verified.', 400);
-  }
-
-  if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
-    throw new AppError('OTP has expired or is invalid. Please request a new one.', 400);
-  }
-
-  if (user.otp !== otp) {
-    throw new AppError('Invalid OTP code.', 401);
-  }
-
-  user.isVerified = true;
-  user.otp = undefined;
-  user.otpExpiresAt = undefined;
-  await user.save();
+  const user = toUser(row!);
+  sendVerificationEmail(user, otpCode);
 
   return user;
 }
 
-export async function sendPasswordResetOtp(email: string): Promise<void> {
-  const user = await User.findOne({ email }).select('+otp +otpExpiresAt');
+export async function verifyUserOTP(email: string, otp: string): Promise<IUserDocument> {
+  const row = await findByEmail(email);
 
-  if (!user) {
+  if (!row) {
+    throw new AppError('User not found.', 404);
+  }
+
+  if (row.isVerified) {
+    throw new AppError('Account is already verified.', 400);
+  }
+
+  assertOtp(row, otp);
+
+  const [verified] = await db.update(users)
+    .set({ isVerified: true, otp: null, otpExpiresAt: null, updatedAt: new Date() })
+    .where(eq(users.id, row.id))
+    .returning();
+
+  return toUser(verified!);
+}
+
+export async function sendPasswordResetOtp(email: string): Promise<void> {
+  const row = await findByEmail(email);
+
+  if (!row) {
     return;
   }
 
   const otpCode = generateOTP();
-  const otpExpiresAt = getOTPExpiration(10);
 
-  user.otp = otpCode;
-  user.otpExpiresAt = otpExpiresAt;
-  await user.save();
+  await db.update(users)
+    .set({ otp: otpCode, otpExpiresAt: getOTPExpiration(10), updatedAt: new Date() })
+    .where(eq(users.id, row.id));
 
-  await sendResetPasswordEmail(user, otpCode);
+  await sendResetPasswordEmail(toUser(row), otpCode);
 }
 
 export async function verifyPasswordResetOtp(email: string, otp: string): Promise<void> {
-  const user = await User.findOne({ email }).select('+otp +otpExpiresAt');
-  if (!user) throw new AppError('User not found.', 404);
+  const row = await findByEmail(email);
+  if (!row) throw new AppError('User not found.', 404);
 
-  if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
-    throw new AppError('OTP has expired or is invalid. Please request a new one.', 400);
-  }
-
-  if (user.otp !== otp) {
-    throw new AppError('Invalid OTP code.', 401);
-  }
-
-  return;
+  assertOtp(row, otp);
 }
 
 export async function resetPasswordWithOtp(email: string, otp: string, newPassword: string): Promise<IUserDocument> {
-  const user = await User.findOne({ email }).select('+otp +otpExpiresAt +passwordHash');
-  if (!user) throw new AppError('User not found.', 404);
+  const row = await findByEmail(email);
+  if (!row) throw new AppError('User not found.', 404);
 
-  if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
-    throw new AppError('OTP has expired or is invalid. Please request a new one.', 400);
-  }
+  assertOtp(row, otp);
 
-  if (user.otp !== otp) {
-    throw new AppError('Invalid OTP code.', 401);
-  }
+  const [updated] = await db.update(users)
+    .set({ passwordHash: await hashPassword(newPassword), otp: null, otpExpiresAt: null, updatedAt: new Date() })
+    .where(eq(users.id, row.id))
+    .returning();
 
-  user.passwordHash = newPassword as any;
-  user.otp = undefined;
-  user.otpExpiresAt = undefined;
-  await user.save();
-
-  const sanitized: any = user.toObject();
-  delete sanitized.passwordHash;
-  delete sanitized.otp;
-  delete sanitized.otpExpiresAt;
-  return sanitized as IUserDocument;
+  return toUser(updated!);
 }
 
 export async function getAuthenticatedUser(userId: string): Promise<IUserDocument> {
-  const user = await User.findById(userId);
+  const user = await findUserById(userId);
   if (!user) {
     throw new AppError('User not found.', 404);
   }

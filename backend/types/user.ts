@@ -1,5 +1,3 @@
-import { Types } from 'mongoose';
-
 /**
  * @enum UserRole
  */
@@ -13,7 +11,7 @@ export enum UserRole {
  * @interface IUser
  */
 export interface IUser {
-  _id: Types.ObjectId;
+  _id: string;
   // Auth & Profile
   username: string;
   // Optional full/display name
@@ -53,9 +51,7 @@ export interface IUser {
   updatedAt: Date;
 }
 
-export interface IUserDocument extends IUser, Document {
-  comparePassword: (candidatePassword: string) => Promise<boolean>;
-}
+export type IUserDocument = IUser;
 
 /**
  * @interface ITokenPayload

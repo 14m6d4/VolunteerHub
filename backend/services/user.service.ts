@@ -1,13 +1,29 @@
+import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm';
 import type { UpdateProfileData, IUser } from '../types/user.ts';
 import { UserRole } from '../types/user.ts';
 import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
+import { db } from '../db/client.ts';
+import { users } from '../db/schema.ts';
 import { EventModel, EventStatus } from '../models/Event.model.ts';
 import { RegistrationModel, RegistrationStatus } from '../models/Registration.model.ts';
 import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
 import FriendRequestModel, { FriendRequestStatus } from '../models/FriendRequest.model.ts';
 import * as notificationService from './notification.service.ts';
 import { NotificationType } from '../models/Notification.model.ts';
+import { comparePassword, hashPassword } from '../utils/password.util.ts';
+import { isUniqueViolation, isUuid, normalizeEmail, toLean, toUser } from '../utils/user.util.ts';
+
+const getRow = async (id: string) => {
+  if (!isUuid(id)) return undefined;
+  const [row] = await db.select().from(users).where(eq(users.id, id));
+  return row;
+};
+
+export const findUserById = async (id: string): Promise<IUser | null> => {
+  const row = await getRow(id);
+  return row ? toUser(row) : null;
+};
 
 export async function updateProfileWithPasswordCheck(
   userId: string,
@@ -15,7 +31,7 @@ export async function updateProfileWithPasswordCheck(
   updateData: UpdateProfileData
 ): Promise<IUser> {
 
-  const user = await UserModel.findById(userId).select('+passwordHash');
+  const user = await getRow(userId);
 
   if (!user) {
     throw new AppError('User not found', 404);
@@ -27,8 +43,7 @@ export async function updateProfileWithPasswordCheck(
     if (!currentPassword) {
       throw new AppError('Current password is required to change password', 400);
     }
-    const isMatch = await user.comparePassword(currentPassword);
-    if (!isMatch) {
+    if (!(await comparePassword(currentPassword, user.passwordHash))) {
       throw new AppError('Incorrect current password', 401);
     }
   }
@@ -38,84 +53,53 @@ export async function updateProfileWithPasswordCheck(
   }
 
   if (updateData.username && updateData.username !== user.username) {
-    const existingUser = await UserModel.findOne({ username: updateData.username });
+    const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.username, updateData.username));
     if (existingUser) {
       throw new AppError('Username already taken', 400);
     }
   }
 
-  const validUpdates: any = { ...updateData };
+  const input: any = updateData;
+  const changes: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
 
-  if (validUpdates.birthdate && typeof validUpdates.birthdate === 'string') {
-    const d = new Date(validUpdates.birthdate);
+  if (input.username !== undefined) changes.username = input.username;
+  if (input.name !== undefined) changes.name = input.name;
+  if (input.notificationsEnabled !== undefined) changes.notificationsEnabled = input.notificationsEnabled;
+  if (input.notifyOnMention !== undefined) changes.notifyOnMention = input.notifyOnMention;
+  if (input.notifyOnEventUpdate !== undefined) changes.notifyOnEventUpdate = input.notifyOnEventUpdate;
+
+  if (input.birthdate) {
+    const d = new Date(input.birthdate);
     if (isNaN(d.getTime())) {
       throw new AppError('Invalid birthdate format', 400);
     }
-    validUpdates.birthdate = d;
+    changes.birthdate = d;
   }
 
-  if (Object.prototype.hasOwnProperty.call(validUpdates, 'profilePicture') && validUpdates.profilePicture === '') {
-    validUpdates.profilePicture = undefined;
+  if (input.profilePicture !== undefined) {
+    changes.profilePicture = input.profilePicture === '' ? null : input.profilePicture;
   }
 
-  if (validUpdates.password) {
-    const newPassword = validUpdates.password;
-    delete validUpdates.password;
-
-    try {
-      if (Object.keys(validUpdates).length > 0) {
-        await UserModel.findByIdAndUpdate(
-          userId,
-          { $set: validUpdates },
-          { new: true, runValidators: true }
-        );
-      }
-
-      const userForPassword = await UserModel.findById(userId).select('+passwordHash');
-      if (!userForPassword) {
-        throw new AppError('User not found after update', 500);
-      }
-
-      userForPassword.passwordHash = newPassword;
-      await userForPassword.save();
-
-      const updatedUser = await UserModel.findById(userId)
-        .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt')
-        .exec();
-
-      if (!updatedUser) {
-        throw new AppError('User not found after password update', 500);
-      }
-
-      return updatedUser as IUser;
-
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      console.error('Database error during password update:', error);
-      throw new AppError('Failed to update password', 500);
-    }
+  if (input.password) {
+    changes.passwordHash = await hashPassword(input.password);
   }
 
   try {
-    const updatedUser = await UserModel.findByIdAndUpdate(
-      userId,
-      { $set: validUpdates },
-      { new: true, runValidators: true }
-    )
-      .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt')
-      .exec();
+    const [updated] = await db.update(users).set(changes).where(eq(users.id, userId)).returning();
 
-    if (!updatedUser) {
+    if (!updated) {
       throw new AppError('User not found after update', 500);
     }
 
-    return updatedUser as IUser;
+    const { authProvider, ...profile } = toUser(updated);
+    return profile as IUser;
 
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
+    }
+    if (isUniqueViolation(error)) {
+      throw new AppError('Username already taken', 400);
     }
     console.error('Database error during secure profile update:', error);
     throw new AppError('Failed to update profile due to invalid data or server error', 500);
@@ -133,20 +117,13 @@ const DEFAULT_BIRTHDATE = new Date('2000-01-01');
 export async function findOrCreateByGoogleId(
   profileData: GoogleProfileData
 ): Promise<IUser> {
-  const { email, name, googleId } = profileData;
+  const { name, googleId } = profileData;
+  const email = normalizeEmail(profileData.email);
 
-  let user = await UserModel.findOne({
-    $or: [{ googleId }, { email }],
-  })
-    .select('-passwordHash -__v -refreshToken -otp -otpExpiresAt')
-    .exec();
+  const [found] = await db.select().from(users).where(or(eq(users.googleId, googleId), eq(users.email, email)));
 
-  if (user) {
-
-    if (user.authProvider === 'local' && !user.googleId) {
-    }
-
-    return user as IUser;
+  if (found) {
+    return toUser(found);
   }
 
   try {
@@ -154,7 +131,7 @@ export async function findOrCreateByGoogleId(
 
     const uniqueUsername = await generateUniqueUsername(baseUsername);
 
-    const newUser = await UserModel.create({
+    const [created] = await db.insert(users).values({
       email,
       name,
       googleId,
@@ -162,17 +139,9 @@ export async function findOrCreateByGoogleId(
       authProvider: 'google',
       isVerified: true,
       birthdate: DEFAULT_BIRTHDATE,
-    });
+    }).returning();
 
-    const sanitizedUser = await UserModel.findById(newUser._id)
-      .select('-passwordHash -__v -refreshToken -otp -otpExpiresAt')
-      .exec();
-
-    if (!sanitizedUser) {
-      throw new AppError('Failed to create user but database operation reported success', 500);
-    }
-
-    return sanitizedUser as IUser;
+    return toUser(created!);
 
   } catch (error) {
     if (error instanceof AppError) throw error;
@@ -188,7 +157,7 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
 
 
   while (!isUnique && attempts < 5) {
-    const userExists = await UserModel.exists({ username });
+    const [userExists] = await db.select({ id: users.id }).from(users).where(eq(users.username, username));
 
     if (!userExists) {
       isUnique = true;
@@ -207,27 +176,28 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
 }
 
 /**
- * User input goes into $regex in a few places. Unescaped, a crafted pattern is
- * both a filter bypass and a ReDoS - the user search endpoint is public, so the
- * input is anonymous. Escaping turns the value back into a literal substring.
+ * User input goes into ILIKE in a few places. Unescaped, % and _ are wildcards:
+ * a filter bypass on a public, anonymous endpoint. Escaping turns the value back
+ * into a literal substring.
  */
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const containsPattern = (value: string) => `%${String(value ?? '').replace(/[\\%_]/g, '\\$&')}%`;
 
 export const searchUsersService = async (query: string, limit: number = 10) => {
-  const safe = escapeRegex(String(query ?? ''));
-  return await UserModel.find({
-    $or: [
-      { username: { $regex: safe, $options: 'i' } },
-      { name: { $regex: safe, $options: 'i' } }
-    ],
-    isActive: true,
-    isBanned: false
-  })
-    .select('username name profilePicture role')
-    .limit(limit)
-    .lean();
+  const pattern = containsPattern(query);
+  const rows = await db.select({
+    id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture, role: users.role,
+  }).from(users)
+    .where(and(
+      or(ilike(users.username, pattern), ilike(users.name, pattern)),
+      eq(users.isActive, true),
+      eq(users.isBanned, false),
+    ))
+    .limit(limit);
+  return rows.map(toLean);
 };
 
+// Friends, friend requests and reports below still run on MongoDB and don't
+// work on this branch until the social ticket (09) moves them.
 export const addFriendService = async (userId: string, friendId: string) => {
   if (userId === friendId) throw new AppError('Cannot add yourself', 400);
 
@@ -389,15 +359,19 @@ export const getRelationsForTargets = async (userId: string, targets: string[]) 
 };
 
 export const banUserService = async (userId: string, reason?: string, until?: Date) => {
-  const user = await UserModel.findById(userId);
-  if (!user) throw new AppError('User not found', 404);
+  const changes: Partial<typeof users.$inferInsert> = { isBanned: true, updatedAt: new Date() };
+  if (reason) changes.bannedReason = reason;
+  if (until) changes.bannedUntil = until;
 
-  user.isBanned = true;
-  if (reason) (user as any).bannedReason = reason;
-  if (until) (user as any).bannedUntil = until;
+  const [row] = isUuid(userId) ? await db.update(users).set(changes).where(eq(users.id, userId)).returning() : [];
+  if (!row) throw new AppError('User not found', 404);
+  return toUser(row);
+};
 
-  await user.save();
-  return user;
+const BANNED_LIST_COLUMNS = {
+  id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture,
+  role: users.role, isBanned: users.isBanned, bannedReason: users.bannedReason,
+  bannedUntil: users.bannedUntil, email: users.email,
 };
 
 export const adminSearchUsers = async (filters: {
@@ -411,128 +385,124 @@ export const adminSearchUsers = async (filters: {
 }) => {
   const { q, role, status, sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10 } = filters;
 
-  const query: any = {};
+  const conditions = [];
 
   if (q) {
-    const safe = escapeRegex(String(q));
-    query.$or = [
-      { username: { $regex: safe, $options: 'i' } },
-      { name: { $regex: safe, $options: 'i' } },
-      { email: { $regex: safe, $options: 'i' } }
-    ];
+    const pattern = containsPattern(q);
+    conditions.push(or(ilike(users.username, pattern), ilike(users.name, pattern), ilike(users.email, pattern)));
   }
 
-  // Query-string values arrive as arbitrary shapes: ?role[$ne]=admin parses to
-  // an object, which would reach the filter as a Mongo operator. Only accept a
+  // Query-string values arrive as arbitrary shapes (?role[]=x), so only accept a
   // known role name.
-  if (role && role !== 'all' && Object.values(UserRole).includes(role as UserRole)) {
-    query.role = role;
+  if (role && role !== 'all' && (users.role.enumValues as readonly string[]).includes(role)) {
+    conditions.push(eq(users.role, role as UserRole));
   }
 
   if (status && status !== 'all') {
-    if (status === 'banned') query.isBanned = true;
-    else if (status === 'active') query.isBanned = false;
+    if (status === 'banned') conditions.push(eq(users.isBanned, true));
+    else if (status === 'active') conditions.push(eq(users.isBanned, false));
   }
 
-  // Same reasoning for sortBy, which is used as an object key.
-  const SORTABLE = ['createdAt', 'username', 'name', 'email', 'role'];
-  const sort: any = {};
-  sort[SORTABLE.includes(sortBy) ? sortBy : 'createdAt'] = sortOrder === 'asc' ? 1 : -1;
+  // Same reasoning for sortBy: it picks a column, it is never used as SQL.
+  const SORTABLE = { createdAt: users.createdAt, username: users.username, name: users.name, email: users.email, role: users.role } as const;
+  const sortColumn = SORTABLE[sortBy as keyof typeof SORTABLE] ?? users.createdAt;
 
-  const skip = (page - 1) * limit;
+  const where = and(...conditions);
 
-  const [users, total] = await Promise.all([
-    UserModel.find(query)
-      .select('username name profilePicture role isBanned bannedReason bannedUntil email createdAt isActive')
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    UserModel.countDocuments(query)
+  const [rows, total] = await Promise.all([
+    db.select({ ...BANNED_LIST_COLUMNS, createdAt: users.createdAt, isActive: users.isActive }).from(users)
+      .where(where)
+      .orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn))
+      .offset((page - 1) * limit)
+      .limit(limit),
+    db.$count(users, where),
   ]);
 
-  return { users, total, page, limit, totalPages: Math.ceil(total / limit) };
+  return { users: rows.map(toLean), total, page, limit, totalPages: Math.ceil(total / limit) };
 };
 
 export const createUserService = async (data: any) => {
-  const exists = await UserModel.findOne({ $or: [{ username: data.username }, { email: data.email }] });
+  const email = normalizeEmail(data.email);
+
+  const [exists] = await db.select({ id: users.id }).from(users)
+    .where(or(eq(users.username, data.username), eq(users.email, email)));
   if (exists) throw new AppError('Username or email already exists', 400);
 
-  if (data.password) {
-    data.passwordHash = data.password;
-    delete data.password;
+  try {
+    const [row] = await db.insert(users).values({
+      username: data.username,
+      email,
+      passwordHash: await hashPassword(data.password),
+      name: data.name,
+      role: data.role,
+      birthdate: new Date(data.birthdate ?? DEFAULT_BIRTHDATE),
+      isActive: true,
+      isVerified: true,
+    }).returning();
+    return toUser(row!);
+  } catch (err) {
+    if (isUniqueViolation(err)) throw new AppError('Username or email already exists', 400);
+    throw err;
   }
-
-  if (!data.birthdate) {
-    data.birthdate = new Date('2000-01-01');
-  }
-
-  const user = await UserModel.create({
-    ...data,
-    isActive: true,
-    isVerified: true
-  });
-
-  return user;
 }
 
 export const deleteUserService = async (userId: string) => {
-  const user = await UserModel.findByIdAndDelete(userId);
-  if (!user) throw new AppError('User not found', 404);
+  const [row] = isUuid(userId)
+    ? await db.delete(users).where(eq(users.id, userId)).returning({ id: users.id })
+    : [];
+  if (!row) throw new AppError('User not found', 404);
   return { success: true };
 }
 
 export const updateUserAdminService = async (userId: string, data: any) => {
-  if (data.password === '' || data.password === undefined) {
-    delete data.password;
+  if (!(await getRow(userId))) throw new AppError('User not found', 404);
+
+  const email = data.email ? normalizeEmail(data.email) : undefined;
+
+  const clashes = [];
+  if (data.username) clashes.push(eq(users.username, data.username));
+  if (email) clashes.push(eq(users.email, email));
+
+  if (clashes.length > 0) {
+    const [exists] = await db.select({ id: users.id }).from(users).where(and(ne(users.id, userId), or(...clashes)));
+    if (exists) throw new AppError('Username or email already in use', 400);
   }
 
-  if (data.username || data.email) {
-    const query: any = { _id: { $ne: userId }, $or: [] };
-    if (data.username) query.$or.push({ username: data.username });
-    if (data.email) query.$or.push({ email: data.email });
+  const changes: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+  if (data.username !== undefined) changes.username = data.username;
+  if (email !== undefined) changes.email = email;
+  if (data.name !== undefined) changes.name = data.name;
+  if (data.role !== undefined) changes.role = data.role;
+  if (data.isActive !== undefined) changes.isActive = data.isActive;
+  if (data.birthdate !== undefined) changes.birthdate = new Date(data.birthdate);
+  if (data.password) changes.passwordHash = await hashPassword(data.password);
 
-    if (query.$or.length > 0) {
-      const exists = await UserModel.findOne(query);
-      if (exists) throw new AppError('Username or email already in use', 400);
-    }
-  }
-
-  if (data.password) {
-    const user = await UserModel.findById(userId);
-    if (!user) throw new AppError('User not found', 404);
-
-    user.passwordHash = data.password;
-
-    const { password, ...otherData } = data;
-    Object.assign(user, otherData);
-
-    await user.save();
-    return user;
-  } else {
-    const user = await UserModel.findByIdAndUpdate(userId, data, { new: true, runValidators: true });
-    if (!user) throw new AppError('User not found', 404);
-    return user;
+  try {
+    const [row] = await db.update(users).set(changes).where(eq(users.id, userId)).returning();
+    if (!row) throw new AppError('User not found', 404);
+    return toUser(row);
+  } catch (err) {
+    if (isUniqueViolation(err)) throw new AppError('Username or email already in use', 400);
+    throw err;
   }
 }
 
 export const getBannedUsers = async () => {
-  return await UserModel.find({ isBanned: true })
-    .select('username name profilePicture role isBanned bannedReason bannedUntil email')
-    .sort({ bannedUntil: 1 }) // Show closest unban date first (or just default sort)
-    .lean();
+  const rows = await db.select(BANNED_LIST_COLUMNS).from(users)
+    .where(eq(users.isBanned, true))
+    .orderBy(sql`${users.bannedUntil} asc nulls first`); // Show closest unban date first
+  return rows.map(toLean);
 };
 
 export const unbanUserService = async (userId: string) => {
-  const user = await UserModel.findById(userId);
-  if (!user) throw new AppError('User not found', 404);
-
-  user.isBanned = false;
-  (user as any).bannedReason = undefined;
-  (user as any).bannedUntil = undefined;
-
-  await user.save();
-  return user;
+  const [row] = isUuid(userId)
+    ? await db.update(users)
+      .set({ isBanned: false, bannedReason: null, bannedUntil: null, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning()
+    : [];
+  if (!row) throw new AppError('User not found', 404);
+  return toUser(row);
 };
 
 export const getFriendSuggestionsService = async (userId: string, limit: number = 10) => {
@@ -627,24 +597,22 @@ export const rejectFriendRequestService = async (userId: string, requestId: stri
   return { message: 'Friend request rejected successfully' };
 };
 
-export const findUserById = (id: string) => UserModel.findById(id);
-
 export const getPublicProfileByUsername = async (username: string) => {
-  const user = await UserModel.findOne({ username, isActive: true })
-    .select('username name birthdate profilePicture role createdAt')
-    .lean();
+  const [user] = await db.select({
+    id: users.id, username: users.username, name: users.name, birthdate: users.birthdate,
+    profilePicture: users.profilePicture, role: users.role, createdAt: users.createdAt,
+  }).from(users).where(and(eq(users.username, username), eq(users.isActive, true)));
 
   if (!user) {
     throw new AppError('User not found or deactivated', 404);
   }
-  return user;
+  return toLean(user);
 };
 
 // Profile pages are public, but admin profiles are not.
-const findViewableProfileUser = async (username: string, select: string) => {
-  const user = await UserModel.findOne({ username, isActive: true })
-    .select(select)
-    .lean();
+const findViewableProfileUser = async (username: string) => {
+  const [user] = await db.select({ id: users.id, role: users.role }).from(users)
+    .where(and(eq(users.username, username), eq(users.isActive, true)));
 
   if (!user) {
     throw new AppError('User not found or deactivated', 404);
@@ -652,16 +620,16 @@ const findViewableProfileUser = async (username: string, select: string) => {
   if (user.role === UserRole.Admin) {
     throw new AppError('Access to admin profiles is forbidden', 403);
   }
-  return user;
+  return toLean(user);
 };
 
 export const getUserStatsService = async (username: string) => {
-  const user = await findViewableProfileUser(username, '_id role');
-  const userId = user._id.toString();
+  const user = await findViewableProfileUser(username);
+  const userId = user._id;
 
   let stats: any = {};
 
-  if (user.role === UserRole.Volunteer) {
+  if ((user.role as UserRole) === UserRole.Volunteer) {
     const registrations = await RegistrationModel.find({
       volunteerId: userId,
       status: RegistrationStatus.APPROVED
@@ -684,7 +652,7 @@ export const getUserStatsService = async (username: string) => {
     } else {
       stats = { activeEvents: 0, completedEvents: 0 };
     }
-  } else if (user.role === UserRole.Manager) {
+  } else if ((user.role as UserRole) === UserRole.Manager) {
     const activeEvents = await EventModel.countDocuments({
       managerId: userId,
       status: EventStatus.APPROVED
@@ -698,10 +666,8 @@ export const getUserStatsService = async (username: string) => {
     stats = { activeEvents, eventsOrganized };
   }
 
-  const userWithFriends = await UserModel.findById(userId).select('friends').lean();
-  stats.friends = (userWithFriends && (userWithFriends as any).friends)
-    ? (userWithFriends as any).friends.length
-    : 0;
+  // Friends arrive with the social ticket (09).
+  stats.friends = 0;
 
   return { role: user.role, stats };
 };
@@ -709,12 +675,12 @@ export const getUserStatsService = async (username: string) => {
 const PROFILE_EVENT_FIELDS = '_id title image startAt endAt location currentMembers tags description status';
 
 export const getUserEventsService = async (username: string) => {
-  const user = await findViewableProfileUser(username, '_id role');
-  const userId = user._id.toString();
+  const user = await findViewableProfileUser(username);
+  const userId = user._id;
 
   let events: any[] = [];
 
-  if (user.role === UserRole.Volunteer) {
+  if ((user.role as UserRole) === UserRole.Volunteer) {
     const registrations = await RegistrationModel.find({
       volunteerId: userId,
       status: RegistrationStatus.APPROVED
@@ -727,7 +693,7 @@ export const getUserEventsService = async (username: string) => {
         .select(PROFILE_EVENT_FIELDS)
         .lean();
     }
-  } else if (user.role === UserRole.Manager) {
+  } else if ((user.role as UserRole) === UserRole.Manager) {
     events = await EventModel.find({ managerId: userId })
       .select(PROFILE_EVENT_FIELDS)
       .lean();
@@ -737,20 +703,46 @@ export const getUserEventsService = async (username: string) => {
 };
 
 export const getUserFriendsListService = async (username: string) => {
-  const user = await UserModel.findOne({ username, isActive: true })
-    .select('_id role friends')
-    .populate({
-      path: 'friends',
-      select: 'username name profilePicture role'
-    })
-    .lean();
+  await findViewableProfileUser(username);
 
-  if (!user) {
-    throw new AppError('User not found or deactivated', 404);
-  }
-  if (user.role === UserRole.Admin) {
-    throw new AppError('Access to admin profiles is forbidden', 403);
-  }
+  // Friends arrive with the social ticket (09).
+  return [];
+};
 
-  return (user as any).friends || [];
+// Seeds a single admin from env, and only while no admin exists yet. With the
+// two vars unset (the default) it does nothing.
+export const seedAdminUser = async (): Promise<void> => {
+  try {
+    const { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } = process.env;
+
+    if (!SEED_ADMIN_EMAIL || !SEED_ADMIN_PASSWORD) {
+      console.log('SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD not set. Admin seeding skipped.');
+      return;
+    }
+
+    const [adminExists] = await db.select({ id: users.id }).from(users).where(eq(users.role, UserRole.Admin)).limit(1);
+
+    if (adminExists) {
+      console.log('Admin user already exists. Seeding skipped.');
+      return;
+    }
+
+    const email = normalizeEmail(SEED_ADMIN_EMAIL);
+
+    await db.insert(users).values({
+      username: email.split('@')[0] || 'admin',
+      email,
+      passwordHash: await hashPassword(SEED_ADMIN_PASSWORD),
+      name: 'Administrator',
+      birthdate: new Date('1990-01-01'),
+      role: UserRole.Admin,
+      isVerified: true,
+      isActive: true,
+      authProvider: 'local',
+    });
+
+    console.log(`Admin user seeded: ${email}`);
+  } catch (error) {
+    console.error('Error seeding Admin user:', error);
+  }
 };
