@@ -45,7 +45,9 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    # Prometheus metrics are at backend:5000/metrics on the compose network only.
+    # Prometheus metrics are at :5000/metrics. The VM's Alloy agent scrapes
+    # them as volunteerhub-prod-backend-1:5000 over the proxy network, so a
+    # project or service rename needs its config (VM repo, alloy/) updated too.
     # The Traefik router below matches /api and /uploads, so /metrics is never
     # routed (and the app refuses it when X-Forwarded-For is set anyway).
     networks:
