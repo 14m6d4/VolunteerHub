@@ -33,6 +33,14 @@ const app: Application = express();
 // CF-Connecting-IP instead - see middlewares/rateLimit.middleware.ts.
 app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0));
 
+// First, so every request - including ones rejected by CORS or the body
+// parser - gets a request ID, a log line and a metrics sample (a health 503
+// is the 5xx the alert must see). Health and scrapes are kept out of the log
+// only; /metrics is registered ahead of httpMetrics so scrapes aren't counted.
+app.use(requestLogger);
+app.get('/metrics', metricsHandler);
+app.use(httpMetrics);
+
 app.use(helmet({
     // The API serves JSON and redirects only; the SPA is served by nginx, which
     // sets its own headers. CSP here would apply to neither.
@@ -66,9 +74,6 @@ app.use('/api/users/profile/secure', express.json({ limit: '8mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
-// Counted in the metrics (a 503 here is the 5xx the alert must see) but
-// registered before the request logger so the Docker healthcheck doesn't log every 30s.
-app.use(httpMetrics);
 app.get('/api/health', async (req, res) => {
     try {
         await db.execute(sql`select 1`);
@@ -78,10 +83,6 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
-// Also before the logger and metrics, so scrapes don't count as traffic.
-app.get('/metrics', metricsHandler);
-
-app.use(requestLogger);
 app.use(passport.initialize());
 
 app.use('/api/auth', authRoutes);

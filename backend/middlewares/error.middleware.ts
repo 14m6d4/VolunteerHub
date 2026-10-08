@@ -24,7 +24,11 @@ export default function errorHandler(err: unknown, req: Request, res: Response, 
   }
 
   // req.log carries the request ID; without this a 500 leaves no log line at all.
-  if (statusCode >= 500) req.log.error({ err }, message);
+  // Only message and stack: driver errors carry the query and its parameters
+  // (emails, hashes), which pino's default error serializer would write out.
+  if (statusCode >= 500) {
+    req.log.error({ err: err instanceof Error ? { message: err.message, stack: err.stack } : { message } }, message);
+  }
 
   const payload: any = {
     status,

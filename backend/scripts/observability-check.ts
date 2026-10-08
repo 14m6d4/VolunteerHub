@@ -44,6 +44,12 @@ await check('an unsafe incoming request ID is replaced', async () => {
     assert.ok(id && id !== 'bad id with spaces');
 });
 
+await check('an error raised before the routes (CORS) still gets an ID and a JSON body', async () => {
+    const res = await fetch(`${base}/api/events`, { headers: { Origin: 'https://evil.example' } });
+    assert.ok(res.headers.get('x-request-id'));
+    assert.equal((await res.json() as { status: string }).status, 'error');
+});
+
 await check('metrics expose default process metrics', async () => {
     assert.match(await metrics(), /^process_cpu_user_seconds_total /m);
 });

@@ -12,6 +12,8 @@ const SAFE_ID = /^[\w.-]{1,128}$/;
 
 export const requestLogger = pinoHttp({
     logger,
+    // Probes and scrapes every few seconds would drown real traffic.
+    autoLogging: { ignore: (req) => req.url === '/api/health' || req.url === '/metrics' },
     // The default serializers dump every header, Authorization included, into
     // the logs. Keep only what is needed to follow a request; the query string
     // is dropped too (OAuth codes, tokens).
