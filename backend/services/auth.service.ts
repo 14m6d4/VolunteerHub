@@ -94,6 +94,8 @@ export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
     throw new AppError('Email or username already in use.', 409); // Conflict
   }
 
+  // Temporary switch for when email can't be delivered: accounts start verified and no code is sent.
+  const skipOtp = process.env.DISABLE_EMAIL_OTP === 'true';
   const otpCode = generateOTP();
 
   let row;
@@ -104,9 +106,8 @@ export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
       passwordHash: await hashPassword(password),
       birthdate: new Date(birthdate),
       role: role || UserRole.Volunteer,
-      isVerified: false,
-      otp: otpCode,
-      otpExpiresAt: getOTPExpiration(10),
+      isVerified: skipOtp,
+      ...(skipOtp ? {} : { otp: otpCode, otpExpiresAt: getOTPExpiration(10) }),
       ...(name ? { name } : {}),
     }).returning();
   } catch (err) {
@@ -116,7 +117,7 @@ export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
   }
 
   const user = toUser(row!);
-  sendVerificationEmail(user, otpCode);
+  if (!skipOtp) sendVerificationEmail(user, otpCode);
 
   return user;
 }

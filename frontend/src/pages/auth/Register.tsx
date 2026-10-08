@@ -15,9 +15,10 @@ export default function SignupPage() {
 
   const handleRegister = async (payload: { username: string; email: string; password: string; name?: string }) => {
     try {
-      await authService.register(payload)
+      const res = await authService.register(payload)
       setRegisteredEmail(payload.email)
-      setStep(2)
+      // The backend verifies at once when email OTP is switched off.
+      setStep((res?.data as { user?: { isVerified?: boolean } } | undefined)?.user?.isVerified ? 3 : 2)
       setSignupError(null)
     } catch (err) {
       console.error('Register failed', err)

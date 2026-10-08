@@ -37,6 +37,7 @@ export async function register(req: Request, res: Response, next: NextFunction):
           email: newUser.email,
           role: newUser.role,
           name: newUser.name || newUser.username,
+          isVerified: newUser.isVerified,
         }
       }
     });

@@ -75,6 +75,21 @@ const rowOf = async (id: string) => (await db.select().from(users).where(eq(user
 
 // --- sign-up, verification, login ----------------------------------------
 
+await check('DISABLE_EMAIL_OTP signs up verified, with no code to enter', async () => {
+  process.env.DISABLE_EMAIL_OTP = 'true';
+  try {
+    const reg = await call('POST', '/api/auth/register', {
+      username: uname('nootp'), email: mail('nootp'), password: PASSWORD, birthdate: '1995-05-05T00:00:00.000Z',
+    });
+    assert.equal(reg.status, 201, JSON.stringify(reg.data));
+    assert.equal(reg.data.data.user.isVerified, true);
+  } finally {
+    delete process.env.DISABLE_EMAIL_OTP;
+  }
+  const login = await call('POST', '/api/auth/login', { email: mail('nootp'), password: PASSWORD });
+  assert.equal(login.status, 200, JSON.stringify(login.data));
+});
+
 await check('register, verify OTP, log in and read /auth/me', async () => {
   const reg = await call('POST', '/api/auth/register', {
     username: uname('alice'), email: mail('alice'), password: PASSWORD,
