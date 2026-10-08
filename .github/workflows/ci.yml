@@ -40,13 +40,6 @@ jobs:
         working-directory: backend
     # Throwaway database for the security and authorization checks below.
     services:
-      mongo:
-        image: mongo:7
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1})'"
-          --health-interval 5s --health-timeout 5s --health-retries 12
       # Empty on every run: the migrations must build the schema from nothing.
       postgres:
         image: postgres:17-alpine
@@ -61,7 +54,6 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 12
     # Just enough for the app to boot; none of these are real credentials.
     env:
-      MONGO_URI: mongodb://localhost:27017/volunteerhub-ci
       DATABASE_URL: postgres://ci:ci@localhost:5432/volunteerhub
       JWT_SECRET: ci-only-not-a-secret
       GOOGLE_CLIENT_ID: ci-dummy
@@ -85,7 +77,13 @@ jobs:
           console.log('VAPID_PUBLIC_KEY=' + k.publicKey + '\nVAPID_PRIVATE_KEY=' + k.privateKey)"
           >> "$GITHUB_ENV"
       - run: npm run smoke:security
+      - run: npm run check:users
+      - run: npm run check:events
+      - run: npm run check:social
+      - run: npm run check:notifications
       - run: npm run check:authz
+      # Last, because it wipes the database: proves the demo dataset fits the schema.
+      - run: npm run db:seed
 
   frontend:
     if: ${{ !inputs.sha }}
@@ -198,13 +196,14 @@ jobs:
             # Both functions run as `if` conditions, where set -e is off: hence the && chains.
             # The checkout only supplies the compose file; images come from GHCR. Compose
             # reads .env, so manual compose commands on the VM get the tag too.
+            # --remove-orphans stops the retired mongo container so its volume can be removed.
             # --policy missing: a rollback reuses the known-good image still on disk.
             deploy() {
               echo "deploying $1" &&
               git checkout --force --detach "$1" &&
               echo "IMAGE_TAG=$1" > .env &&
               docker compose -f docker-compose.prod.yml pull --policy missing backend frontend &&
-              docker compose -f docker-compose.prod.yml up -d
+              docker compose -f docker-compose.prod.yml up -d --remove-orphans
             }
             # Runs here, not on the runner: the domain is proxied by Cloudflare, which
             # 403s GitHub Actions' datacenter IPs. The VM's own requests still egress to

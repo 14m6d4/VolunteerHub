@@ -1,6 +1,6 @@
 import express from "express";
 import { ReportService } from "../services/report.service.ts";
-import { ReportTargetType } from "../models/Report.model.ts";
+import { ReportTargetType } from "../types/report.ts";
 import { authMiddleware, type AuthenticatedRequest } from "../middlewares/auth.middleware.ts";
 import { roleMiddleware } from "../middlewares/role.middleware.ts";
 import { UserRole } from "../types/user.ts";
@@ -61,17 +61,15 @@ router.get("/admin/all", authMiddleware, async (req, res) => {
         let reports: any[] = [];
 
         if (user.role === 'admin') {
-            const filter: any = { targetType: { $in: [ReportTargetType.User, ReportTargetType.Event] } };
+            // Post reports are the managers' to handle.
+            const targetTypes = type === ReportTargetType.User || type === ReportTargetType.Event
+                ? [type]
+                : [ReportTargetType.User, ReportTargetType.Event];
 
-            if (status && status !== 'all') {
-                filter.status = status;
-            }
-
-            if (type && type !== 'all' && (type === ReportTargetType.User || type === ReportTargetType.Event)) {
-                filter.targetType = type;
-            }
-
-            reports = await ReportService.getAllReports(filter);
+            reports = await ReportService.getAllReports({
+                targetTypes,
+                ...(status && status !== 'all' ? { status: String(status) } : {}),
+            });
         } else if (user.role === 'manager') {
             reports = await ReportService.getReportsForManager(user._id.toString());
             if (status && status !== 'all') {
@@ -97,7 +95,7 @@ router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
         if (user.role !== UserRole.Admin) {
             const managerId = await EventService.getManagerId(eventId);
             if (!managerId) return res.status(404).json({ message: "Event not found" });
-            if (user.role !== UserRole.Manager || !managerId.equals(user._id)) {
+            if (user.role !== UserRole.Manager || managerId !== user._id) {
                 return res.status(403).json({ message: "Forbidden" });
             }
         }

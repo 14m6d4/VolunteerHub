@@ -1,18 +1,6 @@
 name: volunteerhub-prod
 
 services:
-  mongo:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Not used by the app yet (expand phase of the MongoDB -> PostgreSQL move).
   # No published port: only reachable on the compose network. POSTGRES_USER,
   # POSTGRES_PASSWORD and POSTGRES_DB come from backend/.env.
   postgres:
@@ -55,8 +43,6 @@ services:
       TRUST_PROXY: 1
     restart: unless-stopped
     depends_on:
-      mongo:
-        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     networks:
@@ -84,7 +70,6 @@ services:
       - "traefik.http.services.vh-web.loadbalancer.server.port=80"
 
 volumes:
-  mongo-data:
   pg-data:
 
 networks:

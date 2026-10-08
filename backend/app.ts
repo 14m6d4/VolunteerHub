@@ -5,8 +5,9 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import mongoose from "mongoose";
+import { sql } from "drizzle-orm";
 import type { Application } from "express";
+import { db } from "./db/client.ts";
 import authRoutes from './routes/auth.routes.ts'
 import eventRoutes from "./routes/event.routes.ts";
 import discussionRoutes from "./routes/discussion.routes.ts";
@@ -68,7 +69,7 @@ app.use(express.urlencoded({ limit: '1mb', extended: true }));
 // Registered before morgan so the Docker healthcheck doesn't log every 30s.
 app.get('/api/health', async (req, res) => {
     try {
-        await mongoose.connection.db!.admin().ping();
+        await db.execute(sql`select 1`);
         res.json({ status: 'ok' });
     } catch {
         res.status(503).json({ status: 'error', message: 'database unreachable' });

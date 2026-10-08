@@ -1,14 +1,6 @@
 name: volunteerhub-dev
 
 services:
-  mongo:
-    image: mongo:7
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-
   # Dev-only credentials. Matches DATABASE_URL in backend/.env.example.
   postgres:
     image: postgres:17-alpine
@@ -40,7 +32,8 @@ services:
       - ./backend:/app
       - /app/node_modules
     depends_on:
-      - mongo
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:
@@ -57,5 +50,4 @@ services:
       - backend
 
 volumes:
-  mongo-data:
   pg-data:

@@ -1,7 +1,16 @@
-import type { Types } from 'mongoose';
-import NotificationModel, { NotificationType, type INotification } from '../models/Notification.model.ts';
+import { and, desc, eq } from 'drizzle-orm';
+import { db } from '../db/client.ts';
+import { notifications, users } from '../db/schema.ts';
+import { NotificationType } from '../types/notification.ts';
 import { WebPushService } from "./webpush.service.ts";
 import AppError from '../utils/appError.ts';
+import { isUuid, toLean } from '../utils/user.util.ts';
+
+/** Row -> the shape the API has always returned (see toUser): `user` and `actor` are ids, or a populated actor. */
+const toNotification = (row: typeof notifications.$inferSelect, actor?: unknown) => {
+	const { userId, actorId, ...rest } = row;
+	return { ...toLean(rest), user: userId, ...(actorId ? { actor: actor ?? actorId } : {}) };
+};
 
 export async function createNotification(payload: {
 	userId: string;
@@ -11,67 +20,72 @@ export async function createNotification(payload: {
 	body?: string;
 	data?: Record<string, any>;
 }) {
-	const doc = await NotificationModel.create({
-		user: payload.userId,
-		...(payload.actorId ? { actor: payload.actorId } : {}),
+	const [row] = await db.insert(notifications).values({
+		userId: payload.userId,
+		actorId: payload.actorId ?? null,
 		type: payload.type,
 		title: payload.title,
-		...(payload.body ? { body: payload.body } : {}),
-		...(payload.data ? { data: payload.data } : {}),
-	});
-	return doc;
+		body: payload.body ?? null,
+		data: payload.data ?? null,
+	}).returning();
+	return toNotification(row!);
 }
 
 export async function getNotificationsForUser(userId: string, opts: { skip?: number; limit?: number } = {}) {
 	const skip = opts.skip || 0;
 	const limit = Math.min(opts.limit || 20, 100);
-	const docs = await NotificationModel.find({ user: userId })
-		.sort({ createdAt: -1 })
-		.skip(skip)
-		.limit(limit)
-		.populate('actor', 'name username profilePicture')
-		.lean();
-	return docs;
+	const rows = await db.select({
+		notification: notifications,
+		actor: { id: users.id, name: users.name, username: users.username, profilePicture: users.profilePicture },
+	}).from(notifications)
+		.leftJoin(users, eq(users.id, notifications.actorId))
+		.where(eq(notifications.userId, userId))
+		.orderBy(desc(notifications.createdAt), desc(notifications.id))
+		.limit(limit).offset(skip);
+	return rows.map((r) => toNotification(r.notification, r.actor?.id ? toLean(r.actor) : undefined));
 }
 
 export async function countUnreadNotifications(userId: string) {
-	return NotificationModel.countDocuments({ user: userId, isRead: false });
+	return db.$count(notifications, and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
 }
 
 export async function markAsRead(notificationId: string, userId: string) {
-	const doc = await NotificationModel.findOneAndUpdate(
-		{ _id: notificationId, user: userId },
-		{ isRead: true },
-		{ new: true }
-	);
-	if (!doc) throw new AppError('Notification not found', 404);
-	return doc;
+	const [row] = isUuid(notificationId)
+		? await db.update(notifications).set({ isRead: true, updatedAt: new Date() })
+			.where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId))).returning()
+		: [];
+	if (!row) throw new AppError('Notification not found', 404);
+	return toNotification(row);
 }
 
 export async function markAllRead(userId: string) {
-	await NotificationModel.updateMany({ user: userId, isRead: false }, { isRead: true });
+	await db.update(notifications).set({ isRead: true, updatedAt: new Date() })
+		.where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
 	return true;
 }
 
 export async function deleteNotification(notificationId: string, userId: string) {
-	const doc = await NotificationModel.findOneAndDelete({ _id: notificationId, user: userId });
-	if (!doc) throw new AppError('Notification not found', 404);
-	return doc;
+	const [row] = isUuid(notificationId)
+		? await db.delete(notifications)
+			.where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId))).returning()
+		: [];
+	if (!row) throw new AppError('Notification not found', 404);
+	return toNotification(row);
 }
 
 export async function deleteAllNotifications(userId: string) {
-	await NotificationModel.deleteMany({ user: userId });
+	await db.delete(notifications).where(eq(notifications.userId, userId));
 	return true;
 }
 
 export const NotificationService = {
-	async notify(userId: string | Types.ObjectId, { title, body, data, type }: any) {
+	async notify(userId: string, { title, body, data, type }: any) {
 		try {
-			await NotificationModel.create({
-				user: userId,
+			await db.insert(notifications).values({
+				userId,
 				title,
-				body,
-				data,
+				body: body ?? null,
+				data: data ?? null,
 				type
 			});
 		} catch (error) {

@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 import app from "./app.ts";
 import { connectDB } from "./config/db.ts";
-import { EventService } from "./services/event.service.ts";
 
 dotenv.config();
 
@@ -11,10 +10,6 @@ const BACKEND_URL: string = process.env.BACKEND_URL || "";
 const startServer = async (): Promise<void> => {
     try {
         await connectDB();
-
-        console.log("Syncing Event indexes...");
-        await EventService.syncIndexes();
-        console.log("Event indexes synced.");
 
         app.listen(PORT, () => {
             console.log(`Server listening on port ${PORT} in ${process.env.NODE_ENV} mode.`);

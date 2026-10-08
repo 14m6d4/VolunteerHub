@@ -1,13 +1,28 @@
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm';
 import type { UpdateProfileData, IUser } from '../types/user.ts';
 import { UserRole } from '../types/user.ts';
-import UserModel from '../models/User.model.ts';
 import AppError from '../utils/appError.ts';
-import { EventModel, EventStatus } from '../models/Event.model.ts';
-import { RegistrationModel, RegistrationStatus } from '../models/Registration.model.ts';
-import { ReportModel, ReportTargetType } from '../models/Report.model.ts';
-import FriendRequestModel, { FriendRequestStatus } from '../models/FriendRequest.model.ts';
+import { db } from '../db/client.ts';
+import { events, friendRequests, friendships, registrations, users } from '../db/schema.ts';
+import { EventStatus } from '../types/event.ts';
+import { RegistrationStatus } from '../types/registration.ts';
 import * as notificationService from './notification.service.ts';
-import { NotificationType } from '../models/Notification.model.ts';
+import { NotificationType } from '../types/notification.ts';
+import { comparePassword, hashPassword } from '../utils/password.util.ts';
+import { isUniqueViolation, isUuid, normalizeEmail, toLean, toUser } from '../utils/user.util.ts';
+import { containsPattern } from '../utils/sql.util.ts';
+import { areFriends, friendIdsOf, friendPair, involving, listFriends } from '../utils/friend.util.ts';
+
+const getRow = async (id: string) => {
+  if (!isUuid(id)) return undefined;
+  const [row] = await db.select().from(users).where(eq(users.id, id));
+  return row;
+};
+
+export const findUserById = async (id: string): Promise<IUser | null> => {
+  const row = await getRow(id);
+  return row ? toUser(row) : null;
+};
 
 export async function updateProfileWithPasswordCheck(
   userId: string,
@@ -15,7 +30,7 @@ export async function updateProfileWithPasswordCheck(
   updateData: UpdateProfileData
 ): Promise<IUser> {
 
-  const user = await UserModel.findById(userId).select('+passwordHash');
+  const user = await getRow(userId);
 
   if (!user) {
     throw new AppError('User not found', 404);
@@ -27,8 +42,7 @@ export async function updateProfileWithPasswordCheck(
     if (!currentPassword) {
       throw new AppError('Current password is required to change password', 400);
     }
-    const isMatch = await user.comparePassword(currentPassword);
-    if (!isMatch) {
+    if (!(await comparePassword(currentPassword, user.passwordHash))) {
       throw new AppError('Incorrect current password', 401);
     }
   }
@@ -38,84 +52,53 @@ export async function updateProfileWithPasswordCheck(
   }
 
   if (updateData.username && updateData.username !== user.username) {
-    const existingUser = await UserModel.findOne({ username: updateData.username });
+    const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.username, updateData.username));
     if (existingUser) {
       throw new AppError('Username already taken', 400);
     }
   }
 
-  const validUpdates: any = { ...updateData };
+  const input: any = updateData;
+  const changes: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
 
-  if (validUpdates.birthdate && typeof validUpdates.birthdate === 'string') {
-    const d = new Date(validUpdates.birthdate);
+  if (input.username !== undefined) changes.username = input.username;
+  if (input.name !== undefined) changes.name = input.name;
+  if (input.notificationsEnabled !== undefined) changes.notificationsEnabled = input.notificationsEnabled;
+  if (input.notifyOnMention !== undefined) changes.notifyOnMention = input.notifyOnMention;
+  if (input.notifyOnEventUpdate !== undefined) changes.notifyOnEventUpdate = input.notifyOnEventUpdate;
+
+  if (input.birthdate) {
+    const d = new Date(input.birthdate);
     if (isNaN(d.getTime())) {
       throw new AppError('Invalid birthdate format', 400);
     }
-    validUpdates.birthdate = d;
+    changes.birthdate = d;
   }
 
-  if (Object.prototype.hasOwnProperty.call(validUpdates, 'profilePicture') && validUpdates.profilePicture === '') {
-    validUpdates.profilePicture = undefined;
+  if (input.profilePicture !== undefined) {
+    changes.profilePicture = input.profilePicture === '' ? null : input.profilePicture;
   }
 
-  if (validUpdates.password) {
-    const newPassword = validUpdates.password;
-    delete validUpdates.password;
-
-    try {
-      if (Object.keys(validUpdates).length > 0) {
-        await UserModel.findByIdAndUpdate(
-          userId,
-          { $set: validUpdates },
-          { new: true, runValidators: true }
-        );
-      }
-
-      const userForPassword = await UserModel.findById(userId).select('+passwordHash');
-      if (!userForPassword) {
-        throw new AppError('User not found after update', 500);
-      }
-
-      userForPassword.passwordHash = newPassword;
-      await userForPassword.save();
-
-      const updatedUser = await UserModel.findById(userId)
-        .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt')
-        .exec();
-
-      if (!updatedUser) {
-        throw new AppError('User not found after password update', 500);
-      }
-
-      return updatedUser as IUser;
-
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      console.error('Database error during password update:', error);
-      throw new AppError('Failed to update password', 500);
-    }
+  if (input.password) {
+    changes.passwordHash = await hashPassword(input.password);
   }
 
   try {
-    const updatedUser = await UserModel.findByIdAndUpdate(
-      userId,
-      { $set: validUpdates },
-      { new: true, runValidators: true }
-    )
-      .select('-passwordHash -__v -authProvider -refreshToken -otp -otpExpiresAt')
-      .exec();
+    const [updated] = await db.update(users).set(changes).where(eq(users.id, userId)).returning();
 
-    if (!updatedUser) {
+    if (!updated) {
       throw new AppError('User not found after update', 500);
     }
 
-    return updatedUser as IUser;
+    const { authProvider, ...profile } = toUser(updated);
+    return profile as IUser;
 
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
+    }
+    if (isUniqueViolation(error)) {
+      throw new AppError('Username already taken', 400);
     }
     console.error('Database error during secure profile update:', error);
     throw new AppError('Failed to update profile due to invalid data or server error', 500);
@@ -133,20 +116,13 @@ const DEFAULT_BIRTHDATE = new Date('2000-01-01');
 export async function findOrCreateByGoogleId(
   profileData: GoogleProfileData
 ): Promise<IUser> {
-  const { email, name, googleId } = profileData;
+  const { name, googleId } = profileData;
+  const email = normalizeEmail(profileData.email);
 
-  let user = await UserModel.findOne({
-    $or: [{ googleId }, { email }],
-  })
-    .select('-passwordHash -__v -refreshToken -otp -otpExpiresAt')
-    .exec();
+  const [found] = await db.select().from(users).where(or(eq(users.googleId, googleId), eq(users.email, email)));
 
-  if (user) {
-
-    if (user.authProvider === 'local' && !user.googleId) {
-    }
-
-    return user as IUser;
+  if (found) {
+    return toUser(found);
   }
 
   try {
@@ -154,7 +130,7 @@ export async function findOrCreateByGoogleId(
 
     const uniqueUsername = await generateUniqueUsername(baseUsername);
 
-    const newUser = await UserModel.create({
+    const [created] = await db.insert(users).values({
       email,
       name,
       googleId,
@@ -162,17 +138,9 @@ export async function findOrCreateByGoogleId(
       authProvider: 'google',
       isVerified: true,
       birthdate: DEFAULT_BIRTHDATE,
-    });
+    }).returning();
 
-    const sanitizedUser = await UserModel.findById(newUser._id)
-      .select('-passwordHash -__v -refreshToken -otp -otpExpiresAt')
-      .exec();
-
-    if (!sanitizedUser) {
-      throw new AppError('Failed to create user but database operation reported success', 500);
-    }
-
-    return sanitizedUser as IUser;
+    return toUser(created!);
 
   } catch (error) {
     if (error instanceof AppError) throw error;
@@ -188,7 +156,7 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
 
 
   while (!isUnique && attempts < 5) {
-    const userExists = await UserModel.exists({ username });
+    const [userExists] = await db.select({ id: users.id }).from(users).where(eq(users.username, username));
 
     if (!userExists) {
       isUnique = true;
@@ -206,93 +174,81 @@ async function generateUniqueUsername(baseUsername: string): Promise<string> {
   return username;
 }
 
-/**
- * User input goes into $regex in a few places. Unescaped, a crafted pattern is
- * both a filter bypass and a ReDoS - the user search endpoint is public, so the
- * input is anonymous. Escaping turns the value back into a literal substring.
- */
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 export const searchUsersService = async (query: string, limit: number = 10) => {
-  const safe = escapeRegex(String(query ?? ''));
-  return await UserModel.find({
-    $or: [
-      { username: { $regex: safe, $options: 'i' } },
-      { name: { $regex: safe, $options: 'i' } }
-    ],
-    isActive: true,
-    isBanned: false
-  })
-    .select('username name profilePicture role')
-    .limit(limit)
-    .lean();
+  const pattern = containsPattern(query);
+  const rows = await db.select({
+    id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture, role: users.role,
+  }).from(users)
+    .where(and(
+      or(ilike(users.username, pattern), ilike(users.name, pattern)),
+      eq(users.isActive, true),
+      eq(users.isBanned, false),
+    ))
+    .limit(limit);
+  return rows.map(toLean);
 };
 
 export const addFriendService = async (userId: string, friendId: string) => {
   if (userId === friendId) throw new AppError('Cannot add yourself', 400);
+  if (!(await getRow(friendId))) throw new AppError('User not found', 404);
+  if (await areFriends(userId, friendId)) throw new AppError('Already friends', 400);
 
-  const user = await UserModel.findById(userId);
-  if (user?.friends?.includes(friendId as any)) {
-    throw new AppError('Already friends', 400);
-  }
-
-  await UserModel.findByIdAndUpdate(userId, { $addToSet: { friends: friendId } });
-  await UserModel.findByIdAndUpdate(friendId, { $addToSet: { friends: userId } });
-
+  await db.insert(friendships).values(friendPair(userId, friendId)).onConflictDoNothing();
   return { success: true };
 };
 
 export const removeFriendService = async (userId: string, friendId: string) => {
   if (userId === friendId) throw new AppError('Cannot remove yourself', 400);
 
-  const user = await UserModel.findById(userId);
-  if (!user) throw new AppError('User not found', 404);
-
-  if (!((user as any).friends || []).map((f: any) => f.toString()).includes(friendId)) {
-    throw new AppError('Not friends', 400);
-  }
-
-  await UserModel.findByIdAndUpdate(userId, { $pull: { friends: friendId } });
-  await UserModel.findByIdAndUpdate(friendId, { $pull: { friends: userId } });
-
+  const pair = friendPair(userId, friendId);
+  const removed = isUuid(friendId)
+    ? await db.delete(friendships)
+      .where(and(eq(friendships.userLow, pair.userLow), eq(friendships.userHigh, pair.userHigh)))
+      .returning({ userLow: friendships.userLow })
+    : [];
+  if (!removed.length) throw new AppError('Not friends', 400);
   return { success: true };
 };
 
-export const reportUserService = async (reporterId: string, targetId: string, reason: string, description?: string) => {
-  return await ReportModel.create({
-    reporter: reporterId as any,
-    targetId: targetId as any,
-    targetType: ReportTargetType.User,
-    reason,
-    description
-  } as any);
+const FRIEND_COLUMNS = { id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture };
+
+/** Row -> the shape the API has always returned: sender/receiver are ids, or populated users. */
+const toFriendRequest = (row: typeof friendRequests.$inferSelect, populated?: { sender?: unknown; receiver?: unknown }) => {
+  const { senderId, receiverId, ...rest } = row;
+  return { ...toLean(rest), sender: senderId, receiver: receiverId, ...populated };
+};
+
+const getRequestRow = async (requestId: string) => {
+  if (!isUuid(requestId)) return undefined;
+  const [row] = await db.select().from(friendRequests).where(eq(friendRequests.id, requestId));
+  return row;
 };
 
 export const sendFriendRequestService = async (senderId: string, receiverId: string) => {
   if (senderId === receiverId) throw new AppError('Cannot add yourself', 400);
 
-  const sender = await UserModel.findById(senderId);
-  if (sender?.friends?.includes(receiverId as any)) {
-    throw new AppError('Already friends', 400);
+  const receiver = await getRow(receiverId);
+  if (!receiver) throw new AppError('User not found', 404);
+  if (await areFriends(senderId, receiverId)) throw new AppError('Already friends', 400);
+
+  const [existing] = await db.select().from(friendRequests)
+    .where(and(eq(friendRequests.senderId, senderId), eq(friendRequests.receiverId, receiverId)));
+  if (existing) {
+    if (existing.status === 'pending') throw new AppError('Request already sent', 400);
+    await db.delete(friendRequests).where(eq(friendRequests.id, existing.id));
   }
 
-  const existingRequest = await FriendRequestModel.findOne({
-    sender: senderId as any,
-    receiver: receiverId as any
-  });
-
-  if (existingRequest) {
-    if (existingRequest.status === FriendRequestStatus.Pending) {
-      throw new AppError('Request already sent', 400);
-    }
-    await FriendRequestModel.deleteOne({ _id: existingRequest._id });
+  let created;
+  try {
+    [created] = await db.insert(friendRequests).values({ senderId, receiverId }).returning();
+  } catch (err) {
+    // Two clicks at once: the unique (sender, receiver) pair lets only one through.
+    if (isUniqueViolation(err)) throw new AppError('Request already sent', 400);
+    throw err;
   }
-
-  const created = await FriendRequestModel.create({ sender: senderId as any, receiver: receiverId as any } as any);
 
   try {
-    const receiver = await UserModel.findById(receiverId).select('notificationsEnabled');
-    if (receiver && (receiver as any).notificationsEnabled !== false) {
+    if (receiver.notificationsEnabled) {
       await notificationService.createNotification({
         userId: receiverId,
         actorId: senderId,
@@ -306,30 +262,32 @@ export const sendFriendRequestService = async (senderId: string, receiverId: str
     console.error('Failed to create friend request notification:', err);
   }
 
-  return created;
+  return toFriendRequest(created!);
 };
 
 export const acceptFriendRequestService = async (requestId: string, currentUserId: string) => {
-  const request = await FriendRequestModel.findById(requestId);
+  const request = await getRequestRow(requestId);
 
-  if (!request || request.receiver.toString() !== currentUserId) {
+  if (!request || request.receiverId !== currentUserId) {
     throw new AppError('Request not found or unauthorized', 404);
   }
 
-  if (request.status !== FriendRequestStatus.Pending) {
+  if (request.status !== 'pending') {
     throw new AppError('Request is no longer pending', 400);
   }
 
-  request.status = FriendRequestStatus.Accepted;
-  await request.save();
-
-  await UserModel.findByIdAndUpdate(request.sender, { $addToSet: { friends: request.receiver } });
-  await UserModel.findByIdAndUpdate(request.receiver, { $addToSet: { friends: request.sender } });
+  await db.transaction(async (tx) => {
+    const accepted = await tx.update(friendRequests)
+      .set({ status: 'accepted', updatedAt: new Date() })
+      .where(and(eq(friendRequests.id, request.id), eq(friendRequests.status, 'pending')))
+      .returning({ id: friendRequests.id });
+    if (!accepted.length) throw new AppError('Request is no longer pending', 400);
+    await tx.insert(friendships).values(friendPair(request.senderId, request.receiverId)).onConflictDoNothing();
+  });
 
   try {
-    const sender = request.sender.toString();
     await notificationService.createNotification({
-      userId: sender,
+      userId: request.senderId,
       actorId: currentUserId,
       type: NotificationType.FRIEND_REQUEST_ACCEPTED,
       title: 'Friend request accepted',
@@ -344,60 +302,52 @@ export const acceptFriendRequestService = async (requestId: string, currentUserI
 };
 
 export const listIncomingFriendRequestsService = async (userId: string) => {
-  return await FriendRequestModel.find({ receiver: userId, status: FriendRequestStatus.Pending })
-    .populate('sender', 'username name profilePicture')
-    .lean();
+  const rows = await db.select({ request: friendRequests, sender: FRIEND_COLUMNS }).from(friendRequests)
+    .innerJoin(users, eq(users.id, friendRequests.senderId))
+    .where(and(eq(friendRequests.receiverId, userId), eq(friendRequests.status, 'pending')))
+    .orderBy(asc(friendRequests.createdAt), asc(friendRequests.id));
+  return rows.map((r) => toFriendRequest(r.request, { sender: toLean(r.sender) }));
 };
 
-export const listFriendsService = async (userId: string) => {
-  const doc = await UserModel.findById(userId)
-    .select('friends')
-    .populate({ path: 'friends', select: 'username name profilePicture' })
-    .lean();
-
-  return (doc && (doc as any).friends) || [];
-};
-
+export const listFriendsService = (userId: string) => listFriends(userId);
 
 export const getRelationsForTargets = async (userId: string, targets: string[]) => {
-  const user = await UserModel.findById(userId).select('friends').lean();
-  const friendSet = new Set(
-    ((user && (user as any).friends) || []).map((id: any) => id.toString())
-  );
+  const friendSet = new Set(await friendIdsOf(userId));
+  const ids = targets.filter(isUuid);
 
-  const pending = await FriendRequestModel.find({
-    $or: [
-      { sender: userId as any, receiver: { $in: targets as any }, status: FriendRequestStatus.Pending },
-      { receiver: userId as any, sender: { $in: targets as any }, status: FriendRequestStatus.Pending }
-    ]
-  } as any).lean();
+  const pending = ids.length ? await db.select().from(friendRequests).where(and(
+    eq(friendRequests.status, 'pending'),
+    or(
+      and(eq(friendRequests.senderId, userId), inArray(friendRequests.receiverId, ids)),
+      and(eq(friendRequests.receiverId, userId), inArray(friendRequests.senderId, ids)),
+    ),
+  )) : [];
 
   const map: Record<string, string> = {};
-  for (const t of targets) {
-    if (friendSet.has(t)) map[t] = 'friends';
-    else map[t] = 'none';
-  }
+  for (const t of targets) map[t] = friendSet.has(t) ? 'friends' : 'none';
 
   for (const p of pending) {
-    const s = p.sender.toString();
-    const r = p.receiver.toString();
-    if (s === userId) map[r] = 'pending_sent';
-    if (r === userId) map[s] = 'pending_received';
+    if (p.senderId === userId) map[p.receiverId] = 'pending_sent';
+    if (p.receiverId === userId) map[p.senderId] = 'pending_received';
   }
 
   return map;
 };
 
 export const banUserService = async (userId: string, reason?: string, until?: Date) => {
-  const user = await UserModel.findById(userId);
-  if (!user) throw new AppError('User not found', 404);
+  const changes: Partial<typeof users.$inferInsert> = { isBanned: true, updatedAt: new Date() };
+  if (reason) changes.bannedReason = reason;
+  if (until) changes.bannedUntil = until;
 
-  user.isBanned = true;
-  if (reason) (user as any).bannedReason = reason;
-  if (until) (user as any).bannedUntil = until;
+  const [row] = isUuid(userId) ? await db.update(users).set(changes).where(eq(users.id, userId)).returning() : [];
+  if (!row) throw new AppError('User not found', 404);
+  return toUser(row);
+};
 
-  await user.save();
-  return user;
+const BANNED_LIST_COLUMNS = {
+  id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture,
+  role: users.role, isBanned: users.isBanned, bannedReason: users.bannedReason,
+  bannedUntil: users.bannedUntil, email: users.email,
 };
 
 export const adminSearchUsers = async (filters: {
@@ -411,240 +361,210 @@ export const adminSearchUsers = async (filters: {
 }) => {
   const { q, role, status, sortBy = 'createdAt', sortOrder = 'desc', page = 1, limit = 10 } = filters;
 
-  const query: any = {};
+  const conditions = [];
 
   if (q) {
-    const safe = escapeRegex(String(q));
-    query.$or = [
-      { username: { $regex: safe, $options: 'i' } },
-      { name: { $regex: safe, $options: 'i' } },
-      { email: { $regex: safe, $options: 'i' } }
-    ];
+    const pattern = containsPattern(q);
+    conditions.push(or(ilike(users.username, pattern), ilike(users.name, pattern), ilike(users.email, pattern)));
   }
 
-  // Query-string values arrive as arbitrary shapes: ?role[$ne]=admin parses to
-  // an object, which would reach the filter as a Mongo operator. Only accept a
+  // Query-string values arrive as arbitrary shapes (?role[]=x), so only accept a
   // known role name.
-  if (role && role !== 'all' && Object.values(UserRole).includes(role as UserRole)) {
-    query.role = role;
+  if (role && role !== 'all' && (users.role.enumValues as readonly string[]).includes(role)) {
+    conditions.push(eq(users.role, role as UserRole));
   }
 
   if (status && status !== 'all') {
-    if (status === 'banned') query.isBanned = true;
-    else if (status === 'active') query.isBanned = false;
+    if (status === 'banned') conditions.push(eq(users.isBanned, true));
+    else if (status === 'active') conditions.push(eq(users.isBanned, false));
   }
 
-  // Same reasoning for sortBy, which is used as an object key.
-  const SORTABLE = ['createdAt', 'username', 'name', 'email', 'role'];
-  const sort: any = {};
-  sort[SORTABLE.includes(sortBy) ? sortBy : 'createdAt'] = sortOrder === 'asc' ? 1 : -1;
+  // Same reasoning for sortBy: it picks a column, it is never used as SQL.
+  const SORTABLE = { createdAt: users.createdAt, username: users.username, name: users.name, email: users.email, role: users.role } as const;
+  // The role enum sorts by declaration order; the API has always sorted alphabetically.
+  const ROLE_ALPHABETICAL = sql`case ${users.role} when 'admin' then 0 when 'manager' then 1 else 2 end`;
+  const sortColumn = sortBy === 'role' ? ROLE_ALPHABETICAL : SORTABLE[sortBy as keyof typeof SORTABLE] ?? users.createdAt;
+  const direction = sortOrder === 'asc' ? asc : desc;
 
-  const skip = (page - 1) * limit;
+  const where = and(...conditions);
 
-  const [users, total] = await Promise.all([
-    UserModel.find(query)
-      .select('username name profilePicture role isBanned bannedReason bannedUntil email createdAt isActive')
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    UserModel.countDocuments(query)
+  const [rows, total] = await Promise.all([
+    db.select({ ...BANNED_LIST_COLUMNS, createdAt: users.createdAt, isActive: users.isActive }).from(users)
+      .where(where)
+      .orderBy(direction(sortColumn), asc(users.id)) // id breaks ties so pages don't shuffle
+      .offset((page - 1) * limit)
+      .limit(limit),
+    db.$count(users, where),
   ]);
 
-  return { users, total, page, limit, totalPages: Math.ceil(total / limit) };
+  return { users: rows.map(toLean), total, page, limit, totalPages: Math.ceil(total / limit) };
 };
 
 export const createUserService = async (data: any) => {
-  const exists = await UserModel.findOne({ $or: [{ username: data.username }, { email: data.email }] });
+  const email = normalizeEmail(data.email);
+
+  const [exists] = await db.select({ id: users.id }).from(users)
+    .where(or(eq(users.username, data.username), eq(users.email, email)));
   if (exists) throw new AppError('Username or email already exists', 400);
 
-  if (data.password) {
-    data.passwordHash = data.password;
-    delete data.password;
+  try {
+    const [row] = await db.insert(users).values({
+      username: data.username,
+      email,
+      passwordHash: await hashPassword(data.password),
+      name: data.name,
+      role: data.role,
+      birthdate: new Date(data.birthdate ?? DEFAULT_BIRTHDATE),
+      isActive: true,
+      isVerified: true,
+    }).returning();
+    return toUser(row!);
+  } catch (err) {
+    if (isUniqueViolation(err)) throw new AppError('Username or email already exists', 400);
+    throw err;
   }
-
-  if (!data.birthdate) {
-    data.birthdate = new Date('2000-01-01');
-  }
-
-  const user = await UserModel.create({
-    ...data,
-    isActive: true,
-    isVerified: true
-  });
-
-  return user;
 }
 
 export const deleteUserService = async (userId: string) => {
-  const user = await UserModel.findByIdAndDelete(userId);
-  if (!user) throw new AppError('User not found', 404);
+  const [row] = isUuid(userId)
+    ? await db.delete(users).where(eq(users.id, userId)).returning({ id: users.id })
+    : [];
+  if (!row) throw new AppError('User not found', 404);
   return { success: true };
 }
 
 export const updateUserAdminService = async (userId: string, data: any) => {
-  if (data.password === '' || data.password === undefined) {
-    delete data.password;
+  if (!(await getRow(userId))) throw new AppError('User not found', 404);
+
+  const email = data.email ? normalizeEmail(data.email) : undefined;
+
+  const clashes = [];
+  if (data.username) clashes.push(eq(users.username, data.username));
+  if (email) clashes.push(eq(users.email, email));
+
+  if (clashes.length > 0) {
+    const [exists] = await db.select({ id: users.id }).from(users).where(and(ne(users.id, userId), or(...clashes)));
+    if (exists) throw new AppError('Username or email already in use', 400);
   }
 
-  if (data.username || data.email) {
-    const query: any = { _id: { $ne: userId }, $or: [] };
-    if (data.username) query.$or.push({ username: data.username });
-    if (data.email) query.$or.push({ email: data.email });
+  const changes: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+  if (data.username !== undefined) changes.username = data.username;
+  if (email !== undefined) changes.email = email;
+  if (data.name !== undefined) changes.name = data.name;
+  if (data.role !== undefined) changes.role = data.role;
+  if (data.isActive !== undefined) changes.isActive = data.isActive;
+  if (data.birthdate !== undefined) changes.birthdate = new Date(data.birthdate);
+  if (data.password) changes.passwordHash = await hashPassword(data.password);
 
-    if (query.$or.length > 0) {
-      const exists = await UserModel.findOne(query);
-      if (exists) throw new AppError('Username or email already in use', 400);
-    }
-  }
-
-  if (data.password) {
-    const user = await UserModel.findById(userId);
-    if (!user) throw new AppError('User not found', 404);
-
-    user.passwordHash = data.password;
-
-    const { password, ...otherData } = data;
-    Object.assign(user, otherData);
-
-    await user.save();
-    return user;
-  } else {
-    const user = await UserModel.findByIdAndUpdate(userId, data, { new: true, runValidators: true });
-    if (!user) throw new AppError('User not found', 404);
-    return user;
+  try {
+    const [row] = await db.update(users).set(changes).where(eq(users.id, userId)).returning();
+    if (!row) throw new AppError('User not found', 404);
+    return toUser(row);
+  } catch (err) {
+    if (isUniqueViolation(err)) throw new AppError('Username or email already in use', 400);
+    throw err;
   }
 }
 
 export const getBannedUsers = async () => {
-  return await UserModel.find({ isBanned: true })
-    .select('username name profilePicture role isBanned bannedReason bannedUntil email')
-    .sort({ bannedUntil: 1 }) // Show closest unban date first (or just default sort)
-    .lean();
+  const rows = await db.select(BANNED_LIST_COLUMNS).from(users)
+    .where(eq(users.isBanned, true))
+    .orderBy(sql`${users.bannedUntil} asc nulls first`); // Show closest unban date first
+  return rows.map(toLean);
 };
 
 export const unbanUserService = async (userId: string) => {
-  const user = await UserModel.findById(userId);
-  if (!user) throw new AppError('User not found', 404);
-
-  user.isBanned = false;
-  (user as any).bannedReason = undefined;
-  (user as any).bannedUntil = undefined;
-
-  await user.save();
-  return user;
+  const [row] = isUuid(userId)
+    ? await db.update(users)
+      .set({ isBanned: false, bannedReason: null, bannedUntil: null, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning()
+    : [];
+  if (!row) throw new AppError('User not found', 404);
+  return toUser(row);
 };
 
+// Candidates are everyone who is not an admin, banned, inactive, yourself or already a friend,
+// ranked by friends in common. ponytail: scans every friendship per call; index or cache if that grows.
 export const getFriendSuggestionsService = async (userId: string, limit: number = 10) => {
-  const currentUser = await UserModel.findById(userId).select('friends').lean();
-  if (!currentUser) throw new AppError('User not found', 404);
-
-  const myFriends = (currentUser as any).friends || [];
-
-  return await UserModel.aggregate([
-    {
-      $match: {
-        _id: {
-          $ne: currentUser._id,
-          $nin: myFriends
-        },
-        role: { $ne: 'admin' },
-        isActive: true,
-        isBanned: false
-      }
-    },
-    {
-      $addFields: {
-        mutualFriendsCount: {
-          $size: {
-            $setIntersection: [
-              { $ifNull: ["$friends", []] },
-              myFriends
-            ]
-          }
-        }
-      }
-    },
-    {
-      $sort: { mutualFriendsCount: -1, createdAt: -1 }
-    },
-    {
-      $limit: limit
-    },
-    {
-      $project: {
-        _id: 1,
-        username: 1,
-        name: 1,
-        profilePicture: 1,
-        mutualFriends: "$mutualFriendsCount"
-      }
-    }
-  ]);
+  const rows = await db.execute<{ id: string; username: string; name: string; profilePicture: string | null; mutualFriends: number }>(sql`
+    with edges as (
+      select user_low as a, user_high as b from friendships
+      union all
+      select user_high, user_low from friendships
+    ), mine as (select b as id from edges where a = ${userId})
+    select u.id, u.username, u.name, u.profile_picture as "profilePicture",
+      (select count(*)::int from edges e where e.a = u.id and e.b in (select id from mine)) as "mutualFriends"
+    from users u
+    where u.id <> ${userId} and u.id not in (select id from mine)
+      and u.role <> 'admin' and u.is_active and not u.is_banned
+    order by "mutualFriends" desc, u.created_at desc, u.id
+    limit ${limit}`);
+  return rows.map(toLean);
 };
 
 export const listOutgoingFriendRequestsService = async (userId: string) => {
-  return await FriendRequestModel.find({ sender: userId, status: FriendRequestStatus.Pending })
-    .populate('receiver', 'username name profilePicture')
-    .lean();
+  const rows = await db.select({ request: friendRequests, receiver: FRIEND_COLUMNS }).from(friendRequests)
+    .innerJoin(users, eq(users.id, friendRequests.receiverId))
+    .where(and(eq(friendRequests.senderId, userId), eq(friendRequests.status, 'pending')))
+    .orderBy(asc(friendRequests.createdAt), asc(friendRequests.id));
+  return rows.map((r) => toFriendRequest(r.request, { receiver: toLean(r.receiver) }));
 };
 
 export const cancelFriendRequestService = async (userId: string, requestId: string) => {
-  const request = await FriendRequestModel.findById(requestId);
+  const request = await getRequestRow(requestId);
 
   if (!request) {
     throw new AppError('Friend request not found', 404);
   }
 
-  if (request.sender.toString() !== userId) {
+  if (request.senderId !== userId) {
     throw new AppError('Unauthorized to cancel this request', 403);
   }
 
-  if (request.status !== FriendRequestStatus.Pending) {
+  if (request.status !== 'pending') {
     throw new AppError('Can only cancel pending requests', 400);
   }
 
-  await FriendRequestModel.findByIdAndDelete(requestId);
+  await db.delete(friendRequests).where(eq(friendRequests.id, request.id));
   return { message: 'Friend request cancelled successfully' };
 };
 
 export const rejectFriendRequestService = async (userId: string, requestId: string) => {
-  const request = await FriendRequestModel.findById(requestId);
+  const request = await getRequestRow(requestId);
 
   if (!request) {
     throw new AppError('Friend request not found', 404);
   }
 
-  if (request.receiver.toString() !== userId) {
+  if (request.receiverId !== userId) {
     throw new AppError('Unauthorized to reject this request', 403);
   }
 
-  if (request.status !== FriendRequestStatus.Pending) {
+  if (request.status !== 'pending') {
     throw new AppError('Can only reject pending requests', 400);
   }
 
-  await FriendRequestModel.findByIdAndDelete(requestId);
+  await db.delete(friendRequests).where(eq(friendRequests.id, request.id));
   return { message: 'Friend request rejected successfully' };
 };
 
-export const findUserById = (id: string) => UserModel.findById(id);
-
 export const getPublicProfileByUsername = async (username: string) => {
-  const user = await UserModel.findOne({ username, isActive: true })
-    .select('username name birthdate profilePicture role createdAt')
-    .lean();
+  const [user] = await db.select({
+    id: users.id, username: users.username, name: users.name, birthdate: users.birthdate,
+    profilePicture: users.profilePicture, role: users.role, createdAt: users.createdAt,
+  }).from(users).where(and(eq(users.username, username), eq(users.isActive, true)));
 
   if (!user) {
     throw new AppError('User not found or deactivated', 404);
   }
-  return user;
+  return toLean(user);
 };
 
 // Profile pages are public, but admin profiles are not.
-const findViewableProfileUser = async (username: string, select: string) => {
-  const user = await UserModel.findOne({ username, isActive: true })
-    .select(select)
-    .lean();
+const findViewableProfileUser = async (username: string) => {
+  const [user] = await db.select({ id: users.id, role: users.role }).from(users)
+    .where(and(eq(users.username, username), eq(users.isActive, true)));
 
   if (!user) {
     throw new AppError('User not found or deactivated', 404);
@@ -656,101 +576,105 @@ const findViewableProfileUser = async (username: string, select: string) => {
 };
 
 export const getUserStatsService = async (username: string) => {
-  const user = await findViewableProfileUser(username, '_id role');
-  const userId = user._id.toString();
+  const user = await findViewableProfileUser(username);
 
   let stats: any = {};
 
-  if (user.role === UserRole.Volunteer) {
-    const registrations = await RegistrationModel.find({
-      volunteerId: userId,
-      status: RegistrationStatus.APPROVED
-    }).select('eventId').lean();
-
-    const eventIds = registrations.map(r => r.eventId);
-
-    if (eventIds.length > 0) {
-      const activeEvents = await EventModel.countDocuments({
-        _id: { $in: eventIds },
-        status: EventStatus.APPROVED
-      });
-
-      const completedEvents = await EventModel.countDocuments({
-        _id: { $in: eventIds },
-        status: EventStatus.FINISHED
-      });
-
-      stats = { activeEvents, completedEvents };
-    } else {
-      stats = { activeEvents: 0, completedEvents: 0 };
-    }
-  } else if (user.role === UserRole.Manager) {
-    const activeEvents = await EventModel.countDocuments({
-      managerId: userId,
-      status: EventStatus.APPROVED
-    });
-
-    const eventsOrganized = await EventModel.countDocuments({
-      managerId: userId,
-      status: EventStatus.FINISHED
-    });
-
-    stats = { activeEvents, eventsOrganized };
+  if ((user.role as UserRole) === UserRole.Volunteer) {
+    // Events the volunteer has been approved into, by the event's own status.
+    const countJoined = (status: EventStatus) => db.$count(
+      registrations,
+      and(
+        eq(registrations.volunteerId, user.id),
+        eq(registrations.status, RegistrationStatus.APPROVED),
+        inArray(registrations.eventId, db.select({ id: events.id }).from(events).where(eq(events.status, status))),
+      ),
+    );
+    stats = {
+      activeEvents: await countJoined(EventStatus.APPROVED),
+      completedEvents: await countJoined(EventStatus.FINISHED),
+    };
+  } else if ((user.role as UserRole) === UserRole.Manager) {
+    const countManaged = (status: EventStatus) =>
+      db.$count(events, and(eq(events.managerId, user.id), eq(events.status, status)));
+    stats = {
+      activeEvents: await countManaged(EventStatus.APPROVED),
+      eventsOrganized: await countManaged(EventStatus.FINISHED),
+    };
   }
 
-  const userWithFriends = await UserModel.findById(userId).select('friends').lean();
-  stats.friends = (userWithFriends && (userWithFriends as any).friends)
-    ? (userWithFriends as any).friends.length
-    : 0;
+  stats.friends = await db.$count(friendships, involving(user.id));
 
   return { role: user.role, stats };
 };
 
-const PROFILE_EVENT_FIELDS = '_id title image startAt endAt location currentMembers tags description status';
+const PROFILE_EVENT_COLUMNS = {
+  id: events.id, title: events.title, image: events.image, startAt: events.startAt, endAt: events.endAt,
+  location: events.location, currentMembers: events.currentMembers, tags: events.tags,
+  description: events.description, status: events.status,
+};
 
 export const getUserEventsService = async (username: string) => {
-  const user = await findViewableProfileUser(username, '_id role');
-  const userId = user._id.toString();
+  const user = await findViewableProfileUser(username);
 
-  let events: any[] = [];
+  let rows: { id: string }[] = [];
 
-  if (user.role === UserRole.Volunteer) {
-    const registrations = await RegistrationModel.find({
-      volunteerId: userId,
-      status: RegistrationStatus.APPROVED
-    }).select('eventId').lean();
-
-    const eventIds = registrations.map(r => r.eventId);
-
-    if (eventIds.length > 0) {
-      events = await EventModel.find({ _id: { $in: eventIds } })
-        .select(PROFILE_EVENT_FIELDS)
-        .lean();
-    }
-  } else if (user.role === UserRole.Manager) {
-    events = await EventModel.find({ managerId: userId })
-      .select(PROFILE_EVENT_FIELDS)
-      .lean();
+  if ((user.role as UserRole) === UserRole.Volunteer) {
+    rows = await db.select(PROFILE_EVENT_COLUMNS).from(events)
+      .where(inArray(events.id, db.select({ id: registrations.eventId }).from(registrations).where(and(
+        eq(registrations.volunteerId, user.id),
+        eq(registrations.status, RegistrationStatus.APPROVED),
+      ))))
+      .orderBy(asc(events.createdAt), asc(events.id));
+  } else if ((user.role as UserRole) === UserRole.Manager) {
+    rows = await db.select(PROFILE_EVENT_COLUMNS).from(events)
+      .where(eq(events.managerId, user.id))
+      .orderBy(asc(events.createdAt), asc(events.id));
   }
 
-  return events;
+  return rows.map(toLean);
 };
 
 export const getUserFriendsListService = async (username: string) => {
-  const user = await UserModel.findOne({ username, isActive: true })
-    .select('_id role friends')
-    .populate({
-      path: 'friends',
-      select: 'username name profilePicture role'
-    })
-    .lean();
+  const user = await findViewableProfileUser(username);
+  return listFriends(user.id, true);
+};
 
-  if (!user) {
-    throw new AppError('User not found or deactivated', 404);
-  }
-  if (user.role === UserRole.Admin) {
-    throw new AppError('Access to admin profiles is forbidden', 403);
-  }
+// Seeds a single admin from env, and only while no admin exists yet. With the
+// two vars unset (the default) it does nothing.
+export const seedAdminUser = async (): Promise<void> => {
+  try {
+    const { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } = process.env;
 
-  return (user as any).friends || [];
+    if (!SEED_ADMIN_EMAIL || !SEED_ADMIN_PASSWORD) {
+      console.log('SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD not set. Admin seeding skipped.');
+      return;
+    }
+
+    const [adminExists] = await db.select({ id: users.id }).from(users).where(eq(users.role, UserRole.Admin)).limit(1);
+
+    if (adminExists) {
+      console.log('Admin user already exists. Seeding skipped.');
+      return;
+    }
+
+    const email = normalizeEmail(SEED_ADMIN_EMAIL);
+
+    await db.insert(users).values({
+      username: await generateUniqueUsername(email.split('@')[0] || 'admin'),
+      email,
+      passwordHash: await hashPassword(SEED_ADMIN_PASSWORD),
+      name: 'Administrator',
+      birthdate: new Date('1990-01-01'),
+      role: UserRole.Admin,
+      isVerified: true,
+      isActive: true,
+      authProvider: 'local',
+    });
+
+    console.log(`Admin user seeded: ${email}`);
+  } catch (error) {
+    console.error('Error seeding Admin user:', error);
+    throw error; // connectDB exits on this, so a failed seed fails the deploy instead of booting without an admin
+  }
 };
