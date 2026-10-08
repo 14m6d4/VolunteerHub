@@ -4,7 +4,7 @@ import pino from 'pino';
 import { pinoHttp } from 'pino-http';
 import client from 'prom-client';
 
-export const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
 // Incoming IDs are echoed into a response header and every log line, so only
 // a short, plain token is trusted; anything else gets a fresh UUID.

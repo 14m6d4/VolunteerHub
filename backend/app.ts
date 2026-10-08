@@ -66,7 +66,9 @@ app.use('/api/users/profile/secure', express.json({ limit: '8mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
-// Registered before the request logger so the Docker healthcheck doesn't log every 30s.
+// Counted in the metrics (a 503 here is the 5xx the alert must see) but
+// registered before the request logger so the Docker healthcheck doesn't log every 30s.
+app.use(httpMetrics);
 app.get('/api/health', async (req, res) => {
     try {
         await db.execute(sql`select 1`);
@@ -80,7 +82,6 @@ app.get('/api/health', async (req, res) => {
 app.get('/metrics', metricsHandler);
 
 app.use(requestLogger);
-app.use(httpMetrics);
 app.use(passport.initialize());
 
 app.use('/api/auth', authRoutes);

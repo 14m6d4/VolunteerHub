@@ -23,6 +23,9 @@ export default function errorHandler(err: unknown, req: Request, res: Response, 
     message = err.message || message;
   }
 
+  // req.log carries the request ID; without this a 500 leaves no log line at all.
+  if (statusCode >= 500) req.log.error({ err }, message);
+
   const payload: any = {
     status,
     message,

@@ -64,6 +64,11 @@ await check('unmatched paths collapse into one series', async () => {
     assert.ok(!body.includes('scanner-probe-98765'), 'the raw path leaked into a label');
 });
 
+await check('health requests are counted, so a 503 reaches the 5xx alert', async () => {
+    await fetch(`${base}/api/health`);
+    assert.match(await metrics(), /http_requests_total\{[^}]*route="\/api\/health"/);
+});
+
 await check('metrics are not served on the public API prefix', async () => {
     const res = await fetch(`${base}/api/metrics`);
     assert.equal(res.status, 404);
