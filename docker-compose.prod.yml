@@ -45,6 +45,9 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    # Prometheus metrics are at backend:5000/metrics on the compose network only.
+    # The Traefik router below matches /api and /uploads, so /metrics is never
+    # routed (and the app refuses it when X-Forwarded-For is set anyway).
     networks:
       - default
       - proxy

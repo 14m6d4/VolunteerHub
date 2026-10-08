@@ -57,6 +57,7 @@ Key cross-cutting middleware (`middlewares/`):
 - `roleMiddleware(['manager','admin'])` — gate by `req.user.role`; runs after `authMiddleware`.
 - `validateBody(schema)` / `validateQuery` / `validateParams` — **Zod** schemas from `utils/validators.ts`. Validated/coerced data replaces `req.body` etc.
 - `upload` (`upload.middleware.ts`) — Multer in-memory; controllers then push the buffer to ImgBB via `services/imgbb.service.ts` and store the returned URL.
+- `observability.middleware.ts` — pino JSON request log with a request ID (`X-Request-Id`, echoed or generated) and `prom-client` RED metrics. `/metrics` is internal-only (never under `/api`, no Traefik route, refused when `X-Forwarded-For` is set). `npm run check:observability` covers it.
 - `error.middleware.ts` — centralized JSON error handler, registered last. Throw `AppError(message, statusCode)` (`utils/appError.ts`) or `http-errors` from services to control the response.
 
 Auth specifics: JWT-only (no server sessions, `session: false`). Local login + email/OTP verification (`nodemailer`) and Google OAuth via Passport (`config/passport.ts`, callback in `auth.controller.ts`). Notifications use web-push (`config/webpush.ts`, `services/webpush.service.ts`) plus persisted `notifications` rows.

@@ -4,7 +4,6 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import morgan from "morgan";
 import { sql } from "drizzle-orm";
 import type { Application } from "express";
 import { db } from "./db/client.ts";
@@ -14,6 +13,7 @@ import discussionRoutes from "./routes/discussion.routes.ts";
 import registrationRoutes from "./routes/registration.routes.ts";
 import userRoutes from './routes/user.routes.ts';
 import errorHandler from './middlewares/error.middleware.ts';
+import { requestLogger, httpMetrics, metricsHandler } from './middlewares/observability.middleware.ts';
 import passport from "./config/passport.ts";
 import postRoutes from "./routes/post.routes.ts";
 import notificationRoutes from "./routes/notification.routes.ts";
@@ -66,7 +66,7 @@ app.use('/api/users/profile/secure', express.json({ limit: '8mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
-// Registered before morgan so the Docker healthcheck doesn't log every 30s.
+// Registered before the request logger so the Docker healthcheck doesn't log every 30s.
 app.get('/api/health', async (req, res) => {
     try {
         await db.execute(sql`select 1`);
@@ -76,7 +76,11 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
-app.use(morgan("dev"));
+// Also before the logger and metrics, so scrapes don't count as traffic.
+app.get('/metrics', metricsHandler);
+
+app.use(requestLogger);
+app.use(httpMetrics);
 app.use(passport.initialize());
 
 app.use('/api/auth', authRoutes);
