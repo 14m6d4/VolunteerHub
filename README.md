@@ -14,10 +14,17 @@ cd ./frontend
 npm i
 ```
 
-### 2. Prepare MongoDB:
+### 2. Prepare PostgreSQL:
 
-Prepare your MongoDB database (using [Atlas](https://www.mongodb.com/cloud/atlas),
-or [Community](<https://github.com/benelferink/mern-template/wiki/Install-MongoDB-Community-backend-(MacOS)>)). Then configure your database within `backend/src/constants/index.js` (or `backend/src/.env`), by configuring the `MONGO_URI` variable.
+Run a PostgreSQL 17 database (e.g. `docker compose up -d postgres` from the repo root), copy `backend/.env.example` to `backend/.env` and point `DATABASE_URL` at it (use `localhost` as the host when the backend runs outside Docker). Then create the tables and, optionally, load the demo dataset:
+
+```
+cd ./backend
+npm run db:migrate
+npm run db:seed   # optional; prints the demo accounts and their generated password
+```
+
+`db:seed` wipes the database first and refuses to run when `NODE_ENV=production`.
 
 ### 3. Start applications:
 
@@ -39,7 +46,7 @@ npm run dev
 
 ### 1. Setup
 
-Copy `backend/.env.example` to `backend/.env` and fill in real secrets (JWT, Google OAuth, VAPID, email, ImgBB). Set `MONGO_URI=mongodb://mongo:27017/volunteerhub` — the hostname `mongo` is the compose service name, not `localhost` and not your Atlas URI (compose runs its own Mongo container).
+Copy `backend/.env.example` to `backend/.env` and fill in real secrets (JWT, Google OAuth, VAPID, email, ImgBB). The defaults in `.env.example` already match the dev compose Postgres; the hostname `postgres` is the compose service name, not `localhost`.
 
 Create `frontend/.env`:
 
@@ -53,7 +60,7 @@ VITE_API_URL=http://localhost:5000/api
 docker compose up --build
 ```
 
-Starts `mongo`, `backend` (port 5000), `frontend` (port 5173, Vite dev server). Edits to `backend/` or `frontend/src/` hot-reload without rebuilding.
+Starts `postgres`, `backend` (port 5000), `frontend` (port 5173, Vite dev server). Edits to `backend/` or `frontend/src/` hot-reload without rebuilding.
 
 **After editing `backend/.env` or `frontend/.env`, `docker compose restart <service>` is not enough** — env vars are baked in at container *creation*, not read again on restart. Recreate instead:
 
@@ -61,17 +68,18 @@ Starts `mongo`, `backend` (port 5000), `frontend` (port 5173, Vite dev server). 
 docker compose up -d --force-recreate backend
 ```
 
-**Windows/CRLF gotcha:** if `backend/.env` was edited with a Windows editor, stray `\r` line endings can make Docker's `env_file` parser resolve the wrong (commented-out) value for a duplicated key like `MONGO_URI`. If a var isn't what you expect, check inside the container: `docker compose exec backend sh -c 'echo $MONGO_URI'`.
+**Windows/CRLF gotcha:** if `backend/.env` was edited with a Windows editor, stray `\r` line endings can make Docker's `env_file` parser resolve the wrong (commented-out) value for a duplicated key like `DATABASE_URL`. If a var isn't what you expect, check inside the container: `docker compose exec backend sh -c 'echo $DATABASE_URL'`.
 
-### 3. Restoring a data backup (e.g. an Atlas `mongodump`)
+### 3. Database schema and demo data
+
+The dev stack never migrates on its own. After the first `up`, and after pulling schema changes:
 
 ```
-docker cp path/to/dump/<source-db> volunteerhub-dev-mongo-1:/tmp/dump/<source-db>
-docker exec volunteerhub-dev-mongo-1 mongorestore --nsFrom='<source-db>.*' --nsTo='volunteerhub.*' --drop /tmp/dump
-docker exec volunteerhub-dev-mongo-1 rm -rf /tmp/dump
+docker compose exec backend npm run db:migrate
+docker compose exec backend npm run db:seed   # optional demo dataset
 ```
 
-`--nsFrom`/`--nsTo` remaps the dump's database name to `volunteerhub` (matching `MONGO_URI` above) if they differ. This data lives in the `mongo-data` Docker volume — `docker compose down -v` deletes it; re-run the restore after.
+The data lives in the `pg-data` Docker volume — `docker compose down -v` deletes it; migrate and seed again after.
 
 ### 4. Production images
 

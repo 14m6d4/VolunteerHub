@@ -19,6 +19,7 @@ Backend (`cd backend`):
 - `npm start` — run compiled `dist/server.js`. This is what the prod Docker image runs (no `tsx` in prod).
 - `npm run db:generate` — drizzle-kit: turn `db/schema.ts` changes into a new SQL migration in `backend/drizzle/`.
 - `npm run db:migrate` — apply pending migrations to `DATABASE_URL` (via `tsx`). Prod runs the compiled `node dist/db/migrate.js` as the one-shot `migrate` compose service.
+- `npm run db:seed` — wipe the database and load the dev/demo dataset (`scripts/seed.ts`; refuses when `NODE_ENV=production`; prints the generated password for the `demo-*@demo.volunteerhub.test` accounts).
 
 Frontend (`cd frontend`):
 - `npm run dev` — Vite dev server (default port 5173).
@@ -58,7 +59,7 @@ Key cross-cutting middleware (`middlewares/`):
 - `upload` (`upload.middleware.ts`) — Multer in-memory; controllers then push the buffer to ImgBB via `services/imgbb.service.ts` and store the returned URL.
 - `error.middleware.ts` — centralized JSON error handler, registered last. Throw `AppError(message, statusCode)` (`utils/appError.ts`) or `http-errors` from services to control the response.
 
-Auth specifics: JWT-only (no server sessions, `session: false`). Local login + email/OTP verification (`nodemailer`) and Google OAuth via Passport (`config/passport.ts`, callback in `auth.controller.ts`). Notifications use web-push (`config/webpush.ts`, `services/webpush.service.ts`) plus persisted `Notification` documents.
+Auth specifics: JWT-only (no server sessions, `session: false`). Local login + email/OTP verification (`nodemailer`) and Google OAuth via Passport (`config/passport.ts`, callback in `auth.controller.ts`). Notifications use web-push (`config/webpush.ts`, `services/webpush.service.ts`) plus persisted `notifications` rows.
 
 ### TypeScript / ESM quirk (important)
 

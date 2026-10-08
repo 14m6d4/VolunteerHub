@@ -15,7 +15,8 @@
     "check:social": "tsx scripts/social-check.ts",
     "check:notifications": "tsx scripts/notifications-check.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx db/migrate.ts"
+    "db:migrate": "tsx db/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -34,7 +35,6 @@
     "helmet": "^8.3.0",
     "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^9.9.3",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^9.0.5",

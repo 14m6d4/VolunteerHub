@@ -82,6 +82,8 @@ jobs:
       - run: npm run check:social
       - run: npm run check:notifications
       - run: npm run check:authz
+      # Last, because it wipes the database: proves the demo dataset fits the schema.
+      - run: npm run db:seed
 
   frontend:
     if: ${{ !inputs.sha }}
@@ -194,13 +196,14 @@ jobs:
             # Both functions run as `if` conditions, where set -e is off: hence the && chains.
             # The checkout only supplies the compose file; images come from GHCR. Compose
             # reads .env, so manual compose commands on the VM get the tag too.
+            # --remove-orphans stops the retired mongo container so its volume can be removed.
             # --policy missing: a rollback reuses the known-good image still on disk.
             deploy() {
               echo "deploying $1" &&
               git checkout --force --detach "$1" &&
               echo "IMAGE_TAG=$1" > .env &&
               docker compose -f docker-compose.prod.yml pull --policy missing backend frontend &&
-              docker compose -f docker-compose.prod.yml up -d
+              docker compose -f docker-compose.prod.yml up -d --remove-orphans
             }
             # Runs here, not on the runner: the domain is proxied by Cloudflare, which
             # 403s GitHub Actions' datacenter IPs. The VM's own requests still egress to
