@@ -35,6 +35,8 @@ First-time setup: `npm i` in both `backend/` and `frontend/`, configure `backend
 
 `backend/.env` (required keys): `PORT`, `BACKEND_URL`, `FRONTEND_URL`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (web-push), `EMAIL_USERNAME`/`EMAIL_PASSWORD` (nodemailer OTP), `IMGBB_API_KEY` (image hosting), `DATABASE_URL` + `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (PostgreSQL; the prod `postgres` container reads the trio from this same file, so they must agree with `DATABASE_URL`).
 
+`.env.backup` (prod VM only, next to `docker-compose.prod.yml`): the OCI bucket's write key for the `backup` service (`backup/`): `OCI_S3_ENDPOINT`, `OCI_S3_REGION`, `OCI_S3_BUCKET`, `OCI_S3_ACCESS_KEY_ID`, `OCI_S3_SECRET_ACCESS_KEY`.
+
 `frontend/.env`: `VITE_API_URL` is the API base used by `services/api.ts` (falls back to `/api`). Point it at the backend, e.g. `http://localhost:5000/api`.
 
 On every DB connect, `config/db.ts` seeds a single admin from `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`, and only if no admin exists yet. Leave those two vars unset (the default) and seeding is skipped entirely — never hardcode credentials here.

@@ -60,6 +60,23 @@ services:
       - "traefik.http.routers.vh-api.priority=100"
       - "traefik.http.services.vh-api.loadbalancer.server.port=5000"
 
+  # Daily pg_dump to the OCI backup bucket (backup/backup.sh). .env.backup
+  # holds the bucket's write key; it lives only on the VM. The staleness alert
+  # (VM repo, alloy/alerts.py) finds its logs by project and service name, so a
+  # rename needs that query updated too.
+  backup:
+    image: ghcr.io/14m6d4/volunteerhub-backup:${IMAGE_TAG:?set IMAGE_TAG to a commit SHA}
+    env_file:
+      - ./backend/.env
+      - ./.env.backup
+    # The script's shell would be PID 1 otherwise, which ignores SIGTERM: every
+    # deploy would wait out the 10s stop timeout.
+    init: true
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   frontend:
     image: ghcr.io/14m6d4/volunteerhub-frontend:${IMAGE_TAG:?set IMAGE_TAG to a commit SHA}
     restart: unless-stopped

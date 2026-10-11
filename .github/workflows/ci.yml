@@ -6,6 +6,7 @@ on:
     paths: &paths
       - backend/**
       - frontend/**
+      - backup/**
       - docker-compose*.yml
       - .github/workflows/**
   pull_request:
@@ -116,6 +117,7 @@ jobs:
           - image: backend
           - image: frontend
             build-args: VITE_API_URL=/api
+          - image: backup
     env:
       # PRs build the image but never push it.
       PUSH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
@@ -198,12 +200,13 @@ jobs:
             # The checkout only supplies the compose file; images come from GHCR. Compose
             # reads .env, so manual compose commands on the VM get the tag too.
             # --remove-orphans stops the retired mongo container so its volume can be removed.
-            # --policy missing: a rollback reuses the known-good image still on disk.
+            # --policy missing: a rollback reuses the known-good image still on disk. No
+            # service list: an older SHA's compose file may lack a newer service (backup).
             deploy() {
               echo "deploying $1" &&
               git checkout --force --detach "$1" &&
               echo "IMAGE_TAG=$1" > .env &&
-              docker compose -f docker-compose.prod.yml pull --policy missing backend frontend &&
+              docker compose -f docker-compose.prod.yml pull --policy missing &&
               docker compose -f docker-compose.prod.yml up -d --remove-orphans
             }
             # Runs here, not on the runner: the domain is proxied by Cloudflare, which
