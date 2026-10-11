@@ -1,0 +1,92 @@
+name: Restore check
+
+# Monthly proof that the backups (backup/) can be restored: download the newest
+# VolunteerHub dump with the bucket's read-only key, restore it into a throwaway
+# Postgres and check it holds real data. A failure is posted to Discord.
+on:
+  schedule:
+    - cron: "0 6 2 * *" # the 2nd of each month, 13:00 in Vietnam
+  workflow_dispatch:
+    inputs:
+      object:
+        description: Dump to restore instead of the newest, e.g. volunteerhub-20261011T112139Z.dump
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-24.04
+    # A hang must fail, not be cancelled: `failure()` below skips cancelled runs.
+    timeout-minutes: 15
+    services:
+      # Same image as prod, and pg_restore runs inside it: the runner's client may
+      # be an older major that can't read a Postgres 17 dump.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: restore
+        options: >-
+          --health-cmd "pg_isready -U ci -d restore"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      SRC: ":s3:${{ vars.OCI_S3_BUCKET }}/volunteerhub"
+      OBJECT: ${{ inputs.object }}
+    steps:
+      - name: Download the dump
+        env:
+          RCLONE_S3_PROVIDER: Other
+          RCLONE_S3_NO_CHECK_BUCKET: "true"
+          RCLONE_S3_ENDPOINT: ${{ vars.OCI_S3_ENDPOINT }}
+          RCLONE_S3_REGION: ${{ vars.OCI_S3_REGION }}
+          RCLONE_S3_ACCESS_KEY_ID: ${{ secrets.OCI_S3_READ_ACCESS_KEY_ID }}
+          RCLONE_S3_SECRET_ACCESS_KEY: ${{ secrets.OCI_S3_READ_SECRET_ACCESS_KEY }}
+        run: |
+          # Same rclone as the backup image; nothing to install on the runner.
+          rclone() {
+            docker run --rm -v "$RUNNER_TEMP:$RUNNER_TEMP" -e RCLONE_S3_PROVIDER -e RCLONE_S3_NO_CHECK_BUCKET \
+              -e RCLONE_S3_ENDPOINT -e RCLONE_S3_REGION -e RCLONE_S3_ACCESS_KEY_ID -e RCLONE_S3_SECRET_ACCESS_KEY \
+              rclone/rclone:1.68.2 "$@"
+          }
+          # Names carry a UTC timestamp, so the last in sort order is the newest.
+          OBJECT=${OBJECT:-$(rclone lsf --files-only "$SRC" | sort | tail -n 1)}
+          [[ -n $OBJECT ]] || { echo "::error::no dump under $SRC"; exit 1; }
+          rclone copyto "$SRC/$OBJECT" "$RUNNER_TEMP/restore.dump"
+          echo "Downloaded \`$OBJECT\` ($(stat -c %s "$RUNNER_TEMP/restore.dump") bytes)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Restore into the throwaway database
+        env:
+          PG: ${{ job.services.postgres.id }}
+        run: |
+          start=$(date +%s%N)
+          # Prod's roles don't exist here, hence --no-owner/--no-acl.
+          docker exec -i "$PG" pg_restore -U ci -d restore --no-owner --no-acl --single-transaction < "$RUNNER_TEMP/restore.dump"
+          echo "Restore took $(( ($(date +%s%N) - start) / 1000000 )) ms." >> "$GITHUB_STEP_SUMMARY"
+
+      # Counts only: the dump holds real user data, so no rows go to the log.
+      - name: Check it holds real data
+        env:
+          PG: ${{ job.services.postgres.id }}
+        run: |
+          q() { docker exec "$PG" psql -U ci -d restore -tAc "$1"; }
+          fail=0
+          { echo; echo "| check | rows |"; echo "| --- | --- |"; } >> "$GITHUB_STEP_SUMMARY"
+          for check in users events registrations "users where role = 'admin'"; do
+            n=$(q "select count(*) from $check") || n=0 # e.g. a missing table
+            echo "| $check | $n |" >> "$GITHUB_STEP_SUMMARY"
+            ((n > 0)) || { echo "::error::no rows in $check"; fail=1; }
+          done
+          exit "$fail"
+
+      - name: Tell Discord
+        if: failure()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          curl -fsS -H "Content-Type: application/json"
+          -d "{\"content\": \"VolunteerHub restore check failed: $RUN_URL\"}" "$DISCORD_WEBHOOK_URL"

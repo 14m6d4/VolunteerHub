@@ -8,7 +8,7 @@ on:
       - frontend/**
       - backup/**
       - docker-compose*.yml
-      - .github/workflows/**
+      - .github/workflows/ci.yml
   pull_request:
     branches: [main]
     paths: *paths

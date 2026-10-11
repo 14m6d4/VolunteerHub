@@ -1,6 +1,7 @@
 # Daily database backup: pg_dump from the postgres image (keep its major
-# version in step with the postgres service in docker-compose.prod.yml) plus
-# rclone's static binary to upload over OCI's S3-compatible API.
+# version in step with the postgres service in docker-compose.prod.yml and
+# .github/workflows/restore-check.yml) plus rclone's static binary (same tag
+# there) to upload over OCI's S3-compatible API.
 FROM rclone/rclone:1.68.2 AS rclone
 
 FROM postgres:17-alpine AS prod
