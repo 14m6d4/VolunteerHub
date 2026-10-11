@@ -55,7 +55,8 @@ jobs:
           # Names carry a UTC timestamp, so the last in sort order is the newest.
           OBJECT=${OBJECT:-$(rclone lsf --files-only "$SRC" | sort | tail -n 1)}
           [[ -n $OBJECT ]] || { echo "::error::no dump under $SRC"; exit 1; }
-          rclone copyto "$SRC/$OBJECT" "$RUNNER_TEMP/restore.dump"
+          # A missing source reads as an empty directory, which rclone copies happily.
+          rclone copyto --error-on-no-transfer "$SRC/$OBJECT" "$RUNNER_TEMP/restore.dump"
           echo "Downloaded \`$OBJECT\` ($(stat -c %s "$RUNNER_TEMP/restore.dump") bytes)." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Restore into the throwaway database
@@ -73,13 +74,18 @@ jobs:
           PG: ${{ job.services.postgres.id }}
         run: |
           q() { docker exec "$PG" psql -U ci -d restore -tAc "$1"; }
+          row() { # FROM clause; sets n
+            n=$(q "select count(*) from $1") || n=0 # e.g. a missing table
+            echo "| $1 | $n |" >> "$GITHUB_STEP_SUMMARY"
+          }
           fail=0
           { echo; echo "| check | rows |"; echo "| --- | --- |"; } >> "$GITHUB_STEP_SUMMARY"
-          for check in users events registrations "users where role = 'admin'"; do
-            n=$(q "select count(*) from $check") || n=0 # e.g. a missing table
-            echo "| $check | $n |" >> "$GITHUB_STEP_SUMMARY"
+          for check in users "users where role = 'admin'"; do
+            row "$check"
             ((n > 0)) || { echo "::error::no rows in $check"; fail=1; }
           done
+          # Counted, not required: prod has no events yet. Require them once it does.
+          for check in events registrations; do row "$check"; done
           exit "$fail"
 
       - name: Tell Discord
