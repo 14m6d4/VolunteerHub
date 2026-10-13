@@ -5,7 +5,7 @@
 
 A volunteer event platform: volunteers find and register for events, managers run them, admins moderate. React 19 + Vite on the front, Express 5 + Drizzle + PostgreSQL behind it, all TypeScript.
 
-It runs in production at <https://volunteerhub.l4mbd4.me> on a single ARM VM, shared with other self-hosted services.
+It runs in production at <https://volunteerhub.l4mbd4.me>.
 
 ## Architecture
 
@@ -38,7 +38,7 @@ flowchart LR
   gha -->|failed restore| discord
 ```
 
-The app's own containers (frontend, backend, migrate, backup, Postgres) are defined in [`docker-compose.prod.yml`](docker-compose.prod.yml); Traefik, Alloy and Uptime Kuma serve the whole VM. Postgres has no published port. Traefik never routes the backend's `/metrics`, and the app refuses it for any proxied request.
+The app's containers (frontend, backend, migrate, backup, Postgres) are defined in [`docker-compose.prod.yml`](docker-compose.prod.yml); Traefik, Alloy and Uptime Kuma are set up separately on the VM. Postgres has no published port. Traefik never routes the backend's `/metrics`, and the app refuses it for any proxied request.
 
 ## From commit to production
 
@@ -57,7 +57,7 @@ Migrations follow an expand/contract rule: a release may only add what the previ
 
 ## Monitoring
 
-The backend logs structured JSON with a request ID on every line, and exposes request rate, error rate and latency per route as Prometheus metrics. One Grafana Alloy agent ships host metrics, per-container metrics, container logs and the app's metrics for the whole VM to Grafana Cloud. A VolunteerHub outage can then be traced to its real cause even when that cause is a neighbouring stack, for example an OOM kill or a full disk.
+The backend logs structured JSON with a request ID on every line, and exposes request rate, error rate and latency per route as Prometheus metrics. A Grafana Alloy agent ships host metrics, per-container metrics, container logs and the app's metrics to Grafana Cloud, so an outage can be traced to a host-level cause such as an OOM kill or a full disk.
 
 A Grafana dashboard puts the VM, the containers and VolunteerHub's request rate, 5xx ratio, latency and logs on one screen.
 
