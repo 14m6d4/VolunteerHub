@@ -5,7 +5,7 @@
 
 A volunteer event platform: volunteers find and register for events, managers run them, admins moderate. React 19 + Vite on the front, Express 5 + Drizzle + PostgreSQL behind it, all TypeScript.
 
-It runs in production at <https://volunteerhub.l4mbd4.me> on a single ARM VM, shared with other self-hosted services. This page explains how it gets there, how it stays up, and how its data is protected.
+It runs in production at <https://volunteerhub.l4mbd4.me> on a single ARM VM, shared with other self-hosted services.
 
 ## Architecture
 
@@ -44,12 +44,12 @@ The app's own containers (frontend, backend, migrate, backup, Postgres) are defi
 
 Everything lives in one workflow, [`ci.yml`](.github/workflows/ci.yml):
 
-1. **Checks.** The backend is typechecked and built, its migrations are applied to an empty Postgres service container, and HTTP-level checks run against the real app: security headers, CORS and rate limits, authorization (horizontal and vertical), and each domain's API. The frontend is linted and built.
-2. **arm64 build.** Images for the backend, frontend and backup job are built on a native `ubuntu-24.04-arm` runner, so they match the VM without QEMU emulation.
-3. **SHA tags.** Each image is tagged with the full commit SHA and pushed to GHCR. Only the 5 newest versions are kept.
-4. **Pull-based deploy.** The VM never builds anything. The deploy checks out the SHA (for the compose file only), pulls the images and restarts. A one-shot `migrate` container applies pending SQL migrations first, and the backend starts only if it succeeds.
-5. **Smoke test.** From the VM, through Cloudflare and Traefik, the deploy checks the web root, the database-backed `/api/health` and a real API route. It checks response bodies, not just status codes.
-6. **Auto-rollback.** The VM records the last SHA that passed its smoke test. If a deploy fails, it redeploys that SHA, tests it again and marks the run red, so production recovers and the bad release still gets noticed.
+1. The backend is typechecked and built, its migrations are applied to an empty Postgres service container, and HTTP-level checks run against the real app: security headers, CORS and rate limits, authorization (horizontal and vertical), and each domain's API. The frontend is linted and built.
+2. Images for the backend, frontend and backup job are built on a native `ubuntu-24.04-arm` runner, so they match the VM without QEMU emulation.
+3. Each image is tagged with the full commit SHA and pushed to GHCR, which keeps only the 5 newest versions.
+4. The deploy is pull-based, and the VM never builds anything. The deploy checks out the SHA (for the compose file only), pulls the images and restarts. A one-shot `migrate` container applies pending SQL migrations first, and the backend starts only if it succeeds.
+5. A smoke test runs from the VM, through Cloudflare and Traefik, against the web root, the database-backed `/api/health` and a real API route. It checks response bodies as well as status codes.
+6. A failed deploy rolls back on its own. The VM records the last SHA that passed its smoke test. If a deploy fails, it redeploys that SHA, tests it again and marks the run red, so production recovers and the bad release still gets noticed.
 
 A manual rollback is a `workflow_dispatch` run with any retained SHA. Production deploys are serialized and never cancelled mid-flight.
 
@@ -72,43 +72,42 @@ Alerts are symptom-based and go to Discord:
 
 The first three were each fired once on purpose to confirm delivery. Uptime Kuma also polls the public site and `/api/health` through Cloudflare, the same path users take.
 
-## Backups you can trust
+## Backups
 
-- **Daily dump.** A `backup` container runs `pg_dump` once a day and uploads the compressed dump to S3-compatible object storage with rclone. A dump that fails halfway is never uploaded.
-- **Retention on the server.** A bucket lifecycle rule deletes dumps after 7 days and cleans up incomplete uploads, so retention holds even if the job breaks.
-- **Monthly restore drill.** [`restore-check.yml`](.github/workflows/restore-check.yml) downloads the newest dump with a read-only key, restores it into a throwaway Postgres, checks that users and an admin exist, and records how long the restore took. A failure posts to Discord.
+A `backup` container runs `pg_dump` once a day and uploads the compressed dump to S3-compatible object storage with rclone. A dump that fails halfway is never uploaded. A lifecycle rule on the bucket deletes dumps after 7 days and cleans up incomplete uploads, so retention holds even if the job breaks.
 
-A backup only counts if a restore has been tested, and the restore badge above shows the result of the latest drill.
+Once a month, [`restore-check.yml`](.github/workflows/restore-check.yml) downloads the newest dump with a read-only key, restores it into a throwaway Postgres, checks that users and an admin exist, and records how long the restore took. A failure posts to Discord, and the restore badge at the top of this page shows the result of the latest drill.
 
 ## Free tiers and cost guardrails
 
 CI, registry, monitoring, backups and the edge all run on free tiers. The accounts are pay-as-you-go, so going over a limit would mean a real bill. These guardrails keep usage inside the free allowances:
 
-- **CI and registry:** GitHub's included free minutes, which arm64 runners count against too. GHCR keeps only 5 versions per image, so package storage stays bounded.
-- **Monitoring:** Grafana Cloud's free tier. Alloy forwards only the container metrics the dashboard reads, which keeps it under the active-series cap.
-- **Backups:** object storage with versioning off. The lifecycle rules cap what is stored at a week of daily dumps of tens of KB each, and one upload a day keeps requests far inside the free allowance.
-- **Last line of defence:** a budget alert on the cloud account emails at the first $1 of spend.
-- **Edge:** Cloudflare's free plan handles DNS, TLS and proxying.
+- CI runs on GitHub's included free minutes, which arm64 runners also count against. GHCR keeps only 5 versions per image, so package storage stays bounded.
+- Monitoring uses Grafana Cloud's free tier. Alloy forwards only the container metrics the dashboard reads, which keeps it under the active-series cap.
+- Backups go to object storage with versioning off. The lifecycle rules cap what is stored at a week of daily dumps of tens of KB each, and one upload a day keeps requests far inside the free allowance.
+- Cloudflare's free plan handles DNS, TLS and proxying.
+
+If something slips past all of that, a budget alert on the cloud account sends an email at the first $1 of spend.
 
 ## Running locally
 
-### 1. Install dependencies:
+### 1. Install dependencies
 
-Go to the `backend` folder, and run `install`.
+Install the backend's packages:
 
 ```
 cd ./backend
 npm i
 ```
 
-Go to the `frontend` folder, and run `install`.
+Then the frontend's:
 
 ```
 cd ./frontend
 npm i
 ```
 
-### 2. Prepare PostgreSQL:
+### 2. Prepare PostgreSQL
 
 Run a PostgreSQL 17 database (e.g. `docker compose up -d postgres` from the repo root), copy `backend/.env.example` to `backend/.env` and point `DATABASE_URL` at it (use `localhost` as the host when the backend runs outside Docker). Then create the tables and, optionally, load the demo dataset:
 
@@ -120,16 +119,16 @@ npm run db:seed   # optional; prints the demo accounts and their generated passw
 
 `db:seed` wipes the database first and refuses to run when `NODE_ENV=production`.
 
-### 3. Start applications:
+### 3. Start the dev servers
 
-Go to the `backend` folder, and run `dev`.
+Start the backend:
 
 ```
 cd ./backend
 npm run dev
 ```
 
-Go to the `frontend` folder, and run `dev`.
+Then the frontend:
 
 ```
 cd ./frontend
@@ -156,13 +155,13 @@ docker compose up --build
 
 Starts `postgres`, `backend` (port 5000), `frontend` (port 5173, Vite dev server). Edits to `backend/` or `frontend/src/` hot-reload without rebuilding.
 
-**After editing `backend/.env` or `frontend/.env`, `docker compose restart <service>` is not enough** — env vars are baked in at container *creation*, not read again on restart. Recreate instead:
+After editing `backend/.env` or `frontend/.env`, `docker compose restart <service>` is not enough. Env vars are baked in when the container is created and are not read again on restart, so recreate it:
 
 ```
 docker compose up -d --force-recreate backend
 ```
 
-**Windows/CRLF gotcha:** if `backend/.env` was edited with a Windows editor, stray `\r` line endings can make Docker's `env_file` parser resolve the wrong (commented-out) value for a duplicated key like `DATABASE_URL`. If a var isn't what you expect, check inside the container: `docker compose exec backend sh -c 'echo $DATABASE_URL'`.
+If `backend/.env` was edited with a Windows editor, stray `\r` line endings can make Docker's `env_file` parser resolve the wrong (commented-out) value for a duplicated key like `DATABASE_URL`. If a var isn't what you expect, check inside the container: `docker compose exec backend sh -c 'echo $DATABASE_URL'`.
 
 ### 3. Database schema and demo data
 
@@ -173,7 +172,7 @@ docker compose exec backend npm run db:migrate
 docker compose exec backend npm run db:seed   # optional demo dataset
 ```
 
-The data lives in the `pg-data` Docker volume — `docker compose down -v` deletes it; migrate and seed again after.
+The data lives in the `pg-data` Docker volume. `docker compose down -v` deletes it, so migrate and seed again afterwards.
 
 ### 4. Production images
 
