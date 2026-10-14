@@ -1,5 +1,7 @@
 # compiled output
 /dist
+# Uploaded images in dev
+/uploads
 node_modules
 /build
 

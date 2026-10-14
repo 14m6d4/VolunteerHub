@@ -50,8 +50,8 @@ export function ProfileHeader({ avatarPreview, onAvatarChange }: ProfileHeaderPr
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be less than 5MB')
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be 2 MB or smaller')
       return
     }
     const reader = new FileReader()

@@ -3,7 +3,7 @@ import type { UpdateProfileData, IUser } from '../types/user.ts';
 import { UserRole } from '../types/user.ts';
 import AppError from '../utils/appError.ts';
 import { db } from '../db/client.ts';
-import { events, friendRequests, friendships, registrations, users } from '../db/schema.ts';
+import { events, friendRequests, friendships, posts, registrations, users } from '../db/schema.ts';
 import { EventStatus } from '../types/event.ts';
 import { RegistrationStatus } from '../types/registration.ts';
 import * as notificationService from './notification.service.ts';
@@ -12,6 +12,8 @@ import { comparePassword, hashPassword } from '../utils/password.util.ts';
 import { isUniqueViolation, isUuid, normalizeEmail, toLean, toUser } from '../utils/user.util.ts';
 import { containsPattern } from '../utils/sql.util.ts';
 import { areFriends, friendIdsOf, friendPair, involving, listFriends } from '../utils/friend.util.ts';
+import { imagesDeletedWithEvents } from '../utils/event.util.ts';
+import { deleteImages } from './image.service.ts';
 
 const getRow = async (id: string) => {
   if (!isUuid(id)) return undefined;
@@ -89,6 +91,7 @@ export async function updateProfileWithPasswordCheck(
     if (!updated) {
       throw new AppError('User not found after update', 500);
     }
+    if (updated.profilePicture !== user.profilePicture) await deleteImages(user.profilePicture);
 
     const { authProvider, ...profile } = toUser(updated);
     return profile as IUser;
@@ -426,10 +429,15 @@ export const createUserService = async (data: any) => {
 }
 
 export const deleteUserService = async (userId: string) => {
-  const [row] = isUuid(userId)
-    ? await db.delete(users).where(eq(users.id, userId)).returning({ id: users.id })
-    : [];
+  if (!isUuid(userId)) throw new AppError('User not found', 404);
+  // Their events and posts go with them (foreign keys), and so do those files.
+  const [eventFiles, postFiles] = await Promise.all([
+    imagesDeletedWithEvents(eq(events.managerId, userId)),
+    db.select({ image: posts.image }).from(posts).where(eq(posts.authorId, userId)),
+  ]);
+  const [row] = await db.delete(users).where(eq(users.id, userId)).returning({ profilePicture: users.profilePicture });
   if (!row) throw new AppError('User not found', 404);
+  await deleteImages(row.profilePicture, ...eventFiles, ...postFiles.map((p) => p.image));
   return { success: true };
 }
 

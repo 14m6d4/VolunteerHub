@@ -21,6 +21,7 @@ import reportRoutes from "./routes/report.routes.ts"
 import feedRoutes from "./routes/feed.routes.ts";
 import commentRoutes from "./routes/comment.routes.ts"
 import adminRoutes from "./routes/admin.routes.ts"
+import { UPLOADS_DIR } from "./services/image.service.ts";
 // Strip trailing slash from FRONTEND_URL to avoid CORS issues
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, '');
 
@@ -67,10 +68,10 @@ app.use(
 );
 
 // 50mb on every route was a free memory-exhaustion DoS. Uploads go through
-// multer's 5mb limit instead; the one exception is the avatar route, which
-// takes a base64 data URL in the JSON body (~4/3 the file size, so 8mb covers
-// the 5mb the frontend enforces).
-app.use('/api/users/profile/secure', express.json({ limit: '8mb' }));
+// multer's 2 MB limit instead; the one exception is the avatar route, which
+// takes a base64 data URL in the JSON body (~4/3 the file size, so 3mb covers
+// a 2 MB image).
+app.use('/api/users/profile/secure', express.json({ limit: '3mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
@@ -96,7 +97,9 @@ app.use("/api/report", reportRoutes)
 app.use("/api/feed", feedRoutes)
 app.use("/api/comments", commentRoutes)
 app.use("/api/admin", adminRoutes)
-app.use("/uploads", express.static("uploads"));
+// A URL never changes content (fresh random name per upload), but a deleted
+// image should not outlive its post in Cloudflare's cache for long: one day.
+app.use("/uploads", express.static(UPLOADS_DIR, { maxAge: "1d", index: false }));
 
 // 404 handler for unknown API routes - return JSON
 app.use((req, res) => {

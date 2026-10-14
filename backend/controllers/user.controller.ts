@@ -6,38 +6,27 @@ import AppError from '../utils/appError.ts';
 import * as userService from '../services/user.service.ts';
 import { UserRole } from '../types/user.ts';
 import { roleMiddleware } from '../middlewares/role.middleware.ts';
-import { uploadToImgBB } from '../services/imgbb.service.ts';
+import { deleteImages, MAX_IMAGE_BYTES, saveImage } from '../services/image.service.ts';
 
 export type SecureUpdateProfilePayload = UpdateProfileData & {
   currentPassword?: string;
 };
 
 export async function updateProfileSecure(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  // An avatar saved for a request that then fails is deleted again.
+  let avatar: string | undefined;
   try {
     const userId = req.user._id.toString();
 
     const { currentPassword, ...updateData }: SecureUpdateProfilePayload = req.body;
 
-    if (updateData.profilePicture && updateData.profilePicture.startsWith('data:image')) {
-      try {
-        const matches = updateData.profilePicture.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
-
-        if (matches && matches.length === 3) {
-          const mimeType = matches[1]!;
-          const base64Data = matches[2]!;
-          const buffer = Buffer.from(base64Data, 'base64');
-
-          const filename = `avatar-${userId}-${Date.now()}.${mimeType.split('/')[1]}`;
-
-          console.log(`[user.controller] Uploading avatar for user ${userId} to ImgBB...`);
-          const publicUrl = await uploadToImgBB(buffer, filename);
-
-          updateData.profilePicture = publicUrl;
-        }
-      } catch (uploadErr) {
-        console.error('[user.controller] Upload failed:', uploadErr);
-        throw new AppError('Failed to upload profile picture', 500);
-      }
+    // Any data URL the validator let through is re-encoded, even an empty or
+    // line-wrapped one, so no raw upload ever lands in the column.
+    const base64 = updateData.profilePicture?.match(/^data:image\/[a-zA-Z]+;base64,(.*)$/s)?.[1];
+    if (base64 !== undefined) {
+      const buffer = Buffer.from(base64, 'base64');
+      if (buffer.length > MAX_IMAGE_BYTES) throw new AppError('Image must be 2 MB or smaller', 413);
+      updateData.profilePicture = avatar = await saveImage(buffer);
     }
 
     const updatedUser = await updateProfileWithPasswordCheck(userId, currentPassword, updateData);
@@ -48,6 +37,7 @@ export async function updateProfileSecure(req: AuthenticatedRequest, res: Respon
     });
 
   } catch (error) {
+    await deleteImages(avatar);
     next(error);
   }
 }

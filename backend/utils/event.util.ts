@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray, or, type SQL } from 'drizzle-orm';
 import createHttpError from 'http-errors';
 import { db } from '../db/client.ts';
-import { events, registrations } from '../db/schema.ts';
+import { discussions, events, posts, registrations } from '../db/schema.ts';
 import { UserRole } from '../types/user.ts';
 import { isUuid, toLean } from './user.util.ts';
 
@@ -46,3 +46,19 @@ export const getEventRow = async (eventId: string) => {
   const [row] = await db.select().from(events).where(eq(events.id, eventId));
   return row;
 };
+
+/**
+ * The cover images of the matching events and the images of their posts (on
+ * the event or in its discussion): the files deleting those events orphans,
+ * since the posts go with them through foreign keys.
+ */
+export async function imagesDeletedWithEvents(where: SQL) {
+  const ids = db.select({ id: events.id }).from(events).where(where);
+  const [covers, postImages] = await Promise.all([
+    db.select({ image: events.image }).from(events).where(where),
+    db.select({ image: posts.image }).from(posts)
+      .leftJoin(discussions, eq(discussions.id, posts.discussionId))
+      .where(or(inArray(posts.eventId, ids), inArray(discussions.eventId, ids))),
+  ]);
+  return [...covers, ...postImages].map((r) => r.image);
+}

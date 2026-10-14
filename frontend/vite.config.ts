@@ -12,14 +12,10 @@ export default defineConfig({
     },
   },
   server: {
-    // Proxy API requests to the backend during development
-    // proxy: {
-    //   '/api': {
-    //     target: 'http://localhost:5000',
-    //     changeOrigin: true,
-    //     secure: false,
-    //     rewrite: (path) => path,
-    //   },
-    // },
+    // The DB stores images as /uploads/<name>.webp, relative to the site.
+    // BACKEND_URL is set by the dev compose file, where the API is not on localhost.
+    proxy: {
+      '/uploads': process.env.BACKEND_URL ?? 'http://localhost:5000',
+    },
   },
 })

@@ -9,6 +9,7 @@ import { getEventRow } from "../utils/event.util.ts";
 import { getPostRow } from "../utils/post.util.ts";
 import { toReport } from "../utils/report.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
+import { deleteImages } from "./image.service.ts";
 import { NotificationService } from "./notification.service.ts";
 
 const REPORTER = { id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture };
@@ -200,7 +201,8 @@ export const ReportService = {
 
         if (status === 'resolved' && updated.targetType === ReportTargetType.Post) {
             try {
-                await db.delete(posts).where(eq(posts.id, updated.targetId));
+                const [deleted] = await db.delete(posts).where(eq(posts.id, updated.targetId)).returning({ image: posts.image });
+                await deleteImages(deleted?.image);
                 console.log(`[ReportService] Deleted post ${updated.targetId} due to resolved report #${updated.id}`);
             } catch (err) {
                 console.error("Failed to delete post after report resolve:", err);

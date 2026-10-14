@@ -2,7 +2,7 @@ import { and, asc, desc, eq, not, type SQL } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
 import { discussions, postLikes, posts, users } from "../db/schema.ts";
-import { uploadToImgBB } from "./imgbb.service.ts";
+import { deleteImages, saveImage } from "./image.service.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { getEventRow } from "../utils/event.util.ts";
@@ -41,17 +41,21 @@ export const PostService = {
             if (!discussion) throw createHttpError(404, "Discussion not found");
         }
 
-        // file is in memory buffer
-        const image = file ? await uploadToImgBB(file.buffer, file.originalname) : undefined;
+        const image = file ? await saveImage(file.buffer) : undefined;
 
-        const [post] = await db.insert(posts).values({
-            discussionId: discussionId || null,
-            eventId: eventId || null,
-            authorId: userId,
-            content: content ?? null,
-            image: image ?? null,
-        }).returning();
-        return toPost(post!, []);
+        try {
+            const [post] = await db.insert(posts).values({
+                discussionId: discussionId || null,
+                eventId: eventId || null,
+                authorId: userId,
+                content: content ?? null,
+                image: image ?? null,
+            }).returning();
+            return toPost(post!, []);
+        } catch (err) {
+            await deleteImages(image);
+            throw err;
+        }
     },
 
     async getPostsByDiscussion(discussionId: string) {
@@ -107,6 +111,7 @@ export const PostService = {
         const deleted = await withLikeIds(post);
         // Its comments and likes go with it (foreign keys).
         await db.delete(posts).where(eq(posts.id, post.id));
+        await deleteImages(post.image);
         return deleted;
     },
 

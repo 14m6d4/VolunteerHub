@@ -8,7 +8,8 @@ import { ReportTargetType } from "../types/report.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { UserRole } from "../types/user.ts";
-import { assertMayManageEvent, getEventRow, toEvent } from "../utils/event.util.ts";
+import { assertMayManageEvent, imagesDeletedWithEvents, getEventRow, toEvent } from "../utils/event.util.ts";
+import { deleteImages } from "./image.service.ts";
 import { getPostRow, postLikerIds, toPost } from "../utils/post.util.ts";
 import { containsPattern } from "../utils/sql.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
@@ -102,6 +103,7 @@ export const EventService = {
             .set({ ...pickEventFields(updates), updatedAt: new Date() })
             .where(eq(events.id, event.id))
             .returning();
+        if (updated!.image !== event.image) await deleteImages(event.image);
 
         for (const volunteerId of await approvedMemberIds(event.id)) {
             NotificationService.notify(volunteerId, {
@@ -309,8 +311,10 @@ export const EventService = {
         assertMayManageEvent(event, actorId, actorRole);
 
         try {
+            const images = await imagesDeletedWithEvents(eq(events.id, event.id));
             // The registrations, posts and discussion go with the event (foreign keys).
             await db.delete(events).where(eq(events.id, event.id));
+            await deleteImages(...images);
 
             return { message: "Event deleted successfully" };
         } catch (err) {

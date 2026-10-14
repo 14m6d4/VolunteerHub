@@ -2,9 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { EventService } from "../services/event.service.ts";
 import { RegistrationService } from "../services/registration.service.ts";
 import createHttpError from "http-errors";
-
-import fs from "fs";
-import { uploadToImgBB } from "../services/imgbb.service.ts";
+import { deleteImages, saveImage } from "../services/image.service.ts";
 
 export const EventController = {
     async getAll(req: Request, res: Response, next: NextFunction) {
@@ -15,37 +13,30 @@ export const EventController = {
             next(err);
         }
     },
+    // A cover image saved for a request that then fails is deleted again.
     async create(req: Request, res: Response, next: NextFunction) {
+        let image: string | undefined;
         try {
-            console.log("Creating event with body:", req.body);
-            if (req.file) {
-                console.log(`[EventController] Processing file from memory`);
-                const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
-                console.log(`[EventController] ImgBB URL: ${imageUrl}`);
-
-                req.body.image = imageUrl;
-            } else {
-                console.log("[EventController] No file in request");
-            }
+            if (req.file) req.body.image = image = await saveImage(req.file.buffer);
 
             const managerId = (req.user as any)._id;
             const event = await EventService.createEvent(req.body, managerId);
             return res.status(201).json({ success: true, data: event });
         } catch (err) {
+            await deleteImages(image);
             next(err);
         }
     },
 
     async update(req: Request, res: Response, next: NextFunction) {
+        let image: string | undefined;
         try {
             const eventId = req.params.id as string;
-            if (req.file) {
-                const imageUrl = await uploadToImgBB(req.file.buffer, req.file.originalname);
-                req.body.image = imageUrl;
-            }
+            if (req.file) req.body.image = image = await saveImage(req.file.buffer);
             const updated = await EventService.updateEvent(eventId, req.body, (req.user as any)._id, (req.user as any).role);
             return res.json({ success: true, data: updated });
         } catch (err) {
+            await deleteImages(image);
             next(err);
         }
     },

@@ -84,6 +84,7 @@ jobs:
       - run: npm run check:notifications
       - run: npm run check:authz
       - run: npm run check:observability
+      - run: npm run check:uploads
       # Last, because it wipes the database: proves the demo dataset fits the schema.
       - run: npm run db:seed
 

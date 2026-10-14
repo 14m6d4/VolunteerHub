@@ -106,7 +106,7 @@ export const posts = pgTable("posts", {
     discussionId: uuid("discussion_id").references(() => discussions.id, { onDelete: "cascade" }),
     authorId: uuid("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     content: text("content"),
-    // ImgBB URL.
+    // /uploads/<name>.webp (services/image.service.ts).
     image: text("image"),
     pinned: boolean("pinned").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

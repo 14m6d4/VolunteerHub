@@ -33,7 +33,7 @@ First-time setup: `npm i` in both `backend/` and `frontend/`, configure `backend
 
 ## Environment
 
-`backend/.env` (required keys): `PORT`, `BACKEND_URL`, `FRONTEND_URL`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (web-push), `EMAIL_USERNAME`/`EMAIL_PASSWORD` (nodemailer OTP), `IMGBB_API_KEY` (image hosting), `DATABASE_URL` + `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (PostgreSQL; the prod `postgres` container reads the trio from this same file, so they must agree with `DATABASE_URL`).
+`backend/.env` (required keys): `PORT`, `BACKEND_URL`, `FRONTEND_URL`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (web-push), `EMAIL_USERNAME`/`EMAIL_PASSWORD` (nodemailer OTP), `DATABASE_URL` + `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (PostgreSQL; the prod `postgres` container reads the trio from this same file, so they must agree with `DATABASE_URL`).
 
 `.env.backup` (prod VM only, next to `docker-compose.prod.yml`): the OCI bucket's write key for the `backup` service (`backup/`): `OCI_S3_ENDPOINT`, `OCI_S3_REGION`, `OCI_S3_BUCKET`, `OCI_S3_ACCESS_KEY_ID`, `OCI_S3_SECRET_ACCESS_KEY`.
 
@@ -58,7 +58,7 @@ Key cross-cutting middleware (`middlewares/`):
 - `authMiddleware` — requires a valid `Bearer` JWT, loads the user onto `req.user`. `optionalAuthMiddleware` attaches the user if a token is present but never rejects (used for public-but-personalized endpoints like event listing).
 - `roleMiddleware(['manager','admin'])` — gate by `req.user.role`; runs after `authMiddleware`.
 - `validateBody(schema)` / `validateQuery` / `validateParams` — **Zod** schemas from `utils/validators.ts`. Validated/coerced data replaces `req.body` etc.
-- `upload` (`upload.middleware.ts`) — Multer in-memory; controllers then push the buffer to ImgBB via `services/imgbb.service.ts` and store the returned URL.
+- `uploadImage(field)` (`upload.middleware.ts`) — Multer in-memory, 2 MB per file. `services/image.service.ts` re-encodes the buffer to WebP in `UPLOADS_DIR` (default `uploads/`, a named volume in prod) and returns the `/uploads/<name>.webp` path the DB stores; it refuses uploads once the folder holds 5 GB. Whoever replaces or deletes an image's owner (avatar, cover, post, event, user) calls `deleteImages` with the old paths. `npm run check:uploads` covers it.
 - `observability.middleware.ts` — pino JSON request log with a request ID (`X-Request-Id`, echoed or generated) and `prom-client` RED metrics. `/metrics` is internal-only (never under `/api`, no Traefik route, refused when `X-Forwarded-For` is set). `npm run check:observability` covers it.
 - `error.middleware.ts` — centralized JSON error handler, registered last. Throw `AppError(message, statusCode)` (`utils/appError.ts`) or `http-errors` from services to control the response.
 

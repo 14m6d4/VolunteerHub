@@ -42,6 +42,9 @@ services:
       # entry; the real client comes from CF-Connecting-IP in rateLimit.middleware.
       TRUST_PROXY: 1
     restart: unless-stopped
+    # Uploaded images, served at /uploads. Not backed up (docs/adr/0002).
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -93,6 +96,7 @@ services:
 
 volumes:
   pg-data:
+  uploads:
 
 networks:
   proxy:
