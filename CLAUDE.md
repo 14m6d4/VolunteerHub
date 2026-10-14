@@ -27,7 +27,7 @@ Frontend (`cd frontend`):
 - `npm run lint` — ESLint over the project.
 - `npm run preview` — preview the production build.
 
-There is **no test runner configured** in either package (`backend` `npm test` just errors out).
+Behaviour checks are the `backend` scripts `npm run smoke:security` and `npm run check:*`. They need `DATABASE_URL` pointing at a migrated Postgres, and CI runs all of them (`.github/workflows/ci.yml`). There is no test framework (`npm test` errors out). Review rules: `CODING_STANDARDS.md`.
 
 First-time setup: `npm i` in both `backend/` and `frontend/`, configure `backend/.env` (see below), then run the two dev servers.
 
