@@ -62,7 +62,7 @@ type Navbar01Props = {
 
 // Simple logo component for the navbar - now using imported image
 const Logo = (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
-  return <img src={logoImage || "/placeholder.svg"} alt="Gizmo Logo" className="h-10 w-10" {...props} />
+  return <img src={logoImage || "/placeholder.svg"} alt="VolunteerHub logo" className="h-10 w-10" {...props} />
 }
 
 const HamburgerIcon = ({ className, ...props }: React.SVGProps<SVGSVGElement>) => (

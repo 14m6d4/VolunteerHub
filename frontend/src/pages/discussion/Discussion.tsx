@@ -309,14 +309,17 @@ export default function DiscussionPage() {
     navigate(`/events/${eventId}/posts/${postId}`);
   };
 
+  const pageTitle = <title>{`${event?.title || 'Event'} · VolunteerHub`}</title>;
+
   if (loading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>;
+    return <div className="min-h-screen bg-background flex items-center justify-center">{pageTitle}Loading...</div>;
   }
 
-  if (!event) return <div>Event not found</div>;
+  if (!event) return <div>{pageTitle}Event not found</div>;
 
   return (
     <div className="min-h-screen bg-background">
+      {pageTitle}
       <EventHeader event={{ ...event, members } as unknown as DiscussionEvent} />
 
       <div className="px-4 sm:px-6 lg:px-8 py-6">

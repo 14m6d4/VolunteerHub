@@ -1,6 +1,6 @@
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import "./App.css"
-import { BrowserRouter, Routes, Route, Outlet, Navigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Outlet, Navigate, useParams } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import LoginPage from "@/pages/auth/Login"
 import BannedPage from "@/pages/auth/Banned"
@@ -34,6 +34,19 @@ import SettingsPage from "./pages/Settings";
 import ProfilePage from "./pages/Profile";
 import AboutPage from "./pages/About";
 
+// React 19 hoists <title> into <head>, ahead of the static one in index.html
+const page = (title: string, element: React.ReactNode) => (
+  <>
+    <title>{`${title} · VolunteerHub`}</title>
+    {element}
+  </>
+);
+
+function ProfileRoute() {
+  const { username } = useParams<{ username: string }>();
+  return page(`@${username}`, <ProfilePage />);
+}
+
 function HomeRoute() {
   const { user, loading } = useAuth();
   
@@ -65,24 +78,24 @@ function AppContent() {
           }
         >
           <Route path="/" element={<HomeRoute />} />
-          <Route path="/feed" element={<FeedPage />} />
-          <Route path="/feed/events/:eventId/posts/:postId" element={<FeedPage />} />
-          <Route path="/events" element={<EventsList />} />
+          <Route path="/feed" element={page("Feed", <FeedPage />)} />
+          <Route path="/feed/events/:eventId/posts/:postId" element={page("Feed", <FeedPage />)} />
+          <Route path="/events" element={page("Events", <EventsList />)} />
           <Route path="/events/:eventId" element={<DiscussionPage />} />
           <Route path="/events/:eventId/posts/:postId" element={<DiscussionPage />} />
           <Route
             element={<ProtectedRoute allowedRoles={['manager', 'admin']} />}
           >
-            <Route path="/manage-events" element={<ManagerEventDashboard />} />
+            <Route path="/manage-events" element={page("My Events", <ManagerEventDashboard />)} />
           </Route>
-          <Route path="/users" element={<FriendsPage />} />
-          <Route path="/search" element={<SearchUsersPage />} />
-          <Route path="*" element={<Error404 />} />
-          <Route path="403" element={<Error403 />} />
-          <Route path="401" element={<Error401 />} />
-          <Route path="/u/:username/settings" element={<SettingsPage />} />
-          <Route path="/u/:username" element={<ProfilePage />} />
-          <Route path="/about" element={<AboutPage />} />
+          <Route path="/users" element={page("Friends", <FriendsPage />)} />
+          <Route path="/search" element={page("Find People", <SearchUsersPage />)} />
+          <Route path="*" element={page("Page Not Found", <Error404 />)} />
+          <Route path="403" element={page("Forbidden", <Error403 />)} />
+          <Route path="401" element={page("Unauthorized", <Error401 />)} />
+          <Route path="/u/:username/settings" element={page("Settings", <SettingsPage />)} />
+          <Route path="/u/:username" element={<ProfileRoute />} />
+          <Route path="/about" element={page("About", <AboutPage />)} />
         </Route>
 
         {/* New Admin Dashboard with Sidebar Layout */}
@@ -96,10 +109,10 @@ function AppContent() {
         >
           <Route path="/manage" element={<AdminLayout />}>
             <Route index element={<Navigate to="/manage/users" replace />} />
-            <Route path="users" element={<UsersManagement />} />
-            <Route path="events" element={<EventsManagement />} />
-            <Route path="reports" element={<ReportsManagement />} />
-            <Route path="analytics" element={<AnalyticsDashboard />} />
+            <Route path="users" element={page("Admin · Users", <UsersManagement />)} />
+            <Route path="events" element={page("Admin · Events", <EventsManagement />)} />
+            <Route path="reports" element={page("Admin · Reports", <ReportsManagement />)} />
+            <Route path="analytics" element={page("Admin · Analytics", <AnalyticsDashboard />)} />
           </Route>
         </Route>
 
@@ -111,12 +124,12 @@ function AppContent() {
             </main>
           }
         >
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/banned" element={<BannedPage />} />
-          <Route path="/register" element={<SignupPage />} />
-          <Route path="/password_reset" element={<PasswordResetPage />} />
-          <Route path="500" element={<Error500 />} />
-          <Route path="503" element={<Error503 />} />
+          <Route path="/login" element={page("Log In", <LoginPage />)} />
+          <Route path="/banned" element={page("Account Suspended", <BannedPage />)} />
+          <Route path="/register" element={page("Sign Up", <SignupPage />)} />
+          <Route path="/password_reset" element={page("Reset Password", <PasswordResetPage />)} />
+          <Route path="500" element={page("Server Error", <Error500 />)} />
+          <Route path="503" element={page("Unavailable", <Error503 />)} />
         </Route>
       </Routes>
     </div>
