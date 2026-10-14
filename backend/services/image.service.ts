@@ -53,9 +53,10 @@ export async function saveImage(input: Buffer, maxTotalBytes = MAX_TOTAL_BYTES):
  * URLs (empty, external, a path trick) is skipped; failures are logged, never
  * thrown, since the row they belonged to is already gone.
  *
- * Safe only while saveImage is the one writer of /uploads paths into the DB:
- * the validators reject a relative profilePicture and strip `image` from event
- * bodies, so a client cannot point its row at someone else's file.
+ * Safe only while saveImage is the one writer of /uploads/<hex>.webp paths into
+ * the DB: the validators reject a relative profilePicture and strip `image` from
+ * event bodies, so a client cannot point its row at someone else's file. The demo
+ * seed writes shared /uploads/demo-*.webp covers, which never match and so stay.
  */
 export async function deleteImages(...urls: (string | null | undefined)[]) {
     await Promise.all(urls.map(async (url) => {

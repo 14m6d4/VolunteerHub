@@ -19,6 +19,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 # SQL migrations, applied by the `migrate` compose service (node dist/db/migrate.js).
 COPY --from=build /app/drizzle ./drizzle
+# Demo event cover images, read by dist/scripts/seed.js (--append, --covers).
+COPY --from=build /app/scripts/demo-covers ./dist/scripts/demo-covers
 # Mount point of the uploads volume: a fresh named volume copies this owner,
 # so the node user can write the images.
 RUN mkdir uploads && chown node:node uploads

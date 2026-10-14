@@ -15,16 +15,71 @@
  * before it inserts anything. Append mode takes the password from
  * SEED_DEMO_PASSWORD and never prints it: on the VM, container stdout is shipped
  * to Grafana Cloud.
+ *
+ * Both modes give each demo event its cover image from demo-covers/. With --covers
+ * it does only that, on the demo events that already exist (matched by title and
+ * demo manager) and have no cover a manager uploaded, and is safe to run again; it
+ * is allowed in production
+ * (node dist/scripts/seed.js --covers).
  */
 import { randomBytes } from 'node:crypto';
+import { copyFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
 import 'dotenv/config';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray, like, or } from 'drizzle-orm';
 import { closeDb, db } from '../db/client.ts';
 import {
   commentLikes, comments, discussions, events, friendRequests, friendships, notifications,
   postLikes, posts, pushSubscriptions, registrations, reports, users,
 } from '../db/schema.ts';
+import { UPLOADS_DIR } from '../services/image.service.ts';
 import { hashPassword } from '../utils/password.util.ts';
+
+const eventSpecs = [
+  { title: 'Riverside Clean-up', status: 'approved', start: 5, max: 10, tags: ['environment', 'outdoor'] },
+  { title: 'Food Bank Sorting Day', status: 'approved', start: 9, max: 8, tags: ['community', 'food'] },
+  { title: 'Reading Buddies at the Library', status: 'approved', start: 14, max: null, tags: ['education', 'children'] },
+  { title: 'Community Garden Planting', status: 'approved', start: 21, max: 6, tags: ['environment', 'community'] },
+  { title: 'Charity Fun Run', status: 'pending', start: 30, max: 40, tags: ['sports', 'charity'] },
+  { title: 'Winter Coat Drive', status: 'draft', start: 45, max: null, tags: ['charity'] },
+  { title: 'Beach Cleanup (rained out)', status: 'cancelled', start: -3, max: 15, tags: ['environment'] },
+  { title: 'Spring Tree Planting', status: 'finished', start: -20, max: 12, tags: ['environment', 'outdoor'] },
+  // Years out, so a long-lived demo (prod --append) still has upcoming events to discover.
+  // ponytail: they go stale after ~5 years; reseed or shift dates if the demo lives that long.
+  { title: 'Mangrove Restoration Weekend', status: 'approved', start: 365, max: 30, tags: ['environment', 'outdoor'] },
+  { title: 'Blood Donation Drive', status: 'approved', start: 545, max: null, tags: ['health', 'community'] },
+  { title: 'Animal Shelter Open Day', status: 'approved', start: 730, max: 20, tags: ['animals', 'community'] },
+  { title: 'Heritage Archive Digitisation', status: 'approved', start: 1095, max: 10, tags: ['education', 'culture'] },
+  { title: 'Senior Tech Help Desk', status: 'approved', start: 1825, max: 15, tags: ['education', 'community'] },
+] as const;
+
+/**
+ * Copies each demo cover into the uploads folder and points the demo events with
+ * that title at it. The files keep fixed demo-* names, not saveImage's random hex
+ * ones, so deleteImages never removes them (several rows may share one) and a
+ * second run just overwrites them.
+ */
+async function setCovers() {
+  await mkdir(UPLOADS_DIR, { recursive: true });
+  const demoManagers = db.select({ id: users.id }).from(users).where(like(users.email, '%@demo.volunteerhub.test'));
+  let updated = 0;
+  for (const { title } of eventSpecs) {
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    await copyFile(path.join(import.meta.dirname, 'demo-covers', `${slug}.webp`), path.join(UPLOADS_DIR, `demo-${slug}.webp`));
+    updated += (await db.update(events).set({ image: `/uploads/demo-${slug}.webp` })
+      .where(and(eq(events.title, title), inArray(events.managerId, demoManagers),
+        // A cover a manager uploaded since stays.
+        or(eq(events.image, ''), like(events.image, '/uploads/demo-%'))))
+      .returning({ id: events.id })).length;
+  }
+  return updated;
+}
+
+if (process.argv.includes('--covers')) {
+  console.log(`Set cover images on ${await setCovers()} demo events.`);
+  await closeDb();
+  process.exit();
+}
 
 const append = process.argv.includes('--append');
 // Dropping data or adding a demo admin has no place in production.
@@ -63,24 +118,6 @@ const volunteers = await db.insert(users)
   .values(['dan', 'eve', 'finn', 'gia', 'hugo', 'ivy', 'jack', 'kai', 'lena', 'milo', 'nina', 'omar']
     .map((n) => demoUser(n, 'volunteer'))).returning();
 
-const eventSpecs = [
-  { title: 'Riverside Clean-up', status: 'approved', start: 5, max: 10, tags: ['environment', 'outdoor'] },
-  { title: 'Food Bank Sorting Day', status: 'approved', start: 9, max: 8, tags: ['community', 'food'] },
-  { title: 'Reading Buddies at the Library', status: 'approved', start: 14, max: null, tags: ['education', 'children'] },
-  { title: 'Community Garden Planting', status: 'approved', start: 21, max: 6, tags: ['environment', 'community'] },
-  { title: 'Charity Fun Run', status: 'pending', start: 30, max: 40, tags: ['sports', 'charity'] },
-  { title: 'Winter Coat Drive', status: 'draft', start: 45, max: null, tags: ['charity'] },
-  { title: 'Beach Cleanup (rained out)', status: 'cancelled', start: -3, max: 15, tags: ['environment'] },
-  { title: 'Spring Tree Planting', status: 'finished', start: -20, max: 12, tags: ['environment', 'outdoor'] },
-  // Years out, so a long-lived demo (prod --append) still has upcoming events to discover.
-  // ponytail: they go stale after ~5 years; reseed or shift dates if the demo lives that long.
-  { title: 'Mangrove Restoration Weekend', status: 'approved', start: 365, max: 30, tags: ['environment', 'outdoor'] },
-  { title: 'Blood Donation Drive', status: 'approved', start: 545, max: null, tags: ['health', 'community'] },
-  { title: 'Animal Shelter Open Day', status: 'approved', start: 730, max: 20, tags: ['animals', 'community'] },
-  { title: 'Heritage Archive Digitisation', status: 'approved', start: 1095, max: 10, tags: ['education', 'culture'] },
-  { title: 'Senior Tech Help Desk', status: 'approved', start: 1825, max: 15, tags: ['education', 'community'] },
-] as const;
-
 const eventRows = await db.insert(events).values(eventSpecs.map((s, i) => ({
   title: s.title,
   description: `${s.title}: bring water, gloves and good company.`,
@@ -93,6 +130,7 @@ const eventRows = await db.insert(events).values(eventSpecs.map((s, i) => ({
   managerId: managers[i % managers.length]!.id,
   tags: [...s.tags],
 })) ).returning();
+await setCovers();
 
 // Registrations: every volunteer joins a few events; the list below is (event index, volunteer index, status).
 const regs: [number, number, 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed'][] = [];
