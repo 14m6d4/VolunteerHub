@@ -1,6 +1,7 @@
 
 
 import { useState } from 'react';
+import { coverImageUrl, showCoverPlaceholder } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -91,7 +92,8 @@ export function FeedPostCard({
               <Link to={`/events/${post.eventId}`} className="shrink-0">
                 <div className="h-12 w-12 rounded-lg overflow-hidden hover:opacity-80 transition-opacity">
                   <img
-                    src={post.eventImage}
+                    src={coverImageUrl(post.eventImage)}
+                    onError={showCoverPlaceholder}
                     alt={post.eventTitle}
                     className="w-full h-full object-cover"
                   />

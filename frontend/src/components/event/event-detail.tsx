@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { coverImageUrl, showCoverPlaceholder } from '@/lib/utils';
 import { Calendar, MapPin, Users, Flag } from 'lucide-react';
 import {
   Dialog,
@@ -96,7 +97,8 @@ export const EventDetailModal = ({ event, open, onOpenChange, onApply }: EventDe
             {/* Event Image */}
             <div className="relative h-64 md:h-80 overflow-hidden rounded-lg">
               <img
-                src={event.image}
+                src={coverImageUrl(event.image)}
+                onError={showCoverPlaceholder}
                 alt={event.title}
                 className="w-full h-full object-cover"
               />

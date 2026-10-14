@@ -1,6 +1,7 @@
 
 
 import { Link } from 'react-router-dom';
+import { coverImageUrl, showCoverPlaceholder } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bookmark } from 'lucide-react';
@@ -31,7 +32,8 @@ export function EventShortcuts({ events }: EventShortcutsProps) {
                 {/* Event Image - Rounded Square */}
                 <div className="h-10 w-10 rounded-lg overflow-hidden shrink-0">
                   <img
-                    src={event.image}
+                    src={coverImageUrl(event.image)}
+                    onError={showCoverPlaceholder}
                     alt={event.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />

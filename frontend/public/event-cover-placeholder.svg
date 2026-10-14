@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 450" role="img" aria-label="No cover image">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2e8f0"/>
+      <stop offset="1" stop-color="#cbd5e1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="450" fill="url(#bg)"/>
+  <!-- Kept small and centred: cards, square thumbnails and wide banners all crop this with object-cover. -->
+  <g transform="translate(600 228) scale(0.75)" fill="none" stroke="#94a3b8" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-60" y="-50" width="120" height="110" rx="14"/>
+    <path d="M-60 -10H60M-30 -70V-30M30 -70V-30"/>
+    <path d="M0 45s-28-16-28-33a14 14 0 0 1 28-4 14 14 0 0 1 28 4c0 17-28 33-28 33z" fill="#94a3b8" stroke-width="0"/>
+  </g>
+</svg>

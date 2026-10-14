@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { coverImageUrl, showCoverPlaceholder } from '@/lib/utils';
 import { Calendar, MapPin, Users, Flag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,7 +60,8 @@ export const EventCard = ({ event, onClick, onLeave, showLeaveButton = false }: 
       >
         <div className="relative h-48 overflow-hidden">
           <img
-            src={event.image}
+            src={coverImageUrl(event.image)}
+            onError={showCoverPlaceholder}
             alt={event.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />

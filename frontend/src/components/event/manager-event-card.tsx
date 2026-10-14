@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { coverImageUrl, showCoverPlaceholder } from '@/lib/utils';
 import { Calendar, MapPin, Users, MoreVertical, Pencil, Trash2, CheckCircle, UserCog, FileWarning } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -52,30 +53,17 @@ export const ManagerEventCard = ({
     action();
   };
 
-  const getImageUrl = (url?: string) => {
-    if (!url) return undefined;
-    if (url.startsWith('//uploads')) {
-      return `http://localhost:5000${url.substring(1)}`;
-    }
-    return url;
-  };
-
   return (
     <>
 
       <Card className="flex flex-col h-full hover:shadow-lg transition-shadow bg-card" onClick={onClick}>
         <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-muted">
-          {event.image ? (
-            <img
-              src={getImageUrl(event.image)}
-              alt={event.title}
-              className="h-full w-full object-cover transition-transform hover:scale-105"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <Calendar className="h-12 w-12" />
-            </div>
-          )}
+          <img
+            src={coverImageUrl(event.image)}
+            onError={showCoverPlaceholder}
+            alt={event.title}
+            className="h-full w-full object-cover transition-transform hover:scale-105"
+          />
           <div className="absolute top-3 left-3">
             {getStatusBadge()}
           </div>

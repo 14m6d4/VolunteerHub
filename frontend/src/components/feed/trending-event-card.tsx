@@ -1,6 +1,7 @@
 
 
 import { useState } from 'react';
+import { coverImageUrl, showCoverPlaceholder } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +55,8 @@ export function TrendingEventCard({ event }: TrendingEventCardProps) {
             onClick={() => setShowDetail(true)}
           >
             <img
-              src={event.image}
+              src={coverImageUrl(event.image)}
+              onError={showCoverPlaceholder}
               alt={event.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />

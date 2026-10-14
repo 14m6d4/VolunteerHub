@@ -1,6 +1,7 @@
 
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { coverImageUrl, showCoverPlaceholder } from '@/lib/utils';
 import { Users } from 'lucide-react';
 import type { DiscussionEvent } from '@/types/discussion';
 
@@ -34,7 +35,8 @@ export function EventHeader({ event }: EventHeaderProps) {
       {/* Banner Image */}
       <div className="relative w-full h-48 sm:h-64 md:h-80 overflow-hidden rounded-b-xl">
         <img
-          src={event.bannerImage || event.image}
+          src={coverImageUrl(event.bannerImage || event.image)}
+          onError={showCoverPlaceholder}
           alt={event.title}
           className="w-full h-full object-cover"
         />

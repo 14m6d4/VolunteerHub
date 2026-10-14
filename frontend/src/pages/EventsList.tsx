@@ -93,7 +93,7 @@ export const EventsList = () => {
         return {
           id: eventId,
           title: be.title,
-          image: be.image || 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=400&fit=crop', // Fallback image
+          image: be.image ?? '',
           date: formatEventDate(be.startAt || be.date || ''),
           location: be.location || 'TBD',
           membersCount: be.currentMembers || be.membersCount || 0,
