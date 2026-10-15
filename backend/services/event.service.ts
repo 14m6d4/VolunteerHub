@@ -91,10 +91,8 @@ export const EventService = {
             .returning();
         if (updated!.image !== event.image) await deleteImages(event.image);
 
-        for (const volunteerId of await approvedMemberIds(event.id)) {
-            await notify({ userId: volunteerId }, NotificationType.EVENT_UPDATED,
-                { eventId: event.id, eventTitle: updated!.title }, currentUserId);
-        }
+        await notify({ userIds: await approvedMemberIds(event.id) }, NotificationType.EVENT_UPDATED,
+            { eventId: event.id, eventTitle: updated!.title }, currentUserId);
 
         return toEvent(updated!);
     },
@@ -299,10 +297,8 @@ export const EventService = {
             return { finished: finished!, participants };
         });
 
-        for (const p of participants) {
-            await notify({ userId: p.volunteerId }, NotificationType.EVENT_COMPLETED,
-                { eventId: finished.id, eventTitle: finished.title }, actorId);
-        }
+        await notify({ userIds: participants.map((p) => p.volunteerId) }, NotificationType.EVENT_COMPLETED,
+            { eventId: finished.id, eventTitle: finished.title }, actorId);
 
         return toEvent(finished);
     }

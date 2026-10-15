@@ -15,6 +15,8 @@ import { users } from '../db/schema.ts';
 import { hashPassword } from '../utils/password.util.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
+import { NotificationType } from '../types/notification.ts';
+import { notify } from '../services/notification.service.ts';
 
 const stamp = Date.now();
 const server = app.listen(0);
@@ -204,6 +206,15 @@ await check('a comment notifies the post author with the actor; your own post no
 });
 
 // --- event and registration notifications ---------------------------------
+
+await check('a list audience is notified once each, without the actor', async () => {
+  const evId = await mkApprovedEvent('list');
+  await notify({ userIds: [vol2.id, vol2.id, vol3.id, mgr.id] }, NotificationType.EVENT_COMPLETED,
+    { eventId: evId, eventTitle: 'list' }, mgr.id);
+  const got = async (token: string) =>
+    (await mine(token, '?limit=100')).filter((n) => n.type === 'event_completed' && n.data?.eventId === evId).length;
+  assert.deepEqual([await got(vol2.token), await got(vol3.token), await got(mgr.token)], [1, 1, 0]);
+});
 
 const admin2 = await mkUser('admin2', 'admin');
 const about = async (token: string, type: string, eventId: string) =>

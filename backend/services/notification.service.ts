@@ -2,7 +2,6 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { notifications, users } from '../db/schema.ts';
 import { NotificationType } from '../types/notification.ts';
-import { UserRole } from '../types/user.ts';
 import AppError from '../utils/appError.ts';
 import { ModerationService, type ModerationTarget } from './moderation.service.ts';
 import { isUuid, toLean } from '../utils/user.util.ts';
@@ -13,8 +12,8 @@ const toNotification = (row: typeof notifications.$inferSelect, actor?: unknown)
 	return { ...toLean(rest), user: userId, ...(actorId ? { actor: actor ?? actorId } : {}) };
 };
 
-/** Who hears about it: one user, every admin, or the moderators of an event (GLOSSARY.md: Moderator). */
-export type Audience = { userId: string } | 'admins' | { moderatorsOf: ModerationTarget };
+/** Who hears about it: one user, a list of users, every admin, or the moderators of an event (GLOSSARY.md: Moderator). */
+export type Audience = { userId: string } | { userIds: string[] } | 'admins' | { moderatorsOf: ModerationTarget };
 
 type EventData = { eventId: string; eventTitle: string };
 type ReportOutcome = { reportId: string; targetType: string; targetId: string; eventId?: string; postId?: string };
@@ -61,10 +60,9 @@ const wording = {
 type Kind = keyof typeof wording;
 
 async function recipientsOf(audience: Audience) {
-	if (audience === 'admins') {
-		return (await db.select({ id: users.id }).from(users).where(eq(users.role, UserRole.Admin))).map((a) => a.id);
-	}
+	if (audience === 'admins') return ModerationService.adminIds();
 	if ('userId' in audience) return [audience.userId];
+	if ('userIds' in audience) return audience.userIds;
 	return ModerationService.moderatorIds(audience.moderatorsOf);
 }
 

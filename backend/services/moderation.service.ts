@@ -53,11 +53,13 @@ export const ModerationService = {
 
     /** Who moderates the target: its event's manager, if any, and every admin. */
     async moderatorIds(target: ModerationTarget) {
-        const [event, admins] = await Promise.all([
-            eventOf(target),
-            db.select({ id: users.id }).from(users).where(eq(users.role, UserRole.Admin)),
-        ]);
-        return [...(event ? [event.managerId] : []), ...admins.map((a) => a.id)];
+        const [event, admins] = await Promise.all([eventOf(target), ModerationService.adminIds()]);
+        return [...(event ? [event.managerId] : []), ...admins];
+    },
+
+    /** Every admin's id. */
+    async adminIds() {
+        return (await db.select({ id: users.id }).from(users).where(eq(users.role, UserRole.Admin))).map((a) => a.id);
     },
 
     /** 404 when the target's event does not exist, 403 when the actor is not a moderator. Admins always pass. */
