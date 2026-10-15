@@ -3,7 +3,7 @@ import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
 import { commentLikes, comments, users } from "../db/schema.ts";
 import { ModerationService } from "./moderation.service.ts";
-import { NotificationService } from "./notification.service.ts";
+import { notify } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { commentLikerIds, getCommentRow, getPostRow, toComment } from "../utils/post.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
@@ -19,21 +19,11 @@ export const CommentService = {
 
         const [comment] = await db.insert(comments).values({ postId: post.id, authorId: userId, content }).returning();
 
-        if (post.authorId !== userId) {
-            try {
-                const [commenter] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
-                if (commenter) {
-                    await NotificationService.notify(post.authorId, {
-                        type: NotificationType.POST_COMMENTED,
-                        title: "New Comment",
-                        body: `${commenter.name} commented on your post: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
-                        data: { postId, commentId: comment!.id, userId, actorName: commenter.name, eventId: post.eventId }
-                    });
-                }
-            } catch (err) {
-                console.error("Failed to send comment notification:", err);
-            }
-        }
+        const [commenter] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
+        await notify({ userId: post.authorId }, NotificationType.POST_COMMENTED, {
+            postId, commentId: comment!.id, userId, actorName: commenter!.name, eventId: post.eventId,
+            preview: `${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
+        }, userId);
 
         return toComment(comment!, []);
     },

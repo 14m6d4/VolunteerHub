@@ -10,7 +10,7 @@ import { getPostRow } from "../utils/post.util.ts";
 import { toReport } from "../utils/report.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
 import { type Actor, ModerationService } from "./moderation.service.ts";
-import { NotificationService } from "./notification.service.ts";
+import { notify } from "./notification.service.ts";
 import { PostService } from "./post.service.ts";
 
 const REPORTER = { id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture };
@@ -20,10 +20,6 @@ async function file(reporterId: string, targetType: ReportTargetType, targetId: 
         reporterId, targetId, targetType, reason, description: description || null,
     }).returning();
     return row!;
-}
-
-async function adminIds() {
-    return (await db.select({ id: users.id }).from(users).where(eq(users.role, UserRole.Admin))).map((a) => a.id);
 }
 
 /** Newest first, with the reporter populated as {_id, username, name, profilePicture}. */
@@ -95,13 +91,8 @@ export const ReportService = {
 
         const report = await file(reporterId, ReportTargetType.Event, event.id, reason, description);
 
-        await Promise.all((await adminIds()).map((adminId) =>
-            NotificationService.notify(adminId, {
-                type: NotificationType.EVENT_REPORTED,
-                title: "Event Reported",
-                body: `Event ${event.title} has been reported for the following reason: ${reason}`,
-                data: { eventId: event.id, reportId: report.id }
-            })));
+        await notify("admins", NotificationType.EVENT_REPORTED,
+            { eventId: event.id, eventTitle: event.title, reason, reportId: report.id }, reporterId);
 
         return toReport(report);
     },
@@ -112,17 +103,9 @@ export const ReportService = {
 
         const report = await file(reporterId, ReportTargetType.Post, post.id, reason, description);
 
-        if (post.eventId) {
-            const [event] = await db.select({ managerId: events.managerId }).from(events).where(eq(events.id, post.eventId));
-            if (event) {
-                await NotificationService.notify(event.managerId, {
-                    type: NotificationType.POST_REPORTED,
-                    title: "Post Reported",
-                    body: `Post has been reported for the following reason: ${reason}`,
-                    data: { postId: post.id, reportId: report.id }
-                });
-            }
-        }
+        // The post's event's moderators, or only the admins for a post outside any event.
+        await notify({ moderatorsOf: { post } }, NotificationType.POST_REPORTED,
+            { postId: post.id, reason, reportId: report.id }, reporterId);
 
         return toReport(report);
     },
@@ -135,13 +118,8 @@ export const ReportService = {
 
         const report = await file(reporterId, ReportTargetType.User, targetUser.id, reason, description);
 
-        await Promise.all((await adminIds()).map((adminId) =>
-            NotificationService.notify(adminId, {
-                type: NotificationType.USER_REPORTED,
-                title: "User Reported",
-                body: `User ${targetUser.username} has been reported. Reason: ${reason}`,
-                data: { targetUserId: targetUser.id, reportId: report.id }
-            })));
+        await notify("admins", NotificationType.USER_REPORTED,
+            { targetUserId: targetUser.id, username: targetUser.username, reason, reportId: report.id }, reporterId);
 
         return toReport(report);
     },
@@ -193,34 +171,13 @@ export const ReportService = {
         if (!updated) throw createHttpError(404, "Report not found");
         const [reporter] = await db.select({ id: users.id, username: users.username }).from(users).where(eq(users.id, updated.reporterId));
 
-        try {
-            const notificationTitle = status === 'resolved'
-                ? 'Report Resolved'
-                : 'Report Rejected';
-            const notificationBody = status === 'resolved'
-                ? `Your report has been resolved. Action has been taken.`
-                : `Your report has been reviewed and rejected.`;
-
-            let notificationData: any = { reportId: updated.id, targetType: updated.targetType, targetId: updated.targetId };
-
-            if (updated.targetType === ReportTargetType.Post) {
-                if (post && post.eventId) {
-                    notificationData.eventId = post.eventId;
-                    notificationData.postId = post.id;
-                }
-            } else if (updated.targetType === ReportTargetType.Event) {
-                notificationData.eventId = updated.targetId;
-            }
-
-            await NotificationService.notify(updated.reporterId, {
-                type: status === 'resolved' ? NotificationType.REPORT_RESOLVED : NotificationType.REPORT_REJECTED,
-                title: notificationTitle,
-                body: notificationBody,
-                data: notificationData
-            });
-        } catch (err) {
-            console.error(`Failed to notify the reporter of report ${updated.id}:`, (err as Error).message);
-        }
+        const outcome = { reportId: updated.id, targetType: updated.targetType, targetId: updated.targetId };
+        await notify({ userId: updated.reporterId },
+            status === 'resolved' ? NotificationType.REPORT_RESOLVED : NotificationType.REPORT_REJECTED,
+            updated.targetType === ReportTargetType.Event ? { ...outcome, eventId: updated.targetId }
+                : post?.eventId ? { ...outcome, eventId: post.eventId, postId: post.id }
+                : outcome,
+            actor.id);
 
         if (status === 'resolved' && post) {
             try {

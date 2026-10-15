@@ -36,6 +36,8 @@ export async function createNotification(payload: {
 export type Audience = { userId: string } | 'admins' | { moderatorsOf: ModerationTarget };
 
 type EventData = { eventId: string; eventTitle: string };
+type ReportOutcome = { reportId: string; targetType: string; targetId: string; eventId?: string; postId?: string };
+type PostData = { postId: string; userId: string; actorName: string | null; eventId: string | null };
 
 /** Title and body for each kind; callers pass only the kind and the data its wording needs. */
 const wording = {
@@ -55,6 +57,20 @@ const wording = {
 		['Registration Rejected', `Your registration for event ${d.eventTitle} was rejected`],
 	[NotificationType.EVENT_KICKED]: (d: EventData) =>
 		['You have been removed from the event', `You have been removed from event ${d.eventTitle}`],
+	[NotificationType.EVENT_REPORTED]: (d: EventData & { reason: string; reportId: string }) =>
+		['Event Reported', `Event ${d.eventTitle} has been reported for the following reason: ${d.reason}`],
+	[NotificationType.USER_REPORTED]: (d: { username: string; reason: string; targetUserId: string; reportId: string }) =>
+		['User Reported', `User ${d.username} has been reported. Reason: ${d.reason}`],
+	[NotificationType.POST_REPORTED]: (d: { reason: string; postId: string; reportId: string }) =>
+		['Post Reported', `Post has been reported for the following reason: ${d.reason}`],
+	[NotificationType.REPORT_RESOLVED]: (_d: ReportOutcome) =>
+		['Report Resolved', 'Your report has been resolved. Action has been taken.'],
+	[NotificationType.REPORT_REJECTED]: (_d: ReportOutcome) =>
+		['Report Rejected', 'Your report has been reviewed and rejected.'],
+	[NotificationType.POST_LIKED]: (d: PostData) =>
+		['Post Liked', `${d.actorName} liked your post`],
+	[NotificationType.POST_COMMENTED]: (d: PostData & { commentId: string; preview: string }) =>
+		['New Comment', `${d.actorName} commented on your post: "${d.preview}"`],
 } satisfies Partial<Record<NotificationType, (d: any) => [string, string]>>;
 
 type Kind = keyof typeof wording;
@@ -133,19 +149,3 @@ export async function deleteAllNotifications(userId: string) {
 	await db.delete(notifications).where(eq(notifications.userId, userId));
 	return true;
 }
-
-export const NotificationService = {
-	async notify(userId: string, { title, body, data, type }: any) {
-		try {
-			await db.insert(notifications).values({
-				userId,
-				title,
-				body: body ?? null,
-				data: data ?? null,
-				type
-			});
-		} catch (error) {
-			console.error(`[NotificationService] Failed to create notification for user ${userId}:`, error);
-		}
-	}
-};
