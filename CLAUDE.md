@@ -19,7 +19,7 @@ Backend (`cd backend`):
 - `npm start` — run compiled `dist/server.js`. This is what the prod Docker image runs (no `tsx` in prod).
 - `npm run db:generate` — drizzle-kit: turn `db/schema.ts` changes into a new SQL migration in `backend/drizzle/`.
 - `npm run db:migrate` — apply pending migrations to `DATABASE_URL` (via `tsx`). Prod runs the compiled `node dist/db/migrate.js` as the one-shot `migrate` compose service.
-- `npm run db:seed` — wipe the database and load the dev/demo dataset (`scripts/seed.ts`; refuses when `NODE_ENV=production`; prints the generated password for the `demo-*@demo.volunteerhub.test` accounts).
+- `npm run db:seed` — wipe the database and load the dev/demo dataset, demo cover images included (`scripts/seed.ts`; prints the generated password for the `demo-*@demo.volunteerhub.test` accounts). In production only two flags run, via the compiled `node dist/scripts/seed.js`: `--append` adds the demo data without wiping, and needs `SEED_DEMO_PASSWORD`. `--covers` only sets the demo covers from `scripts/demo-covers/` on existing demo events and is safe to re-run. `npm run check:seed` covers both.
 
 Frontend (`cd frontend`):
 - `npm run dev` — Vite dev server (default port 5173).
