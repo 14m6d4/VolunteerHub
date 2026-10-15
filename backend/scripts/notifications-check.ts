@@ -141,6 +141,25 @@ await check('notifications are listed newest first with the actor, counted, and 
   assert.ok((await mine(vol2.token)).every((n) => n.isRead));
 });
 
+await check('accepting a friend request notifies its sender with the receiver as the actor', async () => {
+  const incoming = await call('GET', '/api/users/friends/requests', undefined, vol2.token);
+  assert.equal(incoming.status, 200, JSON.stringify(incoming.data));
+  const req = (incoming.data.data as any[]).find((r) => (r.sender?._id ?? r.sender) === vol.id);
+  assert.ok(req, JSON.stringify(incoming.data));
+  const ok = await call('POST', '/api/users/friends/accept', { requestId: req._id }, vol2.token);
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  const [accepted, ...more] = (await mine(vol.token)).filter((n) => n.type === 'friend_request_accepted');
+  assert.ok(accepted && !more.length, 'exactly once');
+  assert.equal(accepted.title, 'Friend request accepted');
+  assert.equal(accepted.body, 'Your friend request was accepted');
+  assert.deepEqual(accepted.data, { by: vol2.id });
+  assert.equal(accepted.actor._id, vol2.id);
+  assert.ok(!(await mine(vol2.token)).some((n) => n.type === 'friend_request_accepted'), 'not the acceptor');
+  // Undo, so the later checks start from strangers again.
+  assert.equal((await call('POST', '/api/users/friends/remove', { friendId: vol.id }, vol2.token)).status, 200);
+  assert.equal((await call('DELETE', `/api/notifications/${accepted._id}`, undefined, vol.token)).status, 200);
+});
+
 await check('a like notifies the post author with the actor, and deleting is for their owner', async () => {
   const evId = await mkApprovedEvent('notify');
   const postId = await mkPost(evId, vol.token);
@@ -277,6 +296,7 @@ await check('the notification switches are honoured: all off hears nothing, even
   await prefs(noEdits, { notifyOnEventUpdate: false });
   await prefs(quietAdmin, { notificationsEnabled: false });
 
+  assert.equal((await call('POST', '/api/users/friends/request', { receiverId: quiet.id }, vol.token)).status, 201);
   const evId = await mkApprovedEvent('prefs');
   assert.deepEqual(await about(quietAdmin.token, 'event_pending', evId), [], 'an opted-out admin is skipped');
   assert.equal((await about(admin2.token, 'event_pending', evId)).length, 1, 'the other admins still hear');

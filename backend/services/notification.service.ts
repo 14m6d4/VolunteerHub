@@ -13,25 +13,6 @@ const toNotification = (row: typeof notifications.$inferSelect, actor?: unknown)
 	return { ...toLean(rest), user: userId, ...(actorId ? { actor: actor ?? actorId } : {}) };
 };
 
-export async function createNotification(payload: {
-	userId: string;
-	actorId?: string;
-	type: NotificationType;
-	title: string;
-	body?: string;
-	data?: Record<string, any>;
-}) {
-	const [row] = await db.insert(notifications).values({
-		userId: payload.userId,
-		actorId: payload.actorId ?? null,
-		type: payload.type,
-		title: payload.title,
-		body: payload.body ?? null,
-		data: payload.data ?? null,
-	}).returning();
-	return toNotification(row!);
-}
-
 /** Who hears about it: one user, every admin, or the moderators of an event (GLOSSARY.md: Moderator). */
 export type Audience = { userId: string } | 'admins' | { moderatorsOf: ModerationTarget };
 
@@ -71,6 +52,10 @@ const wording = {
 		['Post Liked', `${d.actorName} liked your post`],
 	[NotificationType.POST_COMMENTED]: (d: PostData & { commentId: string; preview: string }) =>
 		['New Comment', `${d.actorName} commented on your post: "${d.preview}"`],
+	[NotificationType.FRIEND_REQUEST_RECEIVED]: (_d: { senderId: string }) =>
+		['New friend request', 'You received a friend request'],
+	[NotificationType.FRIEND_REQUEST_ACCEPTED]: (_d: { by: string }) =>
+		['Friend request accepted', 'Your friend request was accepted'],
 } satisfies Partial<Record<NotificationType, (d: any) => [string, string]>>;
 
 type Kind = keyof typeof wording;
