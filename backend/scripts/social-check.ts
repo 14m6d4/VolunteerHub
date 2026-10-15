@@ -64,6 +64,7 @@ const mkUser = async (n: string, role: 'volunteer' | 'manager' | 'admin') => {
 
 const admin = await mkUser('admin', 'admin');
 const mgr = await mkUser('mgr', 'manager');
+const mgr2 = await mkUser('mgr2', 'manager'); // runs no event here
 const vol = await mkUser('vol', 'volunteer');
 const vol2 = await mkUser('vol2', 'volunteer');
 const vol3 = await mkUser('vol3', 'volunteer');
@@ -149,22 +150,17 @@ await check('liking toggles and lists likers by name, in the order they liked', 
   assert.equal((await call('POST', `/api/posts/${NO_SUCH_ID}/like`, undefined, vol.token)).status, 404);
 });
 
-await check('pinned posts come first, newest next, and only managers and admins may pin', async () => {
+await check('pinned posts come first, newest next; an event pins one post at a time, and pinning it again unpins it', async () => {
   const second = await mkPost(evId, vol2.token, 'Second post');
   const third = await mkPost(evId, vol.token, 'Third post');
   assert.deepEqual((await call('GET', `/api/events/${evId}/posts`)).data.data.map((x: any) => x._id), [third, second, postId], 'newest first');
 
-  assert.equal((await call('POST', `/api/posts/${postId}/pin`, undefined, vol.token)).status, 403, 'the author cannot pin');
-  const pinned = await call('POST', `/api/posts/${postId}/pin`, undefined, mgr.token);
+  assert.equal((await call('POST', `/api/events/${evId}/pin`, { postId }, vol.token)).status, 403, 'the author cannot pin');
+  const pinned = await call('POST', `/api/events/${evId}/pin`, { postId }, mgr.token);
   assert.equal(pinned.status, 200, JSON.stringify(pinned.data));
   assert.equal(pinned.data.data.pinned, true);
   assert.deepEqual((await call('GET', `/api/events/${evId}/posts`)).data.data.map((x: any) => x._id), [postId, third, second], 'pinned first');
 
-  const unpinned = await call('POST', `/api/posts/${postId}/pin`, undefined, mgr.token);
-  assert.equal(unpinned.data.data.pinned, false, 'pinning again toggles');
-  assert.equal((await call('POST', `/api/posts/${NO_SUCH_ID}/pin`, undefined, mgr.token)).status, 404);
-
-  // The event's own pin keeps one pinned post per event.
   const pin2 = await call('POST', `/api/events/${evId}/pin`, { postId: second }, mgr.token);
   assert.equal(pin2.status, 200, JSON.stringify(pin2.data));
   assert.equal(pin2.data.data._id, second);
@@ -173,6 +169,11 @@ await check('pinned posts come first, newest next, and only managers and admins 
   assert.equal(pin3.status, 200, JSON.stringify(pin3.data));
   assert.deepEqual((await call('GET', `/api/events/${evId}/posts`)).data.data.map((x: any) => [x._id, x.pinned]),
     [[third, true], [second, false], [postId, false]], 'pinning one unpins the other');
+  const unpin = await call('POST', `/api/events/${evId}/pin`, { postId: third }, mgr.token);
+  assert.equal(unpin.status, 200, JSON.stringify(unpin.data));
+  assert.equal(unpin.data.data.pinned, false, 'pinning the pinned post unpins it');
+  assert.deepEqual((await call('GET', `/api/events/${evId}/posts`)).data.data.map((x: any) => [x._id, x.pinned]),
+    [[third, false], [second, false], [postId, false]], 'nothing pinned, newest first');
 
   const otherEvent = await mkApprovedEvent('posts_other');
   const foreign = await mkPost(otherEvent, vol.token);
@@ -180,7 +181,7 @@ await check('pinned posts come first, newest next, and only managers and admins 
   assert.equal((await call('POST', `/api/events/${evId}/pin`, { postId: NO_SUCH_ID }, mgr.token)).status, 404);
 });
 
-await check('deleting a post is for its author, managers and admins; the event stats count posts', async () => {
+await check("deleting a post is for its author, the event's manager and admins; the event stats count posts", async () => {
   const mine = await mkPost(evId, vol.token, 'to delete');
   assert.equal((await call('DELETE', `/api/posts/${mine}`, undefined, vol2.token)).status, 403, 'another volunteer');
   const del = await call('DELETE', `/api/posts/${mine}`, undefined, vol.token);
@@ -190,6 +191,7 @@ await check('deleting a post is for its author, managers and admins; the event s
   assert.equal((await call('DELETE', `/api/posts/${mine}`, undefined, vol.token)).status, 404, 'already gone');
 
   const byManager = await mkPost(evId, vol.token, 'moderated');
+  assert.equal((await call('DELETE', `/api/posts/${byManager}`, undefined, mgr2.token)).status, 403, 'manager of another event');
   assert.equal((await call('DELETE', `/api/posts/${byManager}`, undefined, mgr.token)).status, 200);
   const byAdmin = await mkPost(evId, vol.token, 'moderated by admin');
   assert.equal((await call('DELETE', `/api/posts/${byAdmin}`, undefined, admin.token)).status, 200);
@@ -243,7 +245,7 @@ await check('comments are created, listed newest first with their author, and ne
   assert.deepEqual((await call('GET', '/api/comments/post/not-an-id')).data.data, []);
 });
 
-await check('liking a comment toggles, and deleting is for its author, managers and admins', async () => {
+await check("liking a comment toggles, and deleting is for its author, the event's manager and admins", async () => {
   const post = await mkPost(evId, vol.token, 'More talk');
   const made = await call('POST', `/api/comments/post/${post}`, { content: 'like me' }, vol.token);
   const commentId: string = made.data.data._id;
@@ -265,6 +267,7 @@ await check('liking a comment toggles, and deleting is for its author, managers 
   assert.equal((await call('DELETE', `/api/comments/${commentId}`, undefined, vol.token)).status, 404, 'already gone');
 
   const byManager = (await call('POST', `/api/comments/post/${post}`, { content: 'm' }, vol.token)).data.data._id;
+  assert.equal((await call('DELETE', `/api/comments/${byManager}`, undefined, mgr2.token)).status, 403, 'manager of another event');
   assert.equal((await call('DELETE', `/api/comments/${byManager}`, undefined, mgr.token)).status, 200);
   const byAdmin = (await call('POST', `/api/comments/post/${post}`, { content: 'a' }, vol.token)).data.data._id;
   assert.equal((await call('DELETE', `/api/comments/${byAdmin}`, undefined, admin.token)).status, 200);

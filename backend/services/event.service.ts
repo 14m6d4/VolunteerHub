@@ -264,7 +264,8 @@ export const EventService = {
         return toEvent(cancelled!);
     },
 
-    // The event's pinned post is the one with the `pinned` flag; pinning one unpins the rest.
+    // The event's pinned post is the one with the `pinned` flag; pinning one unpins the rest,
+    // and pinning the pinned post again unpins it.
     async pinPostOnEvent(eventId: string, postId: string, managerId: string, managerRole: string) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
@@ -276,7 +277,7 @@ export const EventService = {
         const pinned = await db.transaction(async (tx) => {
             await tx.update(posts).set({ pinned: false })
                 .where(and(eq(posts.eventId, event.id), eq(posts.pinned, true)));
-            const [row] = await tx.update(posts).set({ pinned: true, updatedAt: new Date() })
+            const [row] = await tx.update(posts).set({ pinned: !post.pinned, updatedAt: new Date() })
                 .where(eq(posts.id, post.id)).returning();
             return row!;
         });

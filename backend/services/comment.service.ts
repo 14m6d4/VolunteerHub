@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
 import { commentLikes, comments, users } from "../db/schema.ts";
+import { ModerationService } from "./moderation.service.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { commentLikerIds, getCommentRow, getPostRow, toComment } from "../utils/post.util.ts";
@@ -70,13 +71,7 @@ export const CommentService = {
         const comment = await getCommentRow(commentId);
         if (!comment) throw createHttpError(404, "Comment not found");
 
-        const isOwner = comment.authorId === userId;
-        const isAdmin = role === "admin";
-        const isManager = role === "manager";
-
-        if (!isOwner && !isAdmin && !isManager) {
-            throw createHttpError(403, "You do not have permission to delete this comment");
-        }
+        if (comment.authorId !== userId) await ModerationService.assertModerator({ id: userId, role }, { comment });
 
         const deleted = await withLikeIds(comment);
         await db.delete(comments).where(eq(comments.id, comment.id));

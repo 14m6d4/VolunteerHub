@@ -15,7 +15,7 @@ import 'dotenv/config';
 import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
-import { events, registrations, users } from '../db/schema.ts';
+import { comments, discussions, events, posts, registrations, users } from '../db/schema.ts';
 import { UserRole } from '../types/user.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
@@ -200,6 +200,65 @@ await check('pending events cannot be listed through a status list either', asyn
   assert.equal(evil.status, 200);
   const body = await evil.json() as { items: { _id: string }[] };
   assert.ok(!body.items.some((e) => e._id === victimEvent!.id), "another manager's pending event was listed");
+});
+
+// --- an event's content is moderated by its moderators only --------------
+
+const mkPost = async (at: { eventId?: string; discussionId?: string }) =>
+  (await db.insert(posts).values({ ...at, authorId: attacker.id, content: 'c' }).returning())[0]!.id;
+const postExists = async (id: string) => (await db.select().from(posts).where(eq(posts.id, id))).length === 1;
+const del = (path: string, u: typeof attacker) => fetch(`${base}${path}`, { method: 'DELETE', headers: auth(u) });
+
+await check("a post is deleted by its event's manager, not by a manager of another event", async () => {
+  const id = await mkPost({ eventId: victimEvent!.id });
+  assert.equal((await del(`/api/posts/${id}`, evilMgr)).status, 403, 'manager of another event');
+  assert.ok(await postExists(id), 'post was deleted');
+  assert.equal((await del(`/api/posts/${id}`, victimMgr)).status, 200, 'event manager');
+  assert.equal(await postExists(id), false);
+});
+
+await check("a comment is deleted by its event's manager, not by a manager of another event", async () => {
+  const postId = await mkPost({ eventId: victimEvent!.id });
+  const [comment] = await db.insert(comments).values({ postId, authorId: attacker.id, content: 'c' }).returning();
+  const exists = async () => (await db.select().from(comments).where(eq(comments.id, comment!.id))).length === 1;
+  assert.equal((await del(`/api/comments/${comment!.id}`, evilMgr)).status, 403, 'manager of another event');
+  assert.ok(await exists(), 'comment was deleted');
+  assert.equal((await del(`/api/comments/${comment!.id}`, victimMgr)).status, 200, 'event manager');
+  assert.equal(await exists(), false);
+});
+
+await check("a post in an event's discussion is moderated by that event's manager", async () => {
+  const [discussion] = await db.insert(discussions).values({ eventId: victimEvent!.id }).returning();
+  const id = await mkPost({ discussionId: discussion!.id });
+  assert.equal((await del(`/api/posts/${id}`, evilMgr)).status, 403, 'manager of another event');
+  assert.ok(await postExists(id), 'post was deleted');
+  assert.equal((await del(`/api/posts/${id}`, victimMgr)).status, 200, 'event manager');
+  assert.equal(await postExists(id), false);
+});
+
+await check('a post in no event is deleted by its author or an admin only', async () => {
+  const byAuthor = await mkPost({});
+  assert.equal((await del(`/api/posts/${byAuthor}`, victimMgr)).status, 403, 'a manager');
+  assert.ok(await postExists(byAuthor), 'post was deleted');
+  assert.equal((await del(`/api/posts/${byAuthor}`, attacker)).status, 200, 'author');
+  const byAdmin = await mkPost({});
+  assert.equal((await del(`/api/posts/${byAdmin}`, victimAdmin)).status, 200, 'admin');
+  assert.equal(await postExists(byAdmin), false);
+});
+
+await check("a post is pinned by its event's moderators only, and only through its event", async () => {
+  const id = await mkPost({ eventId: victimEvent!.id });
+  const pin = (u: typeof attacker) => fetch(`${base}/api/events/${victimEvent!.id}/pin`, {
+    method: 'POST', headers: auth(u), body: JSON.stringify({ postId: id }),
+  });
+  const pinned = async () => (await db.select().from(posts).where(eq(posts.id, id)))[0]!.pinned;
+  assert.equal((await pin(evilMgr)).status, 403, 'manager of another event');
+  assert.equal(await pinned(), false, 'post was pinned');
+  const postScoped = await fetch(`${base}/api/posts/${id}/pin`, { method: 'POST', headers: auth(victimAdmin) });
+  assert.equal(postScoped.status, 404, 'the post-scoped pin endpoint still exists');
+  assert.equal(await pinned(), false, 'post was pinned');
+  assert.equal((await pin(victimMgr)).status, 200, 'event manager');
+  assert.equal(await pinned(), true);
 });
 
 // --- bans apply to tokens issued before the ban --------------------------

@@ -58,18 +58,6 @@ export const PostController = {
         }
     },
 
-    async pin(req: Request, res: Response, next: NextFunction) {
-        try {
-            const post = await PostService.togglePin(
-                req.params.postId as string,
-                (req.user as any).role
-            );
-            res.json({ success: true, data: post });
-        } catch (err) {
-            next(err);
-        }
-    },
-
     async getById(req: Request, res: Response, next: NextFunction) {
         try {
             const post = await PostService.getPostById(req.params.postId as string);

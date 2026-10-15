@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, not, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, type SQL } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
 import { discussions, postLikes, posts, users } from "../db/schema.ts";
 import { deleteImages, saveImage } from "./image.service.ts";
+import { ModerationService } from "./moderation.service.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { getEventRow } from "../utils/event.util.ts";
@@ -103,10 +104,7 @@ export const PostService = {
         const post = await getPostRow(postId);
         if (!post) throw createHttpError(404, "Post not found");
 
-        const isOwner = post.authorId === userId;
-        if (!isOwner && role !== "admin" && role !== "manager") {
-            throw createHttpError(403, "You do not have permission to delete this post");
-        }
+        if (post.authorId !== userId) await ModerationService.assertModerator({ id: userId, role }, { post });
 
         const deleted = await withLikeIds(post);
         // Its comments and likes go with it (foreign keys).
@@ -114,24 +112,6 @@ export const PostService = {
         await deleteImages(post.image);
         return deleted;
     },
-
-    // Pinning is a moderation action, not an authoring one: the owner of a
-    // single post must not be able to pin it to the top of a shared feed.
-    async togglePin(postId: string, role: string) {
-        if (role !== "admin" && role !== "manager") {
-            throw createHttpError(403, "You do not have permission to pin this post");
-        }
-
-        const post = await getPostRow(postId);
-        if (!post) throw createHttpError(404, "Post not found");
-
-        const [pinned] = await db.update(posts)
-            .set({ pinned: not(posts.pinned), updatedAt: new Date() })
-            .where(eq(posts.id, post.id))
-            .returning();
-        return withLikeIds(pinned!);
-    },
-
 
     async getPostById(postId: string) {
         const [post] = isUuid(postId) ? await listPosts(eq(posts.id, postId)) : [];
