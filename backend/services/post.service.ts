@@ -81,9 +81,10 @@ export const PostService = {
         if (!isLiked) await db.insert(postLikes).values({ postId: post.id, userId }).onConflictDoNothing();
 
         if (!isLiked) {
-            const [liker] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
-            await notify({ userId: post.authorId }, NotificationType.POST_LIKED,
-                { postId, userId, actorName: liker!.name, eventId: post.eventId }, userId);
+            // Notification work never fails the like: no name, no notification.
+            const [liker] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).catch(() => []);
+            if (liker) await notify({ userId: post.authorId }, NotificationType.POST_LIKED,
+                { postId, userId, actorName: liker.name, eventId: post.eventId }, userId);
         }
 
         return withLikeIds(post);

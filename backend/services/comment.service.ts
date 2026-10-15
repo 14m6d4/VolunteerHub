@@ -19,9 +19,10 @@ export const CommentService = {
 
         const [comment] = await db.insert(comments).values({ postId: post.id, authorId: userId, content }).returning();
 
-        const [commenter] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
-        await notify({ userId: post.authorId }, NotificationType.POST_COMMENTED, {
-            postId, commentId: comment!.id, userId, actorName: commenter!.name, eventId: post.eventId,
+        // Notification work never fails the comment: no name, no notification.
+        const [commenter] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).catch(() => []);
+        if (commenter) await notify({ userId: post.authorId }, NotificationType.POST_COMMENTED, {
+            postId, commentId: comment!.id, userId, actorName: commenter.name, eventId: post.eventId,
             preview: `${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`,
         }, userId);
 
