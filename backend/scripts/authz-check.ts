@@ -11,11 +11,16 @@
  * Test accounts and events are prefixed zz_ and removed afterwards.
  */
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import 'dotenv/config';
 import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
-import { comments, discussions, events, posts, registrations, users } from '../db/schema.ts';
+import { comments, discussions, events, posts, registrations, reports, users } from '../db/schema.ts';
+import { UPLOADS_DIR } from '../services/image.service.ts';
 import { UserRole } from '../types/user.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
@@ -261,6 +266,118 @@ await check("a post is pinned by its event's moderators only, and only through i
   assert.equal(await pinned(), true);
 });
 
+// --- a report about a post goes to the moderators of its event -----------
+
+const reporter = await mkUser('reporter', UserRole.Volunteer);
+const fileReport = async (kind: 'post' | 'user' | 'event', body: object) => {
+  const res = await fetch(`${base}/api/report/${kind}`, {
+    method: 'POST', headers: auth(reporter), body: JSON.stringify({ reason: 'r', ...body }),
+  });
+  assert.equal(res.status, 201, `filing a ${kind} report`);
+  return ((await res.json()) as { _id: string })._id;
+};
+const setStatus = (id: string, status: string, u: typeof attacker) => fetch(`${base}/api/report/${id}`, {
+  method: 'PATCH', headers: auth(u), body: JSON.stringify({ status }),
+});
+const statusOf = async (id: string) => (await db.select().from(reports).where(eq(reports.id, id)))[0]!.status;
+const listed = async (path: string, u: typeof attacker) => {
+  const res = await fetch(`${base}${path}`, { headers: auth(u) });
+  assert.equal(res.status, 200, path);
+  return ((await res.json()) as { _id: string; targetType: string }[]);
+};
+const imageName = `${randomBytes(16).toString('hex')}.webp`;
+
+await check("a report about a post is resolved by its event's manager, which deletes the post and its image", async () => {
+  await mkdir(UPLOADS_DIR, { recursive: true });
+  await writeFile(path.join(UPLOADS_DIR, imageName), 'x');
+  const [post] = await db.insert(posts).values({
+    eventId: victimEvent!.id, authorId: attacker.id, content: 'c', image: `/uploads/${imageName}`,
+  }).returning();
+  const id = await fileReport('post', { postId: post!.id });
+
+  for (const status of ['resolved', 'rejected']) {
+    assert.equal((await setStatus(id, status, evilMgr)).status, 403, `manager of another event: ${status}`);
+  }
+  const read = await fetch(`${base}/api/report/event/${victimEvent!.id}/reports`, { headers: EH });
+  assert.equal(read.status, 403, "manager of another event reads the event's reports");
+  assert.ok(!(await listed('/api/report/admin/all', evilMgr)).some((r) => r._id === id), "in another manager's list");
+  assert.equal(await statusOf(id), 'pending');
+  assert.ok(await postExists(post!.id), 'post was deleted');
+
+  assert.ok((await listed(`/api/report/event/${victimEvent!.id}/reports`, victimMgr)).some((r) => r._id === id), 'event manager reads it');
+  const res = await setStatus(id, 'resolved', victimMgr);
+  assert.equal(res.status, 200, 'event manager');
+  assert.equal(await statusOf(id), 'resolved');
+  assert.equal(await postExists(post!.id), false, 'the post is gone');
+  assert.equal(existsSync(path.join(UPLOADS_DIR, imageName)), false, 'the image is gone');
+  const told = await (await fetch(`${base}/api/notifications?limit=100`, { headers: auth(reporter) })).json() as
+    { data: { notifications: { type: string; data?: { reportId?: string } }[] } };
+  assert.ok(told.data.notifications.some((n) => n.type === 'report_resolved' && n.data?.reportId === id), 'the reporter is notified');
+});
+
+await check("rejecting a report about a post leaves the post in place", async () => {
+  const postId = await mkPost({ eventId: victimEvent!.id });
+  const id = await fileReport('post', { postId });
+  assert.equal((await setStatus(id, 'rejected', victimMgr)).status, 200, 'event manager');
+  assert.equal(await statusOf(id), 'rejected');
+  assert.ok(await postExists(postId), 'post was deleted');
+});
+
+await check('a manager cannot resolve or reject a report about a user or an event, their own event included', async () => {
+  const ids = [
+    await fileReport('user', { targetId: attacker.id }),
+    await fileReport('event', { eventId: victimEvent!.id }),
+  ];
+  for (const id of ids) {
+    for (const status of ['resolved', 'rejected']) {
+      assert.equal((await setStatus(id, status, victimMgr)).status, 403, `event manager: ${status}`);
+      assert.equal((await setStatus(id, status, evilMgr)).status, 403, `another manager: ${status}`);
+    }
+    assert.equal(await statusOf(id), 'pending');
+  }
+});
+
+await check('a report about a post in no event, or about a post that is gone, is handled by admins only', async () => {
+  const orphan = await fileReport('post', { postId: await mkPost({}) });
+  const goneId = await mkPost({ eventId: victimEvent!.id });
+  const gone = await fileReport('post', { postId: goneId });
+  await db.delete(posts).where(eq(posts.id, goneId));
+  for (const id of [orphan, gone]) {
+    assert.equal((await setStatus(id, 'rejected', victimMgr)).status, 403, 'a manager');
+    assert.equal(await statusOf(id), 'pending');
+  }
+  assert.equal((await setStatus(orphan, 'rejected', victimAdmin)).status, 200, 'admin');
+  assert.equal((await setStatus(gone, 'resolved', victimAdmin)).status, 200, 'admin, post already gone');
+  assert.equal(await statusOf(gone), 'resolved');
+});
+
+await check("a report about a post in an event's discussion goes to that event's manager", async () => {
+  const [discussion] = await db.select().from(discussions).where(eq(discussions.eventId, victimEvent!.id));
+  const postId = await mkPost({ discussionId: discussion!.id });
+  const id = await fileReport('post', { postId });
+  assert.ok((await listed('/api/report/admin/all', victimMgr)).some((r) => r._id === id), "in the event manager's list");
+  assert.ok((await listed(`/api/report/event/${victimEvent!.id}/reports`, victimMgr)).some((r) => r._id === id), "in the event's list");
+  assert.ok(!(await listed('/api/report/admin/all', evilMgr)).some((r) => r._id === id), "in another manager's list");
+  assert.equal((await setStatus(id, 'rejected', evilMgr)).status, 403, 'manager of another event');
+  assert.equal((await setStatus(id, 'rejected', victimMgr)).status, 200, 'event manager');
+});
+
+await check('admins see reports of every type, post reports included, and resolving one about a user bans the user', async () => {
+  const troll = await mkUser('troll', UserRole.Volunteer);
+  const postReport = await fileReport('post', { postId: await mkPost({ eventId: victimEvent!.id }) });
+  const userReport = await fileReport('user', { targetId: troll.id });
+  const eventReport = await fileReport('event', { eventId: victimEvent!.id });
+
+  const onlyPosts = await listed('/api/report/admin/all?type=post', victimAdmin);
+  assert.ok(onlyPosts.some((r) => r._id === postReport), 'filtered to posts');
+  assert.ok(onlyPosts.every((r) => r.targetType === 'post'));
+  const all = (await listed('/api/report/admin/all', victimAdmin)).map((r) => r._id);
+  assert.ok([postReport, userReport, eventReport].every((id) => all.includes(id)), 'unfiltered, all three types');
+
+  assert.equal((await setStatus(userReport, 'resolved', victimAdmin)).status, 200);
+  assert.equal((await userRow(troll.id))?.isBanned, true, 'the reported user is banned');
+});
+
 // --- bans apply to tokens issued before the ban --------------------------
 
 await check('banned user is rejected mid-session', async () => {
@@ -274,8 +391,9 @@ await check('banned user is rejected mid-session', async () => {
 out.forEach((line) => console.log(line));
 console.log(process.exitCode ? 'AUTHZ CHECK FAILED' : 'AUTHZ CHECK PASSED');
 
-// Events and registrations go with their managers and volunteers.
+// Events and registrations go with their managers and volunteers, reports with their reporter.
 await db.delete(users).where(like(users.username, `zz\\_%\\_${stamp}`));
+await rm(path.join(UPLOADS_DIR, imageName), { force: true });
 server.close();
 await closeDb();
 process.exit();

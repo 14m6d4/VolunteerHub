@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
-import { events, posts, reports, reportStatus, users } from "../db/schema.ts";
+import { discussions, events, posts, reports, reportStatus, users } from "../db/schema.ts";
 import { NotificationType } from "../types/notification.ts";
 import { ReportTargetType, type ReportStatus } from "../types/report.ts";
 import { UserRole } from "../types/user.ts";
@@ -9,9 +9,9 @@ import { getEventRow } from "../utils/event.util.ts";
 import { getPostRow } from "../utils/post.util.ts";
 import { toReport } from "../utils/report.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
-import { deleteImages } from "./image.service.ts";
 import { type Actor, ModerationService } from "./moderation.service.ts";
 import { NotificationService } from "./notification.service.ts";
+import { PostService } from "./post.service.ts";
 
 const REPORTER = { id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture };
 
@@ -40,10 +40,12 @@ const postReportsOf = (postIds: string[]) =>
         ? listReports(and(eq(reports.targetType, ReportTargetType.Post), inArray(reports.targetId, postIds)))
         : [];
 
-/** The posts of these events. */
+/** The posts of these events, on the event itself or in its discussion. */
 async function postIdsOf(eventIds: string[]) {
     if (!eventIds.length) return [];
-    return (await db.select({ id: posts.id }).from(posts).where(inArray(posts.eventId, eventIds))).map((p) => p.id);
+    const inDiscussion = db.select({ id: discussions.id }).from(discussions).where(inArray(discussions.eventId, eventIds));
+    return (await db.select({ id: posts.id }).from(posts)
+        .where(or(inArray(posts.eventId, eventIds), inArray(posts.discussionId, inDiscussion)))).map((p) => p.id);
 }
 
 /** Reports of the given kinds, optionally of one status, each with a summary of what it points at. */
@@ -144,15 +146,12 @@ export const ReportService = {
         return toReport(report);
     },
 
-    /** Admins see reports about users and events; managers the reports about posts in events they run. */
+    /** Admins see every report; managers the reports about posts in events they run. */
     async listForActor(actor: Actor, { status, type }: { status?: string; type?: string }) {
         const wanted = status && status !== 'all' ? status : undefined;
         if (actor.role === UserRole.Admin) {
-            // Post reports are the managers' to handle.
-            const targetTypes = type === ReportTargetType.User || type === ReportTargetType.Event
-                ? [type]
-                : [ReportTargetType.User, ReportTargetType.Event];
-            return withDetails(targetTypes, wanted);
+            const all = Object.values(ReportTargetType);
+            return withDetails(all.includes(type as ReportTargetType) ? [type as ReportTargetType] : all, wanted);
         }
         if (actor.role !== UserRole.Manager) throw createHttpError(403, "Forbidden");
 
@@ -183,7 +182,11 @@ export const ReportService = {
 
         const [report] = isUuid(reportId) ? await db.select().from(reports).where(eq(reports.id, reportId)) : [];
         if (!report) throw createHttpError(404, "Report not found");
-        if (actor.role !== UserRole.Admin) throw createHttpError(403, "You may not handle this report");
+        // A report about a post goes to the moderators of the post's event. Everything else - reports about
+        // users and events, and about a post that is gone or in no event - is admin-only.
+        const post = report.targetType === ReportTargetType.Post ? await getPostRow(report.targetId) : undefined;
+        const allowed = post ? await ModerationService.isModerator(actor, { post }) : actor.role === UserRole.Admin;
+        if (!allowed) throw createHttpError(403, "You may not handle this report");
 
         const [updated] = await db.update(reports).set({ status, updatedAt: new Date() }).where(eq(reports.id, report.id)).returning();
         if (!updated) throw createHttpError(404, "Report not found");
@@ -200,7 +203,6 @@ export const ReportService = {
             let notificationData: any = { reportId: updated.id, targetType: updated.targetType, targetId: updated.targetId };
 
             if (updated.targetType === ReportTargetType.Post) {
-                const post = await getPostRow(updated.targetId);
                 if (post && post.eventId) {
                     notificationData.eventId = post.eventId;
                     notificationData.postId = post.id;
@@ -219,13 +221,12 @@ export const ReportService = {
             console.error("Failed to notify reporter about report status:", err);
         }
 
-        if (status === 'resolved' && updated.targetType === ReportTargetType.Post) {
+        if (status === 'resolved' && post) {
             try {
-                const [deleted] = await db.delete(posts).where(eq(posts.id, updated.targetId)).returning({ image: posts.image });
-                await deleteImages(deleted?.image);
-                console.log(`[ReportService] Deleted post ${updated.targetId} due to resolved report #${updated.id}`);
+                // The normal delete path, so the image goes with the post.
+                await PostService.deletePost(post.id, actor.id, actor.role);
             } catch (err) {
-                console.error("Failed to delete post after report resolve:", err);
+                console.error(`Failed to delete post after resolving report ${updated.id}:`, (err as Error).message);
             }
         }
 

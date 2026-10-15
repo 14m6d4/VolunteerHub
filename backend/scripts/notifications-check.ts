@@ -234,17 +234,18 @@ await check('events, users and posts can be reported, and the people who act on 
   assert.equal(managerHeard.data.postId, reportedPost);
 });
 
-await check('admins list user and event reports, managers the reports on their posts; others are turned away', async () => {
+await check('admins list every report, managers the reports on their posts; others are turned away', async () => {
   const adminList = await call('GET', '/api/report/admin/all', undefined, admin.token);
   assert.equal(adminList.status, 200, JSON.stringify(adminList.data));
   const ours = adminList.data.filter((r: any) => r.reporter._id === vol2.id && r.reason !== 'again');
-  assert.deepEqual(ours.map((r: any) => r._id), [userReport._id, eventReport._id], 'newest first, no post reports');
-  assert.equal(ours[0].reporter.username, `zz_vol2_${stamp}`);
-  assert.equal(ours[0].reporter.name, 'vol2');
-  assert.deepEqual(ours[0].targetDetails, { username: `zz_vol3_${stamp}`, name: 'vol3' });
-  assert.deepEqual(ours[1].targetDetails, { title: `zz_reported_${stamp}` });
-  assert.equal(ours[1].status, 'pending');
-  assert.equal(ours[1].targetId, reportEv);
+  assert.deepEqual(ours.map((r: any) => r._id), [postReport._id, userReport._id, eventReport._id], 'newest first, post reports included');
+  assert.equal(ours[1].reporter.username, `zz_vol2_${stamp}`);
+  assert.equal(ours[1].reporter.name, 'vol2');
+  assert.deepEqual(ours[0].targetDetails, { contentPreview: 'a post that will be reported for being long enough' });
+  assert.deepEqual(ours[1].targetDetails, { username: `zz_vol3_${stamp}`, name: 'vol3' });
+  assert.deepEqual(ours[2].targetDetails, { title: `zz_reported_${stamp}` });
+  assert.equal(ours[2].status, 'pending');
+  assert.equal(ours[2].targetId, reportEv);
 
   const onlyUsers = (await call('GET', '/api/report/admin/all?type=user', undefined, admin.token)).data;
   assert.ok(onlyUsers.length >= 1 && onlyUsers.every((r: any) => r.targetType === 'user'));
@@ -286,7 +287,7 @@ await check('an event\'s post reports go to its manager and admins; by-target lo
 });
 
 await check('resolving or rejecting a report tells the reporter; a resolved post report deletes the post and a user report bans', async () => {
-  assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'resolved' }, mgr.token)).status, 403, 'managers do not resolve');
+  assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'resolved' }, mgr2.token)).status, 403, 'a manager of another event does not resolve');
   assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'resolved' })).status, 401);
   assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'pending' }, admin.token)).status, 400, 'only resolved or rejected');
   assert.equal((await call('PATCH', `/api/report/${NO_SUCH_ID}`, { status: 'resolved' }, admin.token)).status, 404, 'unknown report');
