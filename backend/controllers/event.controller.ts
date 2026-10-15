@@ -111,15 +111,6 @@ export const EventController = {
         }
     },
 
-    async cancel(req: Request, res: Response, next: NextFunction) {
-        try {
-            const event = await EventService.cancelEvent(req.params.id as string, req.body.reason);
-            return res.json({ success: true, data: event });
-        } catch (err) {
-            next(err);
-        }
-    },
-
     async pinPost(req: Request, res: Response, next: NextFunction) {
         try {
             const eventId = req.params.eventId as string;

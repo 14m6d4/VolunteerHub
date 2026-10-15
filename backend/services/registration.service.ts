@@ -142,16 +142,6 @@ export const RegistrationService = {
         return { message: "Registration rejected and removed" };
     },
 
-    async markCompleted(regId: string) {
-        const reg = await getRegistrationRow(regId);
-        if (!reg) throw createHttpError(404, "Registration not found");
-        const [row] = await db.update(registrations)
-            .set({ status: RegistrationStatus.COMPLETED, completedAt: new Date(), updatedAt: new Date() })
-            .where(eq(registrations.id, reg.id))
-            .returning();
-        return toRegistration(row!);
-    },
-
     async getRegistrationsForEvent(eventId: string, query: any, actor: Actor) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");

@@ -48,16 +48,6 @@ export const RegistrationController = {
         }
     },
 
-    async markCompleted(req: Request, res: Response, next: NextFunction) {
-        try {
-            const regId = req.params.regId as string;
-            const reg = await RegistrationService.markCompleted(regId);
-            return res.json({ success: true, data: reg });
-        } catch (err) {
-            next(err);
-        }
-    },
-
     async listForEvent(req: Request, res: Response, next: NextFunction) {
         try {
             const eventId = req.params.eventId as string;

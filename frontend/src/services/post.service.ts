@@ -7,13 +7,6 @@ export async function getPosts(groupId: string) {
     });
 }
 
-export async function createPost(groupId: string, data: Record<string, unknown>) {
-    return apiFetch(`/groups/${groupId}/posts`, {
-        method: "POST",
-        body: JSON.stringify(data),
-    });
-}
-
 export async function likePost(postId: string) {
     return apiFetch(`/posts/${postId}/like`, {
         method: "POST",

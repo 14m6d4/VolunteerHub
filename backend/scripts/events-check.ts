@@ -355,13 +355,6 @@ await check('completing an event completes its approved registrations', async ()
   assert.equal(stats.data.data.currentMembers, 2);
 });
 
-await check('cancelling an event is admin-side and keeps the registrations', async () => {
-  const id = await mkApprovedEvent('cancelled');
-  const cancelled = await EventService.cancelEvent(id);
-  assert.equal(cancelled.status, 'cancelled');
-  assert.equal((await eventRow(id)).status, 'cancelled');
-});
-
 await check('deleting an event removes its registrations, and a manager takes theirs along', async () => {
   const id = await mkApprovedEvent('gone');
   const rid = (await call('POST', `/api/register/${id}`, undefined, vol.token)).data.data._id;

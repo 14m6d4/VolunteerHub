@@ -243,27 +243,6 @@ export const EventService = {
         return toEvent(approved);
     },
 
-    async cancelEvent(eventId: string, reason?: string) {
-        const event = await getEventRow(eventId);
-        if (!event) throw createHttpError(404, "Event not found");
-
-        const [cancelled] = await db.update(events)
-            .set({ status: EventStatus.CANCELLED, updatedAt: new Date() })
-            .where(eq(events.id, event.id))
-            .returning();
-
-        for (const volunteerId of await approvedMemberIds(event.id)) {
-            NotificationService.notify(volunteerId, {
-                type: NotificationType.EVENT_UPDATED,
-                title: "Event Cancelled",
-                body: `Event ${cancelled!.title} just got cancelled`,
-                data: { eventId }
-            });
-        }
-
-        return toEvent(cancelled!);
-    },
-
     // The event's pinned post is the one with the `pinned` flag; pinning one unpins the rest,
     // and pinning the pinned post again unpins it.
     async pinPostOnEvent(eventId: string, postId: string, managerId: string, managerRole: string) {
