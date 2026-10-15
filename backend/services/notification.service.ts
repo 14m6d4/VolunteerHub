@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { notifications, users } from '../db/schema.ts';
 import { NotificationType } from '../types/notification.ts';
@@ -92,7 +92,14 @@ export async function notify<K extends Kind>(
 	audience: Audience, kind: K, data: Parameters<(typeof wording)[K]>[0], actorId?: string,
 ) {
 	try {
-		const ids = [...new Set(await recipientsOf(audience))].filter((id) => id !== actorId);
+		const candidates = [...new Set(await recipientsOf(audience))].filter((id) => id !== actorId);
+		if (!candidates.length) return;
+		// Preferences: notifications off means none at all; event updates off mutes only edits.
+		const ids = (await db.select({ id: users.id }).from(users).where(and(
+			inArray(users.id, candidates),
+			eq(users.notificationsEnabled, true),
+			kind === NotificationType.EVENT_UPDATED ? eq(users.notifyOnEventUpdate, true) : undefined,
+		))).map((u) => u.id);
 		if (!ids.length) return;
 		const [title, body] = (wording[kind] as (d: typeof data) => [string, string])(data);
 		await db.insert(notifications).values(ids.map((userId) => ({

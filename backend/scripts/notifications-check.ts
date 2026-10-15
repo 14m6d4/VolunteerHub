@@ -265,6 +265,38 @@ await check('registrations reach the manager, and their outcomes reach the volun
   assert.deepEqual(await about(vol2.token, 'event_completed', evId), [], 'not a removed member');
 });
 
+// --- preferences ----------------------------------------------------------
+
+await check('the notification switches are honoured: all off hears nothing, event updates off still hears outcomes', async () => {
+  const quiet = await mkUser('quiet', 'volunteer');
+  const noEdits = await mkUser('noedits', 'volunteer');
+  const quietAdmin = await mkUser('quietadmin', 'admin');
+  const prefs = async (u: { token: string }, body: object) =>
+    assert.equal((await call('PATCH', '/api/users/profile/secure', body, u.token)).status, 200);
+  await prefs(quiet, { notificationsEnabled: false });
+  await prefs(noEdits, { notifyOnEventUpdate: false });
+  await prefs(quietAdmin, { notificationsEnabled: false });
+
+  const evId = await mkApprovedEvent('prefs');
+  assert.deepEqual(await about(quietAdmin.token, 'event_pending', evId), [], 'an opted-out admin is skipped');
+  assert.equal((await about(admin2.token, 'event_pending', evId)).length, 1, 'the other admins still hear');
+
+  const regs: string[] = [];
+  for (const u of [quiet, noEdits]) {
+    const r = await call('POST', `/api/register/${evId}`, undefined, u.token);
+    assert.equal(r.status, 201, JSON.stringify(r.data));
+    regs.push(r.data.data._id);
+    assert.equal((await call('POST', `/api/register/${r.data.data._id}/approve`, undefined, mgr.token)).status, 200);
+  }
+  assert.equal((await call('PUT', `/api/events/${evId}`, { description: 'edited' }, mgr.token)).status, 200);
+  assert.equal((await call('PATCH', `/api/events/${evId}/complete`, undefined, mgr.token)).status, 200);
+
+  assert.deepEqual(await mine(quiet.token, '?limit=100'), [], 'notifications off means none at all');
+  assert.deepEqual(await about(noEdits.token, 'event_updated', evId), [], 'no event edits');
+  assert.equal((await about(noEdits.token, 'event_joined', evId)).length, 1, 'still the registration outcome');
+  assert.equal((await about(noEdits.token, 'event_completed', evId)).length, 1, 'still the completion');
+});
+
 // --- reports --------------------------------------------------------------
 
 const mgr2 = await mkUser('mgr2', 'manager');
