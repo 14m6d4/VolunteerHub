@@ -154,6 +154,7 @@ export const ReportService = {
             return withDetails(all.includes(type as ReportTargetType) ? [type as ReportTargetType] : all, wanted);
         }
         if (actor.role !== UserRole.Manager) throw createHttpError(403, "Forbidden");
+        if (type && type !== 'all' && type !== ReportTargetType.Post) return [];
 
         const managed = await db.select({ id: events.id }).from(events).where(eq(events.managerId, actor.id));
         const found = await postReportsOf(await postIdsOf(managed.map((e) => e.id)));
@@ -218,7 +219,7 @@ export const ReportService = {
                 data: notificationData
             });
         } catch (err) {
-            console.error("Failed to notify reporter about report status:", err);
+            console.error(`Failed to notify the reporter of report ${updated.id}:`, (err as Error).message);
         }
 
         if (status === 'resolved' && post) {
@@ -235,7 +236,7 @@ export const ReportService = {
                 const { banUserService } = await import('./user.service.ts');
                 await banUserService(updated.targetId, `Banned due to Report #${updated.id}: ${updated.reason}`);
             } catch (err) {
-                console.error("Failed to auto-ban user after report resolve:", err);
+                console.error(`Failed to ban the user after resolving report ${updated.id}:`, (err as Error).message);
             }
         }
 

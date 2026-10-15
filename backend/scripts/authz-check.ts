@@ -323,6 +323,11 @@ await check("rejecting a report about a post leaves the post in place", async ()
   assert.ok(await postExists(postId), 'post was deleted');
 });
 
+await check('setting the status of an unknown report answers 404', async () => {
+  assert.equal((await setStatus('00000000-0000-4000-8000-000000000000', 'resolved', victimAdmin)).status, 404);
+  assert.equal((await setStatus('00000000-0000-4000-8000-000000000000', 'resolved', victimMgr)).status, 404);
+});
+
 await check('a manager cannot resolve or reject a report about a user or an event, their own event included', async () => {
   const ids = [
     await fileReport('user', { targetId: attacker.id }),
@@ -358,6 +363,7 @@ await check("a report about a post in an event's discussion goes to that event's
   assert.ok((await listed('/api/report/admin/all', victimMgr)).some((r) => r._id === id), "in the event manager's list");
   assert.ok((await listed(`/api/report/event/${victimEvent!.id}/reports`, victimMgr)).some((r) => r._id === id), "in the event's list");
   assert.ok(!(await listed('/api/report/admin/all', evilMgr)).some((r) => r._id === id), "in another manager's list");
+  assert.deepEqual(await listed('/api/report/admin/all?type=user', victimMgr), [], 'a manager filtering to user reports');
   assert.equal((await setStatus(id, 'rejected', evilMgr)).status, 403, 'manager of another event');
   assert.equal((await setStatus(id, 'rejected', victimMgr)).status, 200, 'event manager');
 });
