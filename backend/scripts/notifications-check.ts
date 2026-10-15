@@ -208,12 +208,15 @@ await check('events, users and posts can be reported, and the people who act on 
 
   assert.equal((await call('POST', '/api/report/event', { eventId: reportEv, reason: 'x' })).status, 401, 'anonymous');
   const noEvent = await call('POST', '/api/report/event', { eventId: NO_SUCH_ID, reason: 'x' }, vol2.token);
-  assert.equal(noEvent.status, 400);
-  assert.equal(noEvent.data.message, 'Event not found');
-  assert.equal((await call('POST', '/api/report/event', { eventId: 'nope', reason: 'x' }, vol2.token)).status, 400);
-  assert.equal((await call('POST', '/api/report/user', { targetId: NO_SUCH_ID, reason: 'x' }, vol2.token)).data.message, 'User not found');
-  assert.equal((await call('POST', '/api/report/post', { postId: NO_SUCH_ID, reason: 'x' }, vol2.token)).data.message, 'Post not found');
-  assert.equal((await call('POST', '/api/report/user', { targetId: 'nope', reason: 'x' }, vol2.token)).status, 400);
+  assert.deepEqual([noEvent.status, noEvent.data.status, noEvent.data.message], [404, 404, 'Event not found'], 'the central handler answers');
+  const noUser = await call('POST', '/api/report/user', { targetId: NO_SUCH_ID, reason: 'x' }, vol2.token);
+  assert.deepEqual([noUser.status, noUser.data.message], [404, 'User not found']);
+  const noPost = await call('POST', '/api/report/post', { postId: NO_SUCH_ID, reason: 'x' }, vol2.token);
+  assert.deepEqual([noPost.status, noPost.data.message], [404, 'Post not found']);
+  // A malformed id counts as unknown, as everywhere else.
+  assert.equal((await call('POST', '/api/report/event', { eventId: 'nope', reason: 'x' }, vol2.token)).status, 404);
+  assert.equal((await call('POST', '/api/report/user', { targetId: 'nope', reason: 'x' }, vol2.token)).status, 404);
+  assert.equal((await call('POST', '/api/report/post', { postId: reportedPost }, vol2.token)).status, 400, 'a report needs a reason');
   const viaUsers = await call('POST', '/api/users/report-user', { targetId: vol3.id, reason: 'again' }, vol2.token);
   assert.equal(viaUsers.status, 201, JSON.stringify(viaUsers.data));
   assert.equal((await call('POST', '/api/users/report-user', { targetId: NO_SUCH_ID, reason: 'x' }, vol2.token)).status, 404);
@@ -286,7 +289,8 @@ await check('resolving or rejecting a report tells the reporter; a resolved post
   assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'resolved' }, mgr.token)).status, 403, 'managers do not resolve');
   assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'resolved' })).status, 401);
   assert.equal((await call('PATCH', `/api/report/${postReport._id}`, { status: 'pending' }, admin.token)).status, 400, 'only resolved or rejected');
-  assert.equal((await call('PATCH', `/api/report/${NO_SUCH_ID}`, { status: 'resolved' }, admin.token)).status, 400, 'unknown report');
+  assert.equal((await call('PATCH', `/api/report/${NO_SUCH_ID}`, { status: 'resolved' }, admin.token)).status, 404, 'unknown report');
+  assert.equal((await call('PATCH', '/api/report/not-an-id', { status: 'resolved' }, admin.token)).status, 404, 'malformed id');
 
   const rejected = await call('PATCH', `/api/report/${eventReport._id}`, { status: 'rejected' }, admin.token);
   assert.equal(rejected.status, 200, JSON.stringify(rejected.data));

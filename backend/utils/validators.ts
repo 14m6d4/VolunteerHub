@@ -165,3 +165,11 @@ export const secureUpdateProfileSchema = z.object({
   notifyOnEventUpdate: z.boolean().optional(),
 });
 
+
+// --- Report Schemas ---
+// The reported id is checked by the report module: a malformed one counts as unknown (404).
+const reportBody = z.object({ reason: z.string(), description: z.string().nullish() });
+
+export const reportEventSchema = reportBody.extend({ eventId: z.string() });
+export const reportUserSchema = reportBody.extend({ targetId: z.string() });
+export const reportPostSchema = reportBody.extend({ postId: z.string() });

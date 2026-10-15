@@ -10,6 +10,7 @@ import { getPostRow } from "../utils/post.util.ts";
 import { toReport } from "../utils/report.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
 import { deleteImages } from "./image.service.ts";
+import { type Actor, ModerationService } from "./moderation.service.ts";
 import { NotificationService } from "./notification.service.ts";
 
 const REPORTER = { id: users.id, username: users.username, name: users.name, profilePicture: users.profilePicture };
@@ -38,6 +39,52 @@ const postReportsOf = (postIds: string[]) =>
     postIds.length
         ? listReports(and(eq(reports.targetType, ReportTargetType.Post), inArray(reports.targetId, postIds)))
         : [];
+
+/** The posts of these events. */
+async function postIdsOf(eventIds: string[]) {
+    if (!eventIds.length) return [];
+    return (await db.select({ id: posts.id }).from(posts).where(inArray(posts.eventId, eventIds))).map((p) => p.id);
+}
+
+/** Reports of the given kinds, optionally of one status, each with a summary of what it points at. */
+async function withDetails(targetTypes: ReportTargetType[], status?: string) {
+    if (status && !(reportStatus.enumValues as string[]).includes(status)) return [];
+
+    const found = await listReports(and(
+        inArray(reports.targetType, targetTypes),
+        status ? eq(reports.status, status as ReportStatus) : undefined,
+    ));
+
+    const idsOf = (type: ReportTargetType) =>
+        [...new Set(found.filter((r) => r.targetType === type).map((r) => r.targetId as string))];
+    const userIds = idsOf(ReportTargetType.User);
+    const eventIds = idsOf(ReportTargetType.Event);
+    const postIds = idsOf(ReportTargetType.Post);
+    const targetUsers = userIds.length
+        ? await db.select({ id: users.id, username: users.username, name: users.name }).from(users).where(inArray(users.id, userIds))
+        : [];
+    const targetEvents = eventIds.length
+        ? await db.select({ id: events.id, title: events.title }).from(events).where(inArray(events.id, eventIds))
+        : [];
+    const targetPosts = postIds.length
+        ? await db.select({ id: posts.id, content: posts.content }).from(posts).where(inArray(posts.id, postIds))
+        : [];
+
+    return found.map((report) => {
+        let targetDetails = null;
+        if (report.targetType === ReportTargetType.User) {
+            const user = targetUsers.find((u) => u.id === report.targetId);
+            targetDetails = user ? { username: user.username, name: user.name } : null;
+        } else if (report.targetType === ReportTargetType.Event) {
+            const event = targetEvents.find((e) => e.id === report.targetId);
+            targetDetails = event ? { title: event.title } : null;
+        } else if (report.targetType === ReportTargetType.Post) {
+            const post = targetPosts.find((p) => p.id === report.targetId);
+            targetDetails = post ? { contentPreview: post.content?.substring(0, 50) } : null;
+        }
+        return { ...report, targetDetails };
+    });
+}
 
 export const ReportService = {
     async reportEvent(reporterId: string, eventId: string, reason: string, description?: string) {
@@ -97,75 +144,48 @@ export const ReportService = {
         return toReport(report);
     },
 
-    /** Reports of the given kinds, optionally of one status, each with a summary of what it points at. */
-    async getAllReports({ status, targetTypes }: { status?: string; targetTypes: ReportTargetType[] }) {
-        if (status && !(reportStatus.enumValues as string[]).includes(status)) return [];
+    /** Admins see reports about users and events; managers the reports about posts in events they run. */
+    async listForActor(actor: Actor, { status, type }: { status?: string; type?: string }) {
+        const wanted = status && status !== 'all' ? status : undefined;
+        if (actor.role === UserRole.Admin) {
+            // Post reports are the managers' to handle.
+            const targetTypes = type === ReportTargetType.User || type === ReportTargetType.Event
+                ? [type]
+                : [ReportTargetType.User, ReportTargetType.Event];
+            return withDetails(targetTypes, wanted);
+        }
+        if (actor.role !== UserRole.Manager) throw createHttpError(403, "Forbidden");
 
-        const found = await listReports(and(
-            inArray(reports.targetType, targetTypes),
-            status ? eq(reports.status, status as ReportStatus) : undefined,
-        ));
-
-        const idsOf = (type: ReportTargetType) =>
-            [...new Set(found.filter((r) => r.targetType === type).map((r) => r.targetId as string))];
-        const userIds = idsOf(ReportTargetType.User);
-        const eventIds = idsOf(ReportTargetType.Event);
-        const postIds = idsOf(ReportTargetType.Post);
-        const targetUsers = userIds.length
-            ? await db.select({ id: users.id, username: users.username, name: users.name }).from(users).where(inArray(users.id, userIds))
-            : [];
-        const targetEvents = eventIds.length
-            ? await db.select({ id: events.id, title: events.title }).from(events).where(inArray(events.id, eventIds))
-            : [];
-        const targetPosts = postIds.length
-            ? await db.select({ id: posts.id, content: posts.content }).from(posts).where(inArray(posts.id, postIds))
-            : [];
-
-        return found.map((report) => {
-            let targetDetails = null;
-            if (report.targetType === ReportTargetType.User) {
-                const user = targetUsers.find((u) => u.id === report.targetId);
-                targetDetails = user ? { username: user.username, name: user.name } : null;
-            } else if (report.targetType === ReportTargetType.Event) {
-                const event = targetEvents.find((e) => e.id === report.targetId);
-                targetDetails = event ? { title: event.title } : null;
-            } else if (report.targetType === ReportTargetType.Post) {
-                const post = targetPosts.find((p) => p.id === report.targetId);
-                targetDetails = post ? { contentPreview: post.content?.substring(0, 50) } : null;
-            }
-            return { ...report, targetDetails };
-        });
+        const managed = await db.select({ id: events.id }).from(events).where(eq(events.managerId, actor.id));
+        const found = await postReportsOf(await postIdsOf(managed.map((e) => e.id)));
+        return wanted ? found.filter((r) => r.status === wanted) : found;
     },
 
-    async getReportsByTarget(targetId: string, targetType: ReportTargetType) {
+    /** The reports about posts in one event, for its moderators: 404 for an unknown event, 403 for anyone else. */
+    async listForEvent(actor: Actor, eventId: string) {
+        await ModerationService.assertModerator(actor, { eventId });
+        return postReportsOf(await postIdsOf(isUuid(eventId) ? [eventId] : []));
+    },
+
+    /** Every report about one event, or else about one post. */
+    async listForTarget(targetType: string, targetId: string) {
         if (!isUuid(targetId)) return [];
+        const type = targetType === ReportTargetType.Event ? ReportTargetType.Event : ReportTargetType.Post;
         const rows = await db.select().from(reports)
-            .where(and(eq(reports.targetId, targetId), eq(reports.targetType, targetType)))
+            .where(and(eq(reports.targetId, targetId), eq(reports.targetType, type)))
             .orderBy(desc(reports.createdAt), desc(reports.id));
         return rows.map((r) => toReport(r));
     },
 
-    async getReportsForManager(managerId: string) {
-        const managed = await db.select({ id: events.id }).from(events).where(eq(events.managerId, managerId));
-        if (managed.length === 0) return [];
-
-        const postIds = (await db.select({ id: posts.id }).from(posts)
-            .where(inArray(posts.eventId, managed.map((e) => e.id)))).map((p) => p.id);
-        return postReportsOf(postIds);
-    },
-
-    async getReportsForEvent(eventId: string) {
-        if (!isUuid(eventId)) return [];
-        const postIds = (await db.select({ id: posts.id }).from(posts).where(eq(posts.eventId, eventId))).map((p) => p.id);
-        return postReportsOf(postIds);
-    },
-
-    async updateReportStatus(reportId: string, status: 'resolved' | 'rejected') {
+    /** Resolves or rejects a report: 400 for any other status, 404 for an unknown report, 403 unless the actor may handle it. */
+    async setStatus(actor: Actor, reportId: string, status: unknown) {
         if (status !== 'resolved' && status !== 'rejected') throw createHttpError(400, "Status must be resolved or rejected");
 
-        const [updated] = isUuid(reportId)
-            ? await db.update(reports).set({ status, updatedAt: new Date() }).where(eq(reports.id, reportId)).returning()
-            : [];
+        const [report] = isUuid(reportId) ? await db.select().from(reports).where(eq(reports.id, reportId)) : [];
+        if (!report) throw createHttpError(404, "Report not found");
+        if (actor.role !== UserRole.Admin) throw createHttpError(403, "You may not handle this report");
+
+        const [updated] = await db.update(reports).set({ status, updatedAt: new Date() }).where(eq(reports.id, report.id)).returning();
         if (!updated) throw createHttpError(404, "Report not found");
         const [reporter] = await db.select({ id: users.id, username: users.username }).from(users).where(eq(users.id, updated.reporterId));
 

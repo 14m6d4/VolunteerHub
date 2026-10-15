@@ -1,130 +1,25 @@
 import express from "express";
-import { ReportService } from "../services/report.service.ts";
-import { ReportTargetType } from "../types/report.ts";
-import { authMiddleware, type AuthenticatedRequest } from "../middlewares/auth.middleware.ts";
+import { ReportController } from "../controllers/report.controller.ts";
+import { authMiddleware } from "../middlewares/auth.middleware.ts";
 import { roleMiddleware } from "../middlewares/role.middleware.ts";
+import { validateBody } from "../middlewares/validation.middleware.ts";
 import { UserRole } from "../types/user.ts";
-import { ModerationService } from "../services/moderation.service.ts";
+import { reportEventSchema, reportPostSchema, reportUserSchema } from "../utils/validators.ts";
 
 const router = express.Router();
 
 // Reports name their reporter and carry the reported content, and their status
 // decides whether moderation acts on them. Reading or resolving one is a
-// moderator action, never a public one.
-//
-// Managers are not interchangeable: GET /admin/all already scopes them to
-// events they own via getReportsForManager. Anything that reaches reports
-// across every event is therefore admin-only, so one manager cannot read
-// another's reports - or dismiss a report filed about their own event.
-const adminOnly = [authMiddleware, roleMiddleware([UserRole.Admin])];
+// moderator action, never a public one; the report module decides which.
+const moderators = [authMiddleware, roleMiddleware([UserRole.Manager, UserRole.Admin])];
 
-router.post("/event", authMiddleware, async (req, res) => {
-    const { eventId, reason, description } = req.body;
-    const user = (req as AuthenticatedRequest).user;
-    try {
-        const report = await ReportService.reportEvent(user._id.toString(), eventId, reason, description);
-        res.status(201).json(report);
-    } catch (error: any) {
-        res.status(400).json({ message: error.message });
-    }
-});
+router.post("/event", authMiddleware, validateBody(reportEventSchema), ReportController.reportEvent);
+router.post("/user", authMiddleware, validateBody(reportUserSchema), ReportController.reportUser);
+router.post("/post", authMiddleware, validateBody(reportPostSchema), ReportController.reportPost);
 
-router.post("/user", authMiddleware, async (req, res) => {
-    const { targetId, reason, description } = req.body;
-    const user = (req as AuthenticatedRequest).user;
-    try {
-        const report = await ReportService.reportUser(user._id.toString(), targetId, reason, description);
-        res.status(201).json(report);
-    } catch (error: any) {
-        res.status(400).json({ message: error.message });
-    }
-});
-
-router.post("/post", authMiddleware, async (req, res) => {
-    const { postId, reason, description } = req.body;
-    const user = (req as AuthenticatedRequest).user;
-    try {
-        const report = await ReportService.reportPost(user._id.toString(), postId, reason, description);
-        res.status(201).json(report);
-    } catch (error: any) {
-        res.status(400).json({ message: error.message });
-    }
-});
-
-router.get("/admin/all", authMiddleware, async (req, res) => {
-    try {
-        const user = (req as AuthenticatedRequest).user;
-        const { status, type } = req.query;
-
-        console.log(`[ReportRoutes] GET /admin/all - User: ${user.username} (${user.role})`);
-
-        let reports: any[] = [];
-
-        if (user.role === 'admin') {
-            // Post reports are the managers' to handle.
-            const targetTypes = type === ReportTargetType.User || type === ReportTargetType.Event
-                ? [type]
-                : [ReportTargetType.User, ReportTargetType.Event];
-
-            reports = await ReportService.getAllReports({
-                targetTypes,
-                ...(status && status !== 'all' ? { status: String(status) } : {}),
-            });
-        } else if (user.role === 'manager') {
-            reports = await ReportService.getReportsForManager(user._id.toString());
-            if (status && status !== 'all') {
-                reports = reports.filter((r: any) => r.status === status);
-            }
-        } else {
-            return res.status(403).json({ message: "Forbidden" });
-        }
-
-        res.json(reports);
-    } catch (error: any) {
-        console.error("[ReportRoutes] Error:", error);
-        res.status(400).json({ message: error.message });
-    }
-});
-
-router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
-    const eventId = req.params.eventId as string;
-    const user = (req as AuthenticatedRequest).user;
-
-    // Only the event's moderators: 404 for an unknown event, 403 for anyone else.
-    // Outside the try, so the central error handler answers them (Express 5 forwards the rejection).
-    await ModerationService.assertModerator({ id: user._id, role: user.role }, { eventId });
-
-    try {
-        const reports = await ReportService.getReportsForEvent(eventId);
-        res.json(reports);
-    } catch (error: any) {
-        console.error("[ReportRoutes] Error fetching event reports:", error);
-        res.status(400).json({ message: error.message });
-    }
-});
-
-router.get("/:targetType/:targetId", ...adminOnly, async (req, res) => {
-    const { targetType, targetId } = req.params;
-    const reportType = targetType === 'event' ? ReportTargetType.Event : ReportTargetType.Post;
-
-    try {
-        const reports = await ReportService.getReportsByTarget(targetId as string, reportType);
-        res.json(reports);
-    } catch (error: any) {
-        res.status(400).json({ message: error.message });
-    }
-});
-
-router.patch("/:reportId", ...adminOnly, async (req, res) => {
-    const { reportId } = req.params;
-    const { status } = req.body;
-
-    try {
-        const updatedReport = await ReportService.updateReportStatus(reportId as string, status);
-        res.json(updatedReport);
-    } catch (error: any) {
-        res.status(400).json({ message: error.message });
-    }
-});
+router.get("/admin/all", ...moderators, ReportController.list);
+router.get("/event/:eventId/reports", authMiddleware, ReportController.listForEvent);
+router.get("/:targetType/:targetId", authMiddleware, roleMiddleware([UserRole.Admin]), ReportController.listForTarget);
+router.patch("/:reportId", ...moderators, ReportController.setStatus);
 
 export default router;
