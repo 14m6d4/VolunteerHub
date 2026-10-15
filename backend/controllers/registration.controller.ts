@@ -1,8 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
 import { RegistrationService } from "../services/registration.service.ts";
-import { EventService } from "../services/event.service.ts";
-import { UserRole } from "../types/user.ts";
-import createHttpError from "http-errors";
 
 export const RegistrationController = {
     async register(req: Request, res: Response, next: NextFunction) {
@@ -65,19 +62,7 @@ export const RegistrationController = {
         try {
             const eventId = req.params.eventId as string;
             const user = req.user as any;
-
-            // Being a manager is not enough - it has to be this event's manager.
-            // Anyone else, including managers of other events, sees only the
-            // approved roster without contact details.
-            const managerId = await EventService.getManagerId(eventId);
-            if (!managerId) throw createHttpError(404, "Event not found");
-            const runsThisEvent = user.role === UserRole.Admin ||
-                (user.role === UserRole.Manager && managerId === user._id);
-
-            // Not assigned into req.query: Express 5 rebuilds it on every read.
-            const filters = runsThisEvent ? req.query : { ...req.query, status: 'approved' };
-
-            const items = await RegistrationService.getRegistrationsForEvent(eventId, filters, runsThisEvent);
+            const items = await RegistrationService.getRegistrationsForEvent(eventId, req.query, { id: user._id, role: user.role });
             return res.json({ success: true, data: items });
         } catch (err) {
             next(err);

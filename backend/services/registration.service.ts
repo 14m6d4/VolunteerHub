@@ -6,7 +6,8 @@ import { EventStatus } from "../types/event.ts";
 import { RegistrationStatus } from "../types/registration.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
-import { assertMayManageEvent, getEventRow, toEvent, toRegistration } from "../utils/event.util.ts";
+import { getEventRow, toEvent, toRegistration } from "../utils/event.util.ts";
+import { ModerationService, type Actor } from "./moderation.service.ts";
 import { isUniqueViolation, isUuid, toLean } from "../utils/user.util.ts";
 
 const getRegistrationRow = async (regId: string) => {
@@ -85,7 +86,7 @@ export const RegistrationService = {
 
     async approveRegistration(regId: string, managerId: string, managerRole: string) {
         const { reg, event } = await getRegistrationWithEvent(regId);
-        assertMayManageEvent(event, managerId, managerRole);
+        await ModerationService.assertModerator({ id: managerId, role: managerRole }, { event });
 
         // Approving someone who already holds a seat must not take a second one.
         if (HOLDS_SEAT.includes(reg.status)) return toRegistration(reg);
@@ -120,7 +121,7 @@ export const RegistrationService = {
 
     async rejectRegistration(regId: string, managerId: string, managerRole: string) {
         const { reg, event } = await getRegistrationWithEvent(regId);
-        assertMayManageEvent(event, managerId, managerRole);
+        await ModerationService.assertModerator({ id: managerId, role: managerRole }, { event });
 
         await db.transaction(async (tx) => {
             await tx.update(registrations)
@@ -151,8 +152,15 @@ export const RegistrationService = {
         return toRegistration(row!);
     },
 
-    async getRegistrationsForEvent(eventId: string, filters: any = {}, includeContactDetails = false) {
-        if (!isUuid(eventId)) return [];
+    async getRegistrationsForEvent(eventId: string, query: any, actor: Actor) {
+        const event = await getEventRow(eventId);
+        if (!event) throw createHttpError(404, "Event not found");
+
+        // Being a manager is not enough - it has to be this event's manager.
+        // Anyone else, including managers of other events, sees only the
+        // approved roster without contact details.
+        const includeContactDetails = await ModerationService.isModerator(actor, { event });
+        const filters = includeContactDetails ? query : { ...query, status: 'approved' };
 
         const conditions = [eq(registrations.eventId, eventId)];
         if (filters.status) {
@@ -190,7 +198,7 @@ export const RegistrationService = {
 
     async kickMember(regId: string, actorId: string, actorRole: string) {
         const { reg, event } = await getRegistrationWithEvent(regId);
-        assertMayManageEvent(event, actorId, actorRole);
+        await ModerationService.assertModerator({ id: actorId, role: actorRole }, { event });
 
         // Ensure we only kick approved members (or check logic if you want to kick others too)
         if (reg.status !== RegistrationStatus.APPROVED) {

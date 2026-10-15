@@ -4,7 +4,7 @@ import { ReportTargetType } from "../types/report.ts";
 import { authMiddleware, type AuthenticatedRequest } from "../middlewares/auth.middleware.ts";
 import { roleMiddleware } from "../middlewares/role.middleware.ts";
 import { UserRole } from "../types/user.ts";
-import { EventService } from "../services/event.service.ts";
+import { ModerationService } from "../services/moderation.service.ts";
 
 const router = express.Router();
 
@@ -87,19 +87,14 @@ router.get("/admin/all", authMiddleware, async (req, res) => {
 });
 
 router.get("/event/:eventId/reports", authMiddleware, async (req, res) => {
+    const eventId = req.params.eventId as string;
+    const user = (req as AuthenticatedRequest).user;
+
+    // Only the event's moderators: 404 for an unknown event, 403 for anyone else.
+    // Outside the try, so the central error handler answers them (Express 5 forwards the rejection).
+    await ModerationService.assertModerator({ id: user._id, role: user.role }, { eventId });
+
     try {
-        const eventId = req.params.eventId as string;
-        const user = (req as AuthenticatedRequest).user;
-
-        // Admins see any event; a manager sees only events they run.
-        if (user.role !== UserRole.Admin) {
-            const managerId = await EventService.getManagerId(eventId);
-            if (!managerId) return res.status(404).json({ message: "Event not found" });
-            if (user.role !== UserRole.Manager || managerId !== user._id) {
-                return res.status(403).json({ message: "Forbidden" });
-            }
-        }
-
         const reports = await ReportService.getReportsForEvent(eventId);
         res.json(reports);
     } catch (error: any) {

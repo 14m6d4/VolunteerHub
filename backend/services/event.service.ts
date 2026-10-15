@@ -8,7 +8,8 @@ import { ReportTargetType } from "../types/report.ts";
 import { NotificationService } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { UserRole } from "../types/user.ts";
-import { assertMayManageEvent, imagesDeletedWithEvents, getEventRow, toEvent } from "../utils/event.util.ts";
+import { imagesDeletedWithEvents, getEventRow, toEvent } from "../utils/event.util.ts";
+import { ModerationService } from "./moderation.service.ts";
 import { deleteImages } from "./image.service.ts";
 import { getPostRow, postLikerIds, toPost } from "../utils/post.util.ts";
 import { containsPattern } from "../utils/sql.util.ts";
@@ -63,12 +64,6 @@ async function countPendingPostReports(eventIds: string[]) {
 }
 
 export const EventService = {
-    /** The event's manager id, or null when the event does not exist. */
-    async getManagerId(eventId: string) {
-        const event = await getEventRow(eventId);
-        return event ? event.managerId : null;
-    },
-
     async getAllEvents() {
         const rows = await db.select().from(events).orderBy(desc(events.createdAt), asc(events.id));
         return rows.map(toEvent);
@@ -97,7 +92,7 @@ export const EventService = {
     async updateEvent(eventId: string, updates: EventInput, currentUserId: string, currentUserRole: string) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
-        assertMayManageEvent(event, currentUserId, currentUserRole);
+        await ModerationService.assertModerator({ id: currentUserId, role: currentUserRole }, { event });
 
         const [updated] = await db.update(events)
             .set({ ...pickEventFields(updates), updatedAt: new Date() })
@@ -273,7 +268,7 @@ export const EventService = {
     async pinPostOnEvent(eventId: string, postId: string, managerId: string, managerRole: string) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
-        assertMayManageEvent(event, managerId, managerRole);
+        await ModerationService.assertModerator({ id: managerId, role: managerRole }, { event });
 
         const post = await getPostRow(postId);
         if (!post) throw createHttpError(404, "Post not found");
@@ -291,7 +286,7 @@ export const EventService = {
     async getEventStats(eventId: string, actorId: string, actorRole: string) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
-        assertMayManageEvent(event, actorId, actorRole);
+        await ModerationService.assertModerator({ id: actorId, role: actorRole }, { event });
         const [postsCount, regsCount] = await Promise.all([
             db.$count(posts, eq(posts.eventId, event.id)),
             db.$count(registrations, eq(registrations.eventId, event.id)),
@@ -308,7 +303,7 @@ export const EventService = {
         // everything into a 500, which would mask the 404 and the 403.
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
-        assertMayManageEvent(event, actorId, actorRole);
+        await ModerationService.assertModerator({ id: actorId, role: actorRole }, { event });
 
         try {
             const images = await imagesDeletedWithEvents(eq(events.id, event.id));
@@ -326,7 +321,7 @@ export const EventService = {
     async completeEvent(eventId: string, actorId: string, actorRole: string) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
-        assertMayManageEvent(event, actorId, actorRole);
+        await ModerationService.assertModerator({ id: actorId, role: actorRole }, { event });
 
         const { finished, participants } = await db.transaction(async (tx) => {
             const [finished] = await tx.update(events)
