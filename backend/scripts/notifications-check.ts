@@ -166,6 +166,87 @@ await check('system notifications carry no actor, and deleting is for their owne
   assert.equal((await mine(vol.token)).length, 1, 'but not vol\'s');
 });
 
+// --- event and registration notifications ---------------------------------
+
+const admin2 = await mkUser('admin2', 'admin');
+const about = async (token: string, type: string, eventId: string) =>
+  (await mine(token, '?limit=100')).filter((n) => n.type === type && n.data?.eventId === eventId);
+
+await check('a new event reaches every admin but the one who created it, and approval reaches its manager', async () => {
+  const byMgr = await call('POST', '/api/events', { title: `zz_pend_${stamp}`, startAt: inDays(3), location: 'Hanoi' }, mgr.token);
+  assert.equal(byMgr.status, 201, JSON.stringify(byMgr.data));
+  const evId = byMgr.data.data._id;
+  for (const a of [admin, admin2]) {
+    const [n, ...more] = await about(a.token, 'event_pending', evId);
+    assert.ok(n && !more.length, 'each admin exactly once');
+    assert.equal(n.title, 'Event Pending Approval');
+    assert.equal(n.body, `New event zz_pend_${stamp} is pending your approval`);
+    assert.equal(n.actor._id, mgr.id);
+  }
+
+  const byAdmin = await call('POST', '/api/events', { title: `zz_own_${stamp}`, startAt: inDays(3), location: 'Hanoi' }, admin.token);
+  assert.equal(byAdmin.status, 201);
+  assert.deepEqual(await about(admin.token, 'event_pending', byAdmin.data.data._id), [], 'not their own event');
+  assert.equal((await about(admin2.token, 'event_pending', byAdmin.data.data._id)).length, 1);
+
+  assert.equal((await call('PATCH', `/api/events/${evId}/approve`, undefined, admin2.token)).status, 200);
+  const [approved, ...again] = await about(mgr.token, 'event_approved', evId);
+  assert.ok(approved && !again.length);
+  assert.equal(approved.title, 'Event Approved');
+  assert.equal(approved.body, `Your event zz_pend_${stamp} has been approved`);
+  assert.equal(approved.actor._id, admin2.id, 'the approving admin');
+});
+
+await check('registrations reach the manager, and their outcomes reach the volunteer, with the actor', async () => {
+  const evId = await mkApprovedEvent('regs');
+  const regs: Record<string, string> = {};
+  for (const [n, u] of [['vol', vol], ['vol2', vol2], ['vol3', vol3]] as const) {
+    const r = await call('POST', `/api/register/${evId}`, undefined, u.token);
+    assert.equal(r.status, 201, JSON.stringify(r.data));
+    regs[n] = r.data.data._id;
+  }
+  const pending = await about(mgr.token, 'registration_pending', evId);
+  assert.equal(pending.length, 3);
+  const fromVol = pending.find((n) => n.actor?._id === vol.id);
+  assert.ok(fromVol, 'the volunteer is the actor');
+  assert.equal(fromVol.title, 'New Registration Request');
+  assert.equal(fromVol.body, `vol has registered for event "zz_regs_${stamp}"`);
+  assert.equal(fromVol.data.registrationId, regs.vol);
+
+  assert.equal((await call('POST', `/api/register/${regs.vol}/approve`, undefined, mgr.token)).status, 200);
+  assert.equal((await call('POST', `/api/register/${regs.vol2}/approve`, undefined, mgr.token)).status, 200);
+  assert.equal((await call('POST', `/api/register/${regs.vol3}/reject`, undefined, mgr.token)).status, 200);
+  const [joined] = await about(vol.token, 'event_joined', evId);
+  assert.equal(joined.title, 'Registration Approved');
+  assert.equal(joined.actor._id, mgr.id);
+  const [rejected, ...kicked] = [...await about(vol3.token, 'registration_rejected', evId), ...await about(vol3.token, 'event_kicked', evId)];
+  assert.ok(rejected && !kicked.length, 'rejection has its own kind');
+  assert.equal(rejected.title, 'Registration Rejected');
+  assert.equal(rejected.body, `Your registration for event zz_regs_${stamp} was rejected`);
+  assert.equal(rejected.actor._id, mgr.id);
+
+  assert.equal((await call('PUT', `/api/events/${evId}`, { description: 'new' }, mgr.token)).status, 200);
+  for (const u of [vol, vol2]) {
+    const updated = await about(u.token, 'event_updated', evId);
+    assert.equal(updated.length, 1, 'each approved member exactly once');
+    assert.equal(updated[0].body, `Event zz_regs_${stamp} just got updated`);
+    assert.equal(updated[0].actor._id, mgr.id);
+  }
+  assert.deepEqual(await about(mgr.token, 'event_updated', evId), [], 'not the manager who edited it');
+  assert.deepEqual(await about(vol3.token, 'event_updated', evId), [], 'not the rejected');
+
+  assert.equal((await call('POST', `/api/register/${regs.vol2}/kick`, undefined, mgr.token)).status, 200);
+  const [removed] = await about(vol2.token, 'event_kicked', evId);
+  assert.equal(removed.title, 'You have been removed from the event');
+  assert.equal(removed.actor._id, mgr.id);
+
+  assert.equal((await call('PATCH', `/api/events/${evId}/complete`, undefined, mgr.token)).status, 200);
+  const done = await about(vol.token, 'event_completed', evId);
+  assert.equal(done.length, 1);
+  assert.equal(done[0].body, `Event zz_regs_${stamp} has been marked as completed. Thank you for your participation!`);
+  assert.deepEqual(await about(vol2.token, 'event_completed', evId), [], 'not a removed member');
+});
+
 // --- reports --------------------------------------------------------------
 
 const mgr2 = await mkUser('mgr2', 'manager');

@@ -5,9 +5,8 @@ import { discussions, eventStatus, events, posts, registrations, reports, users 
 import { EventStatus } from "../types/event.ts";
 import { RegistrationStatus } from "../types/registration.ts";
 import { ReportTargetType } from "../types/report.ts";
-import { NotificationService } from "./notification.service.ts";
+import { notify } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
-import { UserRole } from "../types/user.ts";
 import { imagesDeletedWithEvents, getEventRow, toEvent } from "../utils/event.util.ts";
 import { ModerationService } from "./moderation.service.ts";
 import { deleteImages } from "./image.service.ts";
@@ -77,15 +76,7 @@ export const EventService = {
             .values({ ...fields, title: fields.title, startAt: fields.startAt, managerId })
             .returning();
 
-        const admins = await db.select({ id: users.id }).from(users).where(eq(users.role, UserRole.Admin));
-        admins.forEach((admin) =>
-            NotificationService.notify(admin.id, {
-                type: NotificationType.EVENT_PENDING,
-                title: "Event Pending Approval",
-                body: `New event ${event!.title} is pending your approval`,
-                data: { eventId: event!.id }
-            })
-        );
+        await notify("admins", NotificationType.EVENT_PENDING, { eventId: event!.id, eventTitle: event!.title }, managerId);
         return toEvent(event!);
     },
 
@@ -101,12 +92,8 @@ export const EventService = {
         if (updated!.image !== event.image) await deleteImages(event.image);
 
         for (const volunteerId of await approvedMemberIds(event.id)) {
-            NotificationService.notify(volunteerId, {
-                type: NotificationType.EVENT_UPDATED,
-                title: "Event Updated",
-                body: `Event ${updated!.title} just got updated`,
-                data: { eventId }
-            });
+            await notify({ userId: volunteerId }, NotificationType.EVENT_UPDATED,
+                { eventId: event.id, eventTitle: updated!.title }, currentUserId);
         }
 
         return toEvent(updated!);
@@ -209,7 +196,7 @@ export const EventService = {
         return { items, total, page, limit };
     },
 
-    async approveEvent(eventId: string) {
+    async approveEvent(eventId: string, adminId: string) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
         if (event.status === EventStatus.APPROVED) return toEvent(event);
@@ -234,12 +221,8 @@ export const EventService = {
 
         await db.insert(discussions).values({ eventId: approved.id }).onConflictDoNothing();
 
-        NotificationService.notify(approved.managerId, {
-            type: NotificationType.EVENT_APPROVED,
-            title: "Event Approved",
-            body: `Your event ${approved.title} has been approved`,
-            data: { eventId: approved.id }
-        });
+        await notify({ userId: approved.managerId }, NotificationType.EVENT_APPROVED,
+            { eventId: approved.id, eventTitle: approved.title }, adminId);
         return toEvent(approved);
     },
 
@@ -317,12 +300,8 @@ export const EventService = {
         });
 
         for (const p of participants) {
-            NotificationService.notify(p.volunteerId, {
-                type: NotificationType.EVENT_COMPLETED,
-                title: "Event Completed",
-                body: `Event ${finished.title} has been marked as completed. Thank you for your participation!`,
-                data: { eventId }
-            });
+            await notify({ userId: p.volunteerId }, NotificationType.EVENT_COMPLETED,
+                { eventId: finished.id, eventTitle: finished.title }, actorId);
         }
 
         return toEvent(finished);

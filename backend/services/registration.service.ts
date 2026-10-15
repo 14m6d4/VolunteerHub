@@ -4,7 +4,7 @@ import { db } from "../db/client.ts";
 import { events, registrationStatus, registrations, users } from "../db/schema.ts";
 import { EventStatus } from "../types/event.ts";
 import { RegistrationStatus } from "../types/registration.ts";
-import { NotificationService } from "./notification.service.ts";
+import { notify } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { getEventRow, toEvent, toRegistration } from "../utils/event.util.ts";
 import { ModerationService, type Actor } from "./moderation.service.ts";
@@ -55,12 +55,10 @@ export const RegistrationService = {
             .from(users).where(eq(users.id, volunteerId));
         const volunteerName = volunteer ? (volunteer.name || volunteer.username) : "A volunteer";
 
-        NotificationService.notify(event.managerId, {
-            type: NotificationType.REGISTRATION_PENDING,
-            title: "New Registration Request",
-            body: `${volunteerName} has registered for event "${event.title}"`,
-            data: { eventId: event.id, registrationId: reg!.id, url: `/manage-events?manageMembers=${event.id}` }
-        });
+        await notify({ userId: event.managerId }, NotificationType.REGISTRATION_PENDING, {
+            eventId: event.id, eventTitle: event.title, volunteerName, registrationId: reg!.id,
+            url: `/manage-events?manageMembers=${event.id}`,
+        }, volunteerId);
         return toRegistration(reg!);
     },
 
@@ -110,12 +108,8 @@ export const RegistrationService = {
             return row!;
         });
 
-        await NotificationService.notify(reg.volunteerId, {
-            type: NotificationType.EVENT_JOINED,
-            title: "Registration Approved",
-            body: `You have join event ${event.title}`,
-            data: { eventId: event.id, url: `/events/${event.id}` }
-        });
+        await notify({ userId: reg.volunteerId }, NotificationType.EVENT_JOINED,
+            { eventId: event.id, eventTitle: event.title, url: `/events/${event.id}` }, managerId);
         return toRegistration(approved);
     },
 
@@ -133,12 +127,8 @@ export const RegistrationService = {
             }
         });
 
-        NotificationService.notify(reg.volunteerId, {
-            type: NotificationType.EVENT_KICKED,
-            title: "Your registration was rejected",
-            body: `Your registration for event ${event.title} was rejected`,
-            data: { eventId: event.id }
-        });
+        await notify({ userId: reg.volunteerId }, NotificationType.REGISTRATION_REJECTED,
+            { eventId: event.id, eventTitle: event.title }, managerId);
         return { message: "Registration rejected and removed" };
     },
 
@@ -202,12 +192,8 @@ export const RegistrationService = {
             await tx.update(events).set({ currentMembers: decrementSeats }).where(eq(events.id, event.id));
         });
 
-        await NotificationService.notify(reg.volunteerId, {
-            type: NotificationType.EVENT_KICKED,
-            title: "You have been removed from the event",
-            body: `You have been removed from event ${event.title}`,
-            data: { eventId: event.id }
-        });
+        await notify({ userId: reg.volunteerId }, NotificationType.EVENT_KICKED,
+            { eventId: event.id, eventTitle: event.title }, actorId);
         return { message: "Member kicked from event successfully" };
     }
 };

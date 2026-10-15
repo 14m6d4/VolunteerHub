@@ -6,6 +6,7 @@ export enum NotificationType {
   EVENT_APPROVED = "event_approved",
   EVENT_PENDING = "event_pending",
   REGISTRATION_PENDING = "registration_pending",
+  REGISTRATION_REJECTED = "registration_rejected",
   EVENT_REMINDER = "event_reminder",
   FRIEND_REQUEST_RECEIVED = 'friend_request_received',
   FRIEND_REQUEST_ACCEPTED = 'friend_request_accepted',

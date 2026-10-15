@@ -104,7 +104,7 @@ export const EventController = {
 
     async approve(req: Request, res: Response, next: NextFunction) {
         try {
-            const event = await EventService.approveEvent(req.params.id as string);
+            const event = await EventService.approveEvent(req.params.id as string, (req.user as any)._id);
             return res.json({ success: true, data: event });
         } catch (err) {
             next(err);
