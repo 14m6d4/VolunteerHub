@@ -296,6 +296,10 @@ await check('approving an event opens its discussion once; posts can join it; de
   const joined = res.data.data._id;
   assert.equal((await call('POST', '/api/posts', { discussionId: NO_SUCH_ID, content: 'x' }, vol.token)).status, 404, 'unknown discussion');
 
+  const listed = await call('GET', `/api/groups/${discussionId}/posts`, undefined, vol.token);
+  assert.equal(listed.status, 200, JSON.stringify(listed.data));
+  assert.deepEqual(listed.data.data.map((p: any) => p._id), [joined], 'the discussion lists its posts');
+
   assert.equal((await call('DELETE', `/api/events/${id}`, undefined, mgr.token)).status, 200);
   assert.equal((await db.select().from(discussions).where(eq(discussions.eventId, id))).length, 0, 'discussion went with the event');
   assert.equal((await db.select().from(posts).where(eq(posts.id, joined))).length, 0, 'and so did its posts');

@@ -241,6 +241,12 @@ await check("a post in an event's discussion is moderated by that event's manage
   assert.equal(await postExists(id), false);
 });
 
+await check("a discussion's posts are listed to signed-in users only", async () => {
+  const [discussion] = await db.select().from(discussions).where(eq(discussions.eventId, victimEvent!.id));
+  assert.equal((await fetch(`${base}/api/groups/${discussion!.id}/posts`)).status, 401, 'anonymous caller');
+  assert.equal((await fetch(`${base}/api/groups/${discussion!.id}/posts`, { headers: auth(attacker) })).status, 200);
+});
+
 await check('a post in no event is deleted by its author or an admin only', async () => {
   const byAuthor = await mkPost({});
   assert.equal((await del(`/api/posts/${byAuthor}`, victimMgr)).status, 403, 'a manager');

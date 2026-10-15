@@ -94,6 +94,7 @@ export const registrations = pgTable("registrations", {
 export const discussions = pgTable("discussions", {
     id: uuid("id").primaryKey().defaultRandom(),
     eventId: uuid("event_id").notNull().unique().references(() => events.id, { onDelete: "cascade" }),
+    // Nothing sets this yet. Whoever adds a lock route must also make createPost refuse posts in a locked discussion.
     locked: boolean("locked").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
