@@ -20,6 +20,10 @@ _Avoid_: Mod, reviewer
 A user's complaint about a user, an event or a post, waiting for a moderator to resolve it (act on it) or reject it (dismiss it).
 _Avoid_: Flag, complaint, ticket
 
+**Notification**:
+A message in a user's inbox telling them something happened that concerns them, usually caused by another user (the actor). A user is never notified of their own action.
+_Avoid_: Alert, push
+
 **Cover image**:
 The single picture that represents an event, shown both as its thumbnail in lists and as the banner on its page.
 _Avoid_: Thumbnail, banner image, event image
