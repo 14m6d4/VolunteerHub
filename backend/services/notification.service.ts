@@ -2,7 +2,6 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '../db/client.ts';
 import { notifications, users } from '../db/schema.ts';
 import { NotificationType } from '../types/notification.ts';
-import { WebPushService } from "./webpush.service.ts";
 import AppError from '../utils/appError.ts';
 import { isUuid, toLean } from '../utils/user.util.ts';
 
@@ -90,16 +89,6 @@ export const NotificationService = {
 			});
 		} catch (error) {
 			console.error(`[NotificationService] Failed to create notification for user ${userId}:`, error);
-		}
-
-		try {
-			await WebPushService.sendToUser(userId, {
-				title,
-				body,
-				data
-			});
-		} catch (error) {
-			console.error(`[NotificationService] WebPush failed for user ${userId}:`, error);
 		}
 	}
 };

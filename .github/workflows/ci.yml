@@ -71,12 +71,6 @@ jobs:
       # The compiled runner, as the prod image runs it.
       - name: Apply migrations to the empty database
         run: node dist/db/migrate.js
-      # config/webpush.ts validates the key shape on import, so placeholders won't do.
-      - name: Generate dummy VAPID keys
-        run: >-
-          node -e "const k = require('web-push').generateVAPIDKeys();
-          console.log('VAPID_PUBLIC_KEY=' + k.publicKey + '\nVAPID_PRIVATE_KEY=' + k.privateKey)"
-          >> "$GITHUB_ENV"
       - run: npm run smoke:security
       - run: npm run check:users
       - run: npm run check:events
