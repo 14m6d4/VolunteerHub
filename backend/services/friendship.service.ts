@@ -88,10 +88,7 @@ export const sendFriendRequest = async (senderId: string, receiverId: string) =>
 
   const [existing] = await db.select().from(friendRequests)
     .where(and(eq(friendRequests.senderId, senderId), eq(friendRequests.receiverId, receiverId)));
-  if (existing) {
-    if (existing.status === 'pending') throw new AppError('Request already sent', 400);
-    await db.delete(friendRequests).where(eq(friendRequests.id, existing.id));
-  }
+  if (existing) throw new AppError('Request already sent', 400);
 
   let created;
   try {
@@ -114,16 +111,12 @@ export const acceptFriendRequest = async (requestId: string, currentUserId: stri
     throw new AppError('Request not found or unauthorized', 404);
   }
 
-  if (request.status !== 'pending') {
-    throw new AppError('Request is no longer pending', 400);
-  }
-
   await db.transaction(async (tx) => {
-    const accepted = await tx.update(friendRequests)
-      .set({ status: 'accepted', updatedAt: new Date() })
-      .where(and(eq(friendRequests.id, request.id), eq(friendRequests.status, 'pending')))
+    // Only one of two concurrent accepts deletes the row; the other finds it gone.
+    const accepted = await tx.delete(friendRequests)
+      .where(eq(friendRequests.id, request.id))
       .returning({ id: friendRequests.id });
-    if (!accepted.length) throw new AppError('Request is no longer pending', 400);
+    if (!accepted.length) throw new AppError('Request not found or unauthorized', 404);
     await tx.insert(friendships).values(friendPair(request.senderId, request.receiverId)).onConflictDoNothing();
   });
 
