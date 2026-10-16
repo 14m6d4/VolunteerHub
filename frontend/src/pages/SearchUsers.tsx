@@ -2,39 +2,31 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { searchUsers as apiSearchUsers, sendFriendRequest, getRelations } from '@/services/user.service';
+import { searchUsers as apiSearchUsers } from '@/services/user.service';
+import { useRelations, useFriendActions } from '@/hooks/useFriends';
+import type { FriendUser } from '@/services/friends.service';
 import { useAuth } from '@/hooks/useAuth';
-
-interface SearchResultUser {
-  _id: string;
-  username: string;
-  name?: string;
-  profilePicture?: string;
-  relation: 'friends' | 'pending_sent' | 'pending_received' | 'none';
-}
 
 export default function SearchUsersPage() {
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<SearchResultUser[]>([]);
+  const [users, setUsers] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sendingId, setSendingId] = useState<string | null>(null);
   const { user } = useAuth();
+  const { data: relations = {} } = useRelations(users.map((u) => u._id));
+  const { send } = useFriendActions();
+  const sendingId = send.isPending ? send.variables : null;
 
   useEffect(() => {
     const t = setTimeout(() => {
       (async () => {
         if (!q) {
-          setResults([]);
+          setUsers([]);
           return;
         }
         setLoading(true);
         try {
           const res = await apiSearchUsers(q);
-          const users: Omit<SearchResultUser, 'relation'>[] = res.data || res || [];
-          const ids = users.map((u) => u._id);
-          const rel: Record<string, SearchResultUser['relation']> = (ids.length > 0) ? ((await getRelations(ids)).data || {}) : {};
-          const enriched = users.map((u) => ({ ...u, relation: rel[u._id] || 'none' }));
-          setResults(enriched);
+          setUsers(res.data ?? []);
         } catch (err) {
           console.error('Search users error', err);
         } finally {
@@ -46,17 +38,8 @@ export default function SearchUsersPage() {
     return () => clearTimeout(t);
   }, [q]);
 
-  const handleSend = async (id: string) => {
-    setSendingId(id);
-    try {
-      await sendFriendRequest(id);
-      alert('Friend request sent');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Unable to send request');
-    } finally {
-      setSendingId(null);
-    }
-  };
+  const handleSend = (id: string) =>
+    send.mutate(id, { onError: (err) => alert(err instanceof Error ? err.message : 'Unable to send request') });
 
   return (
     <div className="container mx-auto py-10 px-4 max-w-3xl">
@@ -68,7 +51,9 @@ export default function SearchUsersPage() {
       {loading && <div>Searching...</div>}
 
       <div className="space-y-3">
-        {results.map((u) => (
+        {users.map((u) => {
+          const relation = relations[u._id] ?? 'none';
+          return (
           <div key={u._id} className="flex items-center justify-between p-3 border rounded">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
@@ -82,17 +67,18 @@ export default function SearchUsersPage() {
             </div>
 
             <div>
-              {u.relation === 'friends' && <Button size="sm" disabled>Friends</Button>}
-              {u.relation === 'pending_sent' && <Button size="sm" disabled>Pending</Button>}
-              {u.relation === 'pending_received' && <Button size="sm" disabled>Requested</Button>}
-              {u.relation === 'none' && user && user.id !== u._id && (
+              {relation === 'friends' && <Button size="sm" disabled>Friends</Button>}
+              {relation === 'pending_sent' && <Button size="sm" disabled>Pending</Button>}
+              {relation === 'pending_received' && <Button size="sm" disabled>Requested</Button>}
+              {relation === 'none' && user && user.id !== u._id && (
                 <Button size="sm" onClick={() => handleSend(u._id)} disabled={sendingId === u._id}>
                   {sendingId === u._id ? 'Sending...' : 'Add friend'}
                 </Button>
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
     </div>
   );
