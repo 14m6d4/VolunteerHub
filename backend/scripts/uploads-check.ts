@@ -121,6 +121,96 @@ await check('a post image is served from /uploads and deleted with its post', as
   assert.ok(!(await files()).includes(path.basename(post.image)));
 });
 
+// --- Cover images: the Event module owns their whole life -------------------
+{
+  const { discussions, events, posts } = await import('../db/schema.ts');
+  const { eq } = await import('drizzle-orm');
+  const mkManager = async (tag: string) => {
+    const [u] = await db.insert(users).values({
+      username: `zz_cv${tag}_${stamp}`, email: `zz_cv${tag}_${stamp}@test.local`,
+      passwordHash: await hashPassword('Passw0rdLong1'), name: tag, birthdate: new Date('1990-01-01'),
+      role: UserRole.Manager, isVerified: true,
+    }).returning();
+    return { id: u!.id, token: createAccessToken({ id: u!.id, email: u!.email, role: UserRole.Manager }) };
+  };
+  const owner = await mkManager('own');
+  const outsider = await mkManager('out');
+  let ip = 0;
+  const sendEvent = (method: 'POST' | 'PUT', who: { token: string }, url: string, fields: Record<string, string>, file?: Buffer) => {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
+    if (file) form.append('image', new Blob([new Uint8Array(file)], { type: 'image/jpeg' }), 'c.jpg');
+    return fetch(`${base}${url}`, {
+      method, body: form, headers: { Authorization: `Bearer ${who.token}`, 'CF-Connecting-IP': `10.9.1.${++ip}` },
+    });
+  };
+  const eventFields = (title: string) => ({ title, startAt: new Date(Date.now() + 864e5).toISOString() });
+  const mkEvent = async (cover: Buffer) => {
+    const res = await sendEvent('POST', owner, '/api/events', eventFields('zz cover event'), cover);
+    assert.equal(res.status, 201, await res.clone().text());
+    return ((await res.json()) as { data: { _id: string; image: string } }).data;
+  };
+  const notAnImage = Buffer.from('not an image');
+
+  await check('an event is created with a Cover image served from /uploads; an invalid creation leaves no file', async () => {
+    const ev = await mkEvent(photo);
+    assert.match(ev.image, /^\/uploads\/[0-9a-f]{32}\.webp$/);
+    assert.equal((await fetch(`${base}${ev.image}`)).status, 200);
+
+    const before = await files();
+    const bad = await sendEvent('POST', owner, '/api/events', { title: 'x', startAt: 'nope' }, photo);
+    assert.equal(bad.status, 400);
+    assert.deepEqual(await files(), before);
+    await db.delete(events).where(eq(events.id, ev._id));
+  });
+
+  await check('replacing a Cover image serves the new file and removes the old one', async () => {
+    const ev = await mkEvent(photo);
+    const res = await sendEvent('PUT', owner, `/api/events/${ev._id}`, { title: 'zz cover event 2' }, photo);
+    assert.equal(res.status, 200, await res.clone().text());
+    const next = ((await res.json()) as { data: { image: string } }).data.image;
+    assert.notEqual(next, ev.image);
+    assert.equal((await fetch(`${base}${next}`)).status, 200);
+    assert.ok(!(await files()).includes(path.basename(ev.image)), 'old file removed');
+    await db.delete(events).where(eq(events.id, ev._id));
+  });
+
+  await check('a manager who does not run the event gets 403 even with a non-image, and nothing is stored', async () => {
+    const ev = await mkEvent(photo);
+    const before = await files();
+    const res = await sendEvent('PUT', outsider, `/api/events/${ev._id}`, { title: 'zz hijack' }, notAnImage);
+    assert.equal(res.status, 403);
+    const real = await sendEvent('PUT', outsider, `/api/events/${ev._id}`, { title: 'zz hijack' }, photo);
+    assert.equal(real.status, 403);
+    assert.deepEqual(await files(), before);
+    await db.delete(events).where(eq(events.id, ev._id));
+  });
+
+  await check('updating an unknown event with a file gets 404 and nothing is stored', async () => {
+    const before = await files();
+    const res = await sendEvent('PUT', owner, '/api/events/00000000-0000-4000-8000-000000000000', { title: 'zz ghost' }, photo);
+    assert.equal(res.status, 404);
+    assert.deepEqual(await files(), before);
+  });
+
+  await check('deleting an event removes its Cover image and its posts images, on the event and in its discussion', async () => {
+    const ev = await mkEvent(photo);
+    const [disc] = await db.insert(discussions).values({ eventId: ev._id }).returning();
+    const onEvent = await saveImage(photo);
+    const inDiscussion = await saveImage(photo);
+    await db.insert(posts).values([
+      { eventId: ev._id, authorId: owner.id, content: 'zz', image: onEvent },
+      { discussionId: disc!.id, authorId: owner.id, content: 'zz', image: inDiscussion },
+    ]);
+    const res = await fetch(`${base}/api/events/${ev._id}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${owner.token}`, 'CF-Connecting-IP': `10.9.1.${++ip}` },
+    });
+    assert.equal(res.status, 200, await res.clone().text());
+    const left = await files();
+    for (const url of [ev.image, onEvent, inDiscussion]) assert.ok(!left.includes(path.basename(url)), `${url} removed`);
+  });
+}
+
 out.forEach((line) => console.log(line));
 console.log(process.exitCode ? 'UPLOADS CHECK FAILED' : 'UPLOADS CHECK PASSED');
 
