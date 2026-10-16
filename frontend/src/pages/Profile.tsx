@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { getPublicProfile, sendFriendRequest, getRelations, removeFriend, getUserStats, getUserEventsList, getUserFriendsList } from '@/services/user.service';
+import { getPublicProfile, getUserStats, getUserEventsList } from '@/services/user.service';
+import { useRelations, useUserFriends, useFriendActions } from '@/hooks/useFriends';
 import { reportUser } from '@/services/report.service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -62,15 +63,6 @@ interface UserStats {
   friends: number;
 }
 
-interface Friend {
-  _id?: string;
-  id?: string;
-  name?: string;
-  username: string;
-  profilePicture?: string;
-}
-
-type FriendRelation = 'none' | 'friends' | 'pending_sent' | 'pending_received' | 'self';
 type EventFilter = 'all' | 'active' | 'completed';
 const ITEMS_PER_PAGE = 6;
 
@@ -90,10 +82,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
-  const [friends, setFriends] = useState<Friend[]>([]);
   const [stats, setStats] = useState<UserStats>({ eventsJoined: 0, eventsOrganized: 0, friends: 0 });
-  const [relation, setRelation] = useState<FriendRelation>('none');
-  const [actionLoading, setActionLoading] = useState(false);
   const [forbidden, setForbidden] = useState(false);
 
   const [eventSearch, setEventSearch] = useState('');
@@ -110,6 +99,12 @@ export default function ProfilePage() {
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
   const isOwnProfile = currentUser?.username === username;
+  const profileId = profile?._id || profile?.id || '';
+  const { data: friends = [] } = useUserFriends(username);
+  const { data: relations } = useRelations([profileId], Boolean(currentUser) && !isOwnProfile);
+  const relation = isOwnProfile ? 'self' : relations?.[profileId] ?? 'none';
+  const { send, accept, remove } = useFriendActions();
+  const actionLoading = send.isPending || accept.isPending || remove.isPending;
 
   const filteredEvents = useMemo(() => {
     let result = events;
@@ -218,13 +213,9 @@ export default function ProfilePage() {
 
         if (username) {
           try {
-            const [eventsRes, friendsRes] = await Promise.all([
-              getUserEventsList(username),
-              getUserFriendsList(username)
-            ]);
+            const eventsRes = await getUserEventsList(username);
 
             const eventsData = eventsRes.data || eventsRes || [];
-            const friendsData = friendsRes.data || friendsRes || [];
 
             interface RawUserEvent {
               _id?: string;
@@ -259,31 +250,11 @@ export default function ProfilePage() {
             }));
 
             setEvents(userEvents);
-            setFriends(friendsData);
           } catch (err) {
-            console.error('Failed to fetch events/friends:', err);
+            console.error('Failed to fetch events:', err);
           }
         }
 
-        if (isOwnProfile) {
-          setRelation('self');
-        } else if (currentUser && profileData) {
-          const userId = profileData._id || profileData.id;
-          console.log('[Profile] Fetching relation for userId:', userId);
-          if (userId) {
-            try {
-              const relRes = await getRelations([userId]);
-              const relData = relRes.data || relRes || {};
-              console.log('[Profile] Relation response:', relData);
-              const userRelation = (relData[userId] as FriendRelation) || 'none';
-              console.log('[Profile] Setting relation to:', userRelation);
-              setRelation(userRelation);
-            } catch (error) {
-              console.error('[Profile] Failed to fetch relation:', error);
-              setRelation('none');
-            }
-          }
-        }
       } catch (err) {
         // Handle 403 for admin profiles
         if ((err as { status?: number })?.status === 403) {
@@ -300,41 +271,16 @@ export default function ProfilePage() {
     loadProfile();
   }, [username, currentUser, isOwnProfile]);
 
-  // Handle friend request
-  const handleSendFriendRequest = async () => {
-    if (!profile) return;
-    const userId = profile._id || profile.id;
-    if (!userId) return;
-
-    setActionLoading(true);
-    try {
-      await sendFriendRequest(userId);
-      setRelation('pending_sent');
-      toast.success('Friend request sent!');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send friend request');
-    } finally {
-      setActionLoading(false);
-    }
+  const friendAction = (action: typeof send, success: string, failure: string) => () => {
+    if (!profileId) return;
+    action.mutate(profileId, {
+      onSuccess: () => toast.success(success),
+      onError: (err) => toast.error(err instanceof Error ? err.message : failure),
+    });
   };
-
-  // Handle unfriend
-  const handleUnfriend = async () => {
-    if (!profile) return;
-    const userId = profile._id || profile.id;
-    if (!userId) return;
-
-    setActionLoading(true);
-    try {
-      await removeFriend(userId);
-      setRelation('none');
-      toast.success('Friend removed');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to remove friend');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const handleSendFriendRequest = friendAction(send, 'Friend request sent!', 'Failed to send friend request');
+  const handleAccept = friendAction(accept, 'Friend request accepted', 'Failed to accept friend request');
+  const handleUnfriend = friendAction(remove, 'Friend removed', 'Failed to remove friend');
 
   // Handle report user
   const handleReportSubmit = async () => {
@@ -544,9 +490,9 @@ export default function ProfilePage() {
                         </Button>
                       )}
                       {relation === 'pending_received' && (
-                        <Button variant="outline">
+                        <Button variant="outline" onClick={handleAccept} disabled={actionLoading}>
                           <UserPlus className="h-4 w-4 mr-2" />
-                          Respond to Request
+                          Accept Request
                         </Button>
                       )}
                       {relation === 'friends' && (
@@ -746,7 +692,7 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {paginatedFriends.map((friend) => (
                     <Card
-                      key={friend._id || friend.id}
+                      key={friend._id}
                       className="cursor-pointer hover:shadow-md transition-shadow"
                       onClick={() => navigate(`/u/${friend.username}`)}
                     >

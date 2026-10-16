@@ -6,7 +6,7 @@ import { FeedPostCard, TrendingEventCard, EventShortcuts, FriendSuggestions } fr
 import { useAuth } from '@/hooks/useAuth';
 import { getFeed, likePost } from '@/services/feed.service';
 import { getMyRegistrations, getEvents } from '@/services/event.service';
-import { getFriendSuggestions, sendFriendRequest } from '@/services/user.service';
+import { useFriendSuggestions, useFriendActions } from '@/hooks/useFriends';
 import { createComment, deletePost, deleteComment } from '@/services/post.service';
 import type { FeedPostWithUser, TrendingEvent, FriendSuggestion, EventShortcut } from '@/types/feed';
 import { toast } from 'sonner';
@@ -67,11 +67,18 @@ export default function FeedPage() {
   const navigate = useNavigate();
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [joinedEvents, setJoinedEvents] = useState<EventShortcut[]>([]);
-  const [friendSuggestions, setFriendSuggestions] = useState<FriendSuggestion[]>([]);
+  const { data: rawSuggestions = [], isLoading: suggestionsLoading } = useFriendSuggestions(Boolean(user));
+  const { send } = useFriendActions();
+  const friendSuggestions: FriendSuggestion[] = rawSuggestions.slice(0, 5).map((u) => ({
+    id: u._id,
+    name: u.name || u.username,
+    username: u.username,
+    avatarUrl: u.profilePicture ?? '',
+    mutualFriends: u.mutualFriends,
+  }));
 
   const [feedLoading, setFeedLoading] = useState(true);
   const [shortcutsLoading, setShortcutsLoading] = useState(true);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
 
   // Fetch Data
   useEffect(() => {
@@ -203,35 +210,8 @@ export default function FeedPage() {
       }
     }
 
-    async function loadSuggestions() {
-      if (!user) {
-        setSuggestionsLoading(false);
-        return;
-      }
-      setSuggestionsLoading(true);
-      try {
-        const suggestionsRes = await getFriendSuggestions();
-        const rawSuggestions = suggestionsRes.data || suggestionsRes || [];
-        interface RawSuggestedUser { _id: string; name?: string; username: string; profilePicture?: string; mutualFriends?: number }
-        const suggestions: FriendSuggestion[] = rawSuggestions.map((u: RawSuggestedUser) => ({
-          id: u._id,
-          name: u.name || u.username,
-          username: u.username,
-          avatarUrl: u.profilePicture,
-          mutualFriends: u.mutualFriends || 0
-        }));
-        setFriendSuggestions(suggestions.slice(0, 5));
-
-      } catch (err) {
-        console.error("Failed to load suggestions", err);
-      } finally {
-        setSuggestionsLoading(false);
-      }
-    }
-
     loadFeed();
     loadShortcuts();
-    loadSuggestions();
   }, [user]);
 
   // Handle liking
@@ -346,7 +326,7 @@ export default function FeedPage() {
 
   const handleSendFriendRequest = async (userId: string) => {
     try {
-      await sendFriendRequest(userId);
+      await send.mutateAsync(userId);
     } catch (e) {
       console.error(e);
       toast.error("Failed to send friend request");

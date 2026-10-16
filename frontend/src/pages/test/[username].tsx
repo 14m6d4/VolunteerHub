@@ -132,7 +132,7 @@ function ActionButtons({ user }: { user: ProfileViewUser }) {
     if (!currentUser) return alert('You need to sign in to send a friend request');
     setSending(true);
     try {
-      await (await import('@/services/user.service')).sendFriendRequest((user.id || user._id)!);
+      await (await import('@/services/friends.service')).sendRequest((user.id || user._id)!);
       alert('Friend request sent');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Unable to send friend request');
