@@ -400,12 +400,17 @@ await check('a request is rejected by its receiver or cancelled by its sender, a
   assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: NO_SUCH_ID }, vol.token)).status, 404);
 });
 
-await check('adding a friend directly is symmetric and refuses doubles', async () => {
-  assert.equal((await call('POST', '/api/users/friends/add', { friendId: vol3.id }, vol2.token)).status, 200);
-  assert.equal((await call('POST', '/api/users/friends/add', { friendId: vol3.id }, vol2.token)).status, 400, 'already friends');
-  assert.equal((await call('POST', '/api/users/friends/add', { friendId: vol2.id }, vol3.token)).status, 400, 'from the other side too');
-  assert.equal((await call('POST', '/api/users/friends/add', { friendId: vol2.id }, vol2.token)).status, 400, 'yourself');
-  assert.equal((await call('POST', '/api/users/friends/add', { friendId: NO_SUCH_ID }, vol2.token)).status, 404, 'unknown user');
+const befriend = async (from: { token: string }, to: { id: string; token: string }) => {
+  const sent = await call('POST', '/api/users/friends/request', { receiverId: to.id }, from.token);
+  assert.equal(sent.status, 201, JSON.stringify(sent.data));
+  assert.equal((await call('POST', '/api/users/friends/accept', { requestId: sent.data.data._id }, to.token)).status, 200);
+};
+
+await check('there is no direct add-friend; an accepted request is symmetric and refuses doubles', async () => {
+  assert.equal((await call('POST', '/api/users/friends/add', { friendId: vol3.id }, vol2.token)).status, 404, 'no direct add');
+  await befriend(vol2, vol3);
+  assert.equal((await call('POST', '/api/users/friends/request', { receiverId: vol3.id }, vol2.token)).status, 400, 'already friends');
+  assert.equal((await call('POST', '/api/users/friends/request', { receiverId: vol2.id }, vol3.token)).status, 400, 'from the other side too');
   assert.deepEqual((await friendsOf(vol3.token)).map((f: any) => f._id), [vol2.id]);
   assert.deepEqual((await friendsOf(vol2.token)).map((f: any) => f._id).sort(), [vol.id, vol3.id].sort());
 });
@@ -433,7 +438,7 @@ await check('suggestions rank by mutual friends; profiles show a friend count an
   assert.equal((await call('GET', `/api/users/zz_admin_${stamp}/friends`)).status, 403, 'admin profiles stay private');
 
   const doomed = await mkUser('doomedfriend', 'volunteer');
-  assert.equal((await call('POST', '/api/users/friends/add', { friendId: doomed.id }, vol4.token)).status, 200);
+  await befriend(vol4, doomed);
   assert.equal((await call('POST', '/api/users/friends/request', { receiverId: doomed.id }, vol3.token)).status, 201);
   assert.equal((await call('DELETE', `/api/users/admin/${doomed.id}`, undefined, admin.token)).status, 200);
   assert.deepEqual(await friendsOf(vol4.token), [], 'friendship went with the user');

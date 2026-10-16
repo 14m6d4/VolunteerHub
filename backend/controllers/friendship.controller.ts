@@ -86,15 +86,6 @@ export async function friendRelations(req: AuthenticatedRequest, res: Response, 
   }
 }
 
-export async function addFriend(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    await friendship.addFriend(me(req), req.body.friendId);
-    return res.status(200).json({ status: 'success', message: 'Friend added' });
-  } catch (error) {
-    next(error);
-  }
-}
-
 export async function unfriendUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { friendId } = req.body as { friendId: string };
