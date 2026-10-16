@@ -346,7 +346,8 @@ await check('a friend request is sent, seen by both sides, accepted, and the two
   assert.equal((await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol.token)).status, 404, 'the sender cannot accept');
   const accepted = await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol2.token);
   assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
-  assert.equal((await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol2.token)).status, 400, 'no longer pending');
+  assert.equal((await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol2.token)).status, 404, 'the request is gone');
+  assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: r._id }, vol.token)).status, 404, 'no row left for the sender either');
   assert.equal((await call('POST', '/api/users/friends/accept', { requestId: NO_SUCH_ID }, vol2.token)).status, 404);
   assert.deepEqual((await call('GET', '/api/users/friends/requests', undefined, vol2.token)).data.data, []);
   assert.deepEqual((await call('GET', '/api/users/friends/sent', undefined, vol.token)).data.data, []);
@@ -366,10 +367,20 @@ await check('unfriending works once, and a request can be sent again afterwards'
   assert.equal((await call('POST', '/api/users/friends/remove', { friendId: vol.id }, vol.token)).status, 400, 'yourself');
 
   const again = await call('POST', '/api/users/friends/request', { receiverId: vol2.id }, vol.token);
-  assert.equal(again.status, 201, 'the accepted request is replaced, not a conflict');
+  assert.equal(again.status, 201, 'no accepted request is left to conflict');
   assert.equal(again.data.data.status, 'pending');
   assert.equal((await call('POST', '/api/users/friends/accept', { requestId: again.data.data._id }, vol2.token)).status, 200);
   assert.deepEqual((await friendsOf(vol.token)).map((f: any) => f._id), [vol2.id]);
+});
+
+await check('two accepts of one request at once give one success and one friendship', async () => {
+  const req = (await call('POST', '/api/users/friends/request', { receiverId: vol4.id }, vol3.token)).data.data._id;
+  const both = await Promise.all([1, 2].map(() => call('POST', '/api/users/friends/accept', { requestId: req }, vol4.token)));
+  const codes = both.map((b) => b.status).sort();
+  assert.equal(codes[0], 200, JSON.stringify(codes));
+  assert.ok([400, 404].includes(codes[1]!), JSON.stringify(codes));
+  assert.deepEqual((await friendsOf(vol4.token)).map((f: any) => f._id), [vol3.id]);
+  assert.equal((await call('POST', '/api/users/friends/remove', { friendId: vol4.id }, vol3.token)).status, 200);
 });
 
 await check('a request is rejected by its receiver or cancelled by its sender, and nobody else may', async () => {
@@ -381,7 +392,9 @@ await check('a request is rejected by its receiver or cancelled by its sender, a
   assert.equal((await call('POST', '/api/users/friends/reject', { requestId: toRejecting }, vol3.token)).status, 404, 'already gone');
   assert.deepEqual(await relations(vol.token, [vol3.id]), { [vol3.id]: 'none' });
 
-  const toCancelling = (await call('POST', '/api/users/friends/request', { receiverId: vol3.id }, vol.token)).data.data._id;
+  const resent = await call('POST', '/api/users/friends/request', { receiverId: vol3.id }, vol.token);
+  assert.equal(resent.status, 201, 'a rejected request can be sent again');
+  const toCancelling = resent.data.data._id;
   assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: toCancelling }, vol.token)).status, 200);
   assert.deepEqual((await call('GET', '/api/users/friends/requests', undefined, vol3.token)).data.data, []);
   assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: NO_SUCH_ID }, vol.token)).status, 404);
