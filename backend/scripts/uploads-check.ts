@@ -121,6 +121,87 @@ await check('a post image is served from /uploads and deleted with its post', as
   assert.ok(!(await files()).includes(path.basename(post.image)));
 });
 
+// --- Profile picture life and user deletion (#86) ---
+{
+  const { events } = await import('../db/schema.ts');
+  const { eq } = await import('drizzle-orm');
+  const mkUser = async (tag: string, role = UserRole.Volunteer, profilePicture?: string) => {
+    const [u] = await db.insert(users).values({
+      username: `zz_${tag}_${stamp}`, email: `zz_${tag}_${stamp}@test.local`,
+      passwordHash: await hashPassword('Passw0rdLong1'), name: tag, birthdate: new Date('1990-01-01'),
+      role, isVerified: true, profilePicture,
+    }).returning();
+    return { id: u!.id, token: createAccessToken({ id: u!.id, email: u!.email, role }) };
+  };
+  let ip = 0;
+  const call = (method: string, url: string, token: string, body?: unknown) => fetch(`${base}${url}`, {
+    method, body: JSON.stringify(body ?? {}),
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'CF-Connecting-IP': `10.9.1.${++ip}` },
+  });
+  const dataUrl = (b: Buffer) => `data:image/jpeg;base64,${b.toString('base64')}`;
+  const patchProfile = (token: string, body: unknown) => call('PATCH', '/api/users/profile/secure', token, body);
+  const pictureOf = async (id: string) => (await db.select().from(users).where(eq(users.id, id)))[0]!.profilePicture!;
+
+  await check('replacing a Profile picture serves the new file and removes the old one; an empty string clears it', async () => {
+    const u = await mkUser('pp');
+    let res = await patchProfile(u.token, { profilePicture: dataUrl(photo) });
+    assert.equal(res.status, 200, await res.clone().text());
+    const first = await pictureOf(u.id);
+    assert.equal((await fetch(`${base}${first}`)).status, 200);
+
+    res = await patchProfile(u.token, { profilePicture: dataUrl(photo) });
+    assert.equal(res.status, 200);
+    const second = await pictureOf(u.id);
+    assert.notEqual(second, first);
+    assert.equal((await fetch(`${base}${second}`)).status, 200);
+    assert.ok(!(await files()).includes(path.basename(first)), 'old file removed');
+
+    res = await patchProfile(u.token, { profilePicture: '' });
+    assert.equal(res.status, 200);
+    assert.ok(!(await files()).includes(path.basename(second)), 'cleared file removed');
+  });
+
+  await check('a wrong current password with a non-image data URL is 401 and stores nothing', async () => {
+    const u = await mkUser('pw');
+    const before = await files();
+    const res = await patchProfile(u.token, {
+      profilePicture: 'data:image/png;base64,bm90IGFuIGltYWdl', password: 'NewPassw0rd1', currentPassword: 'wrong-password',
+    });
+    assert.equal(res.status, 401);
+    assert.deepEqual(await files(), before);
+  });
+
+  await check('a Profile picture over 2 MB is refused with 413 and a clear message', async () => {
+    const u = await mkUser('big');
+    const res = await patchProfile(u.token, { profilePicture: dataUrl(Buffer.alloc(2 * 1024 * 1024 + 1)) });
+    assert.equal(res.status, 413);
+    assert.match(((await res.json()) as { message: string }).message, /2 MB/);
+  });
+
+  await check('deleting a user removes their Profile picture, event Cover images and post images', async () => {
+    const admin = await mkUser('adm', UserRole.Admin);
+    const victim = await mkUser('del', UserRole.Manager, await saveImage(photo));
+    const cover = await saveImage(photo);
+    await db.insert(events).values({ title: 'zz', startAt: new Date(), managerId: victim.id, image: cover });
+    const form = new FormData();
+    form.append('content', 'zz');
+    form.append('image', new Blob([new Uint8Array(photo)], { type: 'image/jpeg' }), 'a.jpg');
+    const made = await fetch(`${base}/api/posts`, {
+      method: 'POST', body: form, headers: { Authorization: `Bearer ${victim.token}`, 'CF-Connecting-IP': '10.9.1.200' },
+    });
+    assert.equal(made.status, 201, await made.clone().text());
+    const postImg = ((await made.json()) as { data: { image: string } }).data.image;
+    const mine = [await pictureOf(victim.id), cover, postImg].map((u) => path.basename(u));
+    const present = await files();
+    for (const f of mine) assert.ok(present.includes(f), `${f} exists before`);
+
+    const res = await call('DELETE', `/api/users/admin/${victim.id}`, admin.token);
+    assert.equal(res.status, 200, await res.clone().text());
+    const after = await files();
+    for (const f of mine) assert.ok(!after.includes(f), `${f} removed`);
+  });
+}
+
 out.forEach((line) => console.log(line));
 console.log(process.exitCode ? 'UPLOADS CHECK FAILED' : 'UPLOADS CHECK PASSED');
 
