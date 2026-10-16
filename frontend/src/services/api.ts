@@ -69,6 +69,12 @@ export async function apiFetch<T = any>(path: string, opts: FetchOptions = {}): 
   return data as T;
 }
 
+/** apiFetch for endpoints that answer an envelope carrying `data` ({ success, data } or { status, data }); returns that data. */
+export async function apiData<T>(path: string, opts: FetchOptions = {}): Promise<T> {
+  const body = await apiFetch<{ data: T }>(path, opts);
+  return body.data;
+}
+
 export function clearAuth() {
   localStorage.removeItem('accessToken');
 }
