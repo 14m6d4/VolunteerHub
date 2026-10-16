@@ -32,6 +32,7 @@ function pickEventFields(input: EventInput) {
     }
     if (startAt !== undefined) picked.startAt = toDate(startAt);
     if (endAt !== undefined) picked.endAt = endAt === null ? null : toDate(endAt);
+    for (const d of [picked.startAt, picked.endAt]) if (d && Number.isNaN(d.getTime())) throw createHttpError(400, "Invalid date");
     return picked;
 }
 
@@ -94,13 +95,14 @@ export const EventService = {
         if (!event) throw createHttpError(404, "Event not found");
         await ModerationService.assertModerator({ id: currentUserId, role: currentUserRole }, { event });
 
+        const fields = pickEventFields(updates);
         const image = cover ? await saveImage(cover) : undefined;
         let updated;
         try {
             // ponytail: two concurrent replacements both read the same old Cover image, so the losing
             // request's new file is orphaned; read the old image in the update statement, or sweep unreferenced files.
             [updated] = await db.update(events)
-                .set({ ...pickEventFields(updates), ...(image && { image }), updatedAt: new Date() })
+                .set({ ...fields, ...(image && { image }), updatedAt: new Date() })
                 .where(eq(events.id, event.id))
                 .returning();
         } catch (err) {

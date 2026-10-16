@@ -256,6 +256,17 @@ await check('a post image is served from /uploads and deleted with its post', as
     await db.delete(events).where(eq(events.id, ev._id));
   });
 
+  await check('a bad date with a real image gets 400 and no new file, on create and on update', async () => {
+    const ev = await mkEvent(photo);
+    const before = await files();
+    const bad = await sendEvent('PUT', owner, `/api/events/${ev._id}`, { startAt: '2026-02-31T00:00:00Z' }, photo);
+    assert.equal(bad.status, 400, await bad.clone().text());
+    const badCreate = await sendEvent('POST', owner, '/api/events', { title: 'zz bad date', startAt: '2026-02-31T00:00:00Z' }, photo);
+    assert.equal(badCreate.status, 400);
+    assert.deepEqual(await files(), before);
+    await db.delete(events).where(eq(events.id, ev._id));
+  });
+
   await check('a manager who does not run the event gets 403 even with a non-image, and nothing is stored', async () => {
     const ev = await mkEvent(photo);
     const before = await files();

@@ -89,19 +89,15 @@ export async function updateProfileWithPasswordCheck(
 
   if (picture) changes.profilePicture = await saveImage(picture);
 
+  let updated;
   try {
     // ponytail: two concurrent replacements both read the same old picture, so the loser's new file is orphaned;
     // read the old picture in the same statement as the update, or sweep for unreferenced files.
-    const [updated] = await db.update(users).set(changes).where(eq(users.id, userId)).returning();
+    [updated] = await db.update(users).set(changes).where(eq(users.id, userId)).returning();
 
     if (!updated) {
       throw new AppError('User not found after update', 500);
     }
-    if (updated.profilePicture !== user.profilePicture) await deleteImages(user.profilePicture);
-
-    const { authProvider, ...profile } = toUser(updated);
-    return profile as IUser;
-
   } catch (error) {
     if (picture) await deleteImages(changes.profilePicture);
     if (error instanceof AppError) {
@@ -113,6 +109,12 @@ export async function updateProfileWithPasswordCheck(
     console.error('Database error during secure profile update:', error);
     throw new AppError('Failed to update profile due to invalid data or server error', 500);
   }
+
+  // After the try: a failure here must never delete the new file the row now references.
+  if (updated.profilePicture !== user.profilePicture) await deleteImages(user.profilePicture);
+
+  const { authProvider, ...profile } = toUser(updated);
+  return profile as IUser;
 }
 
 interface GoogleProfileData {
