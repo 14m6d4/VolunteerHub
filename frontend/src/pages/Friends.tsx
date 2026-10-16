@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import useAuth from '@/hooks/useAuth';
 import { searchUsers as apiSearchUsers } from '@/services/user.service';
 import type { FriendUser, Relation } from '@/services/friends.service';
-import { useFriendActions, useFriendsList, useIncomingRequests, useOutgoingRequests, useRelations } from '@/hooks/useFriends';
+import { useFriendActions, useFriendSuggestions, useFriendsList, useIncomingRequests, useOutgoingRequests, useRelations } from '@/hooks/useFriends';
 import { useSearchParams } from 'react-router-dom';
 import {
   Users,
@@ -50,6 +50,7 @@ export default function FriendsPage() {
   const friendsQuery = useFriendsList(signedIn);
   const incomingQuery = useIncomingRequests(signedIn);
   const outgoingQuery = useOutgoingRequests(signedIn);
+  const suggestionsQuery = useFriendSuggestions(signedIn);
   const searchQuery = useQuery({
     queryKey: ['users', 'search', debouncedQuery],
     queryFn: async () => (await apiSearchUsers(debouncedQuery)).data as FriendUser[],
@@ -62,6 +63,7 @@ export default function FriendsPage() {
   const friends = friendsQuery.data ?? [];
   const requests = incomingQuery.data ?? [];
   const sentRequests = outgoingQuery.data ?? [];
+  const suggestions = (suggestionsQuery.data ?? []).filter((s) => !sentRequests.some((r) => r.receiver._id === s._id));
   const results: SearchUser[] = found.map((u) => ({ ...u, relation: relationsQuery.data?.[u._id] ?? 'none' }));
   const loading = searchQuery.isFetching;
   const loadingFriends = friendsQuery.isLoading;
@@ -512,6 +514,61 @@ export default function FriendsPage() {
               )}
             </CardContent>
           </Card>
+          {suggestions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  People You May Know
+                </CardTitle>
+                <CardDescription>
+                  Suggested volunteers, ranked by friends in common
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {suggestions.map((u) => (
+                    <div
+                      key={u._id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
+                      onClick={() => handleUserClick(u.username)}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <Avatar className="h-12 w-12 border-2 border-muted">
+                          <AvatarImage src={u.profilePicture} />
+                          <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
+                            {u.username[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-base truncate">{u.name || u.username}</div>
+                          <div className="text-sm text-muted-foreground truncate">
+                            @{u.username}
+                            {u.mutualFriends > 0 && ` · ${u.mutualFriends} mutual friend${u.mutualFriends === 1 ? '' : 's'}`}
+                          </div>
+                        </div>
+                      </div>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Button size="sm" onClick={() => handleSend(u._id)} disabled={sendingToId === u._id}>
+                          {sendingToId === u._id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Add Friend
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

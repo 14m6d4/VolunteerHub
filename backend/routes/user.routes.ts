@@ -1,6 +1,6 @@
 
 import { Router } from 'express';
-import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, reportUser, adminSearchUsersController, getBannedUsersController, createUserController, deleteUserController, updateUserController, getUserStats, getUserEvents, getUserFriendsList, } from '../controllers/user.controller.ts';
+import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, reportUser, adminSearchUsersController, getBannedUsersController, createUserController, deleteUserController, updateUserController, getUserStats, getUserEvents, getUserFriendsList } from '../controllers/user.controller.ts';
 import { authMiddleware } from '../middlewares/auth.middleware.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
@@ -8,7 +8,6 @@ import { roleMiddleware } from '../middlewares/role.middleware.ts';
 import { UserRole } from '../types/user.ts';
 
 const router = Router();
-
 
 router.patch(
   '/profile/secure',

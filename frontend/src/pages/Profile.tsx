@@ -559,7 +559,7 @@ export default function ProfilePage() {
                   <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats.friends || 0}</p>
+                  <p className="text-2xl font-bold">{friends.length}</p>
                   <p className="text-sm text-muted-foreground">Friends</p>
                 </div>
               </div>

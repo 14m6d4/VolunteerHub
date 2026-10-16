@@ -27,15 +27,15 @@ export interface OutgoingFriendRequest {
 
 export type Relation = 'friends' | 'pending_sent' | 'pending_received' | 'none';
 
-const post = (path: string, body: unknown) => apiFetch(path, { method: 'POST', body: JSON.stringify(body) });
+const postOpts = (body: unknown) => ({ method: 'POST', body: JSON.stringify(body) });
+const post = (path: string, body: unknown) => apiFetch(path, postOpts(body));
 
 export const getFriends = () => apiData<FriendUser[]>('/users/friends');
 export const getIncomingRequests = () => apiData<IncomingFriendRequest[]>('/users/friends/requests');
 export const getOutgoingRequests = () => apiData<OutgoingFriendRequest[]>('/users/friends/sent');
 export const getSuggestions = () => apiData<FriendSuggestion[]>('/users/friends/suggestions');
 export const getUserFriends = (username: string) => apiData<FriendUser[]>(`/users/${encodeURIComponent(username)}/friends`);
-export const getRelations = (ids: string[]) =>
-  apiData<Record<string, Relation>>('/users/friends/status', { method: 'POST', body: JSON.stringify({ ids }) });
+export const getRelations = (ids: string[]) => apiData<Record<string, Relation>>('/users/friends/status', postOpts({ ids }));
 
 export const sendRequest = async (receiverId: string) => { await post('/users/friends/request', { receiverId }); };
 export const acceptRequest = async (requestId: string) => { await post('/users/friends/accept', { requestId }); };

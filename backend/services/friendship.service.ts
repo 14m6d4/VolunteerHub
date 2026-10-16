@@ -119,26 +119,22 @@ export const cancelFriendRequest = async (userId: string, requestId: string) => 
   const request = await getRequestRow(requestId);
   if (!request) throw new AppError('Friend request not found', 404);
   if (request.senderId !== userId) throw new AppError('Unauthorized to cancel this request', 403);
-  if (request.status !== 'pending') throw new AppError('Can only cancel pending requests', 400);
 
   await db.delete(friendRequests).where(eq(friendRequests.id, request.id));
-  return { message: 'Friend request cancelled successfully' };
 };
 
 export const rejectFriendRequest = async (userId: string, requestId: string) => {
   const request = await getRequestRow(requestId);
   if (!request) throw new AppError('Friend request not found', 404);
   if (request.receiverId !== userId) throw new AppError('Unauthorized to reject this request', 403);
-  if (request.status !== 'pending') throw new AppError('Can only reject pending requests', 400);
 
   await db.delete(friendRequests).where(eq(friendRequests.id, request.id));
-  return { message: 'Friend request rejected successfully' };
 };
 
 export const listIncomingFriendRequests = async (userId: string) => {
   const rows = await db.select({ request: friendRequests, sender: FRIEND_COLUMNS }).from(friendRequests)
     .innerJoin(users, eq(users.id, friendRequests.senderId))
-    .where(and(eq(friendRequests.receiverId, userId), eq(friendRequests.status, 'pending')))
+    .where(eq(friendRequests.receiverId, userId))
     .orderBy(asc(friendRequests.createdAt), asc(friendRequests.id));
   return rows.map((r) => toFriendRequest(r.request, { sender: toLean(r.sender) }));
 };
@@ -146,25 +142,24 @@ export const listIncomingFriendRequests = async (userId: string) => {
 export const listOutgoingFriendRequests = async (userId: string) => {
   const rows = await db.select({ request: friendRequests, receiver: FRIEND_COLUMNS }).from(friendRequests)
     .innerJoin(users, eq(users.id, friendRequests.receiverId))
-    .where(and(eq(friendRequests.senderId, userId), eq(friendRequests.status, 'pending')))
+    .where(eq(friendRequests.senderId, userId))
     .orderBy(asc(friendRequests.createdAt), asc(friendRequests.id));
   return rows.map((r) => toFriendRequest(r.request, { receiver: toLean(r.receiver) }));
 };
+
+export type Relation = 'friends' | 'pending_sent' | 'pending_received' | 'none';
 
 /** How each target relates to the user: friends, pending_sent, pending_received or none. */
 export const relationsTo = async (userId: string, targets: string[]) => {
   const friendSet = new Set(await friendIdsOf(userId));
   const ids = targets.filter(isUuid);
 
-  const pending = ids.length ? await db.select().from(friendRequests).where(and(
-    eq(friendRequests.status, 'pending'),
-    or(
-      and(eq(friendRequests.senderId, userId), inArray(friendRequests.receiverId, ids)),
-      and(eq(friendRequests.receiverId, userId), inArray(friendRequests.senderId, ids)),
-    ),
+  const pending = ids.length ? await db.select().from(friendRequests).where(or(
+    and(eq(friendRequests.senderId, userId), inArray(friendRequests.receiverId, ids)),
+    and(eq(friendRequests.receiverId, userId), inArray(friendRequests.senderId, ids)),
   )) : [];
 
-  const map: Record<string, string> = {};
+  const map: Record<string, Relation> = {};
   for (const t of targets) map[t] = friendSet.has(t) ? 'friends' : 'none';
 
   for (const p of pending) {
