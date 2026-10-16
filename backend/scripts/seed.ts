@@ -34,6 +34,8 @@ import {
 } from '../db/schema.ts';
 import { UPLOADS_DIR } from '../services/image.service.ts';
 import { hashPassword } from '../utils/password.util.ts';
+import { notify } from '../services/notification.service.ts';
+import { NotificationType } from '../types/notification.ts';
 
 const eventSpecs = [
   { title: 'Riverside Clean-up', status: 'approved', start: 5, max: 10, tags: ['environment', 'outdoor'] },
@@ -180,10 +182,9 @@ await db.insert(friendRequests).values([
 await db.insert(friendships).values([[dan.id, eve.id], [dan.id, finn.id]]
   .map(([a, b]) => (a! < b! ? { userLow: a!, userHigh: b! } : { userLow: b!, userHigh: a! })));
 
-await db.insert(notifications).values([
-  { userId: dan.id, actorId: managers[0]!.id, type: 'event_updated', title: 'Riverside Clean-up', body: 'The meeting point has moved to the east gate.' },
-  { userId: dan.id, actorId: gia.id, type: 'friend_request_received', title: 'New friend request', body: 'Demo Gia wants to be friends.' },
-]);
+// Through notify, the one writer of notification rows.
+await notify({ userId: dan.id }, NotificationType.EVENT_UPDATED, { eventId: eventRows[0]!.id, eventTitle: eventRows[0]!.title }, managers[0]!.id);
+await notify({ userId: dan.id }, NotificationType.FRIEND_REQUEST_RECEIVED, { senderId: gia.id }, gia.id);
 await db.insert(reports).values({
   reporterId: eve.id, targetId: postRows[1]!.id, targetType: 'post', reason: 'spam', description: 'Demo report for the admin queue.',
 });
