@@ -216,10 +216,7 @@ export async function getUserFriendsList(req: AuthenticatedRequest, res: Respons
 
     const friends = await userService.getUserFriendsListService(username as string);
 
-    return res.status(200).json({
-      status: 'success',
-      data: friends
-    });
+    return res.status(200).json({ success: true, data: friends });
   } catch (error) {
     next(error);
   }
