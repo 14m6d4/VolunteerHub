@@ -173,3 +173,9 @@ const reportBody = z.object({ reason: z.string(), description: z.string().nullis
 export const reportEventSchema = reportBody.extend({ eventId: z.string() });
 export const reportUserSchema = reportBody.extend({ targetId: z.string() });
 export const reportPostSchema = reportBody.extend({ postId: z.string() });
+
+// --- Friends Schemas ---
+export const friendRequestIdSchema = z.object({ requestId: z.string().uuid() });
+export const sendFriendRequestSchema = z.object({ receiverId: z.string().uuid() });
+export const removeFriendSchema = z.object({ friendId: z.string().uuid() });
+export const friendRelationsSchema = z.object({ ids: z.array(z.string().uuid()).min(1) });

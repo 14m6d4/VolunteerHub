@@ -307,14 +307,38 @@ await check('approving an event opens its discussion once; posts can join it; de
 
 // --- friends --------------------------------------------------------------
 
-const friendsOf = async (token: string) => (await call('GET', '/api/users/friends', undefined, token)).data.data;
+// Reads and send answer { success: true, data }; the other actions answer { success: true } alone.
+const read = (res: { status: number; data: any }, status = 200) => {
+  assert.equal(res.status, status, JSON.stringify(res.data));
+  assert.deepEqual(Object.keys(res.data).sort(), ['data', 'success'], JSON.stringify(res.data));
+  assert.equal(res.data.success, true);
+  return res.data.data;
+};
+const done = (res: { status: number; data: any }) => {
+  assert.equal(res.status, 200, JSON.stringify(res.data));
+  assert.deepEqual(res.data, { success: true });
+};
+const friendsOf = async (token: string) => read(await call('GET', '/api/users/friends', undefined, token));
 const relations = async (token: string, ids: string[]) =>
-  (await call('POST', '/api/users/friends/status', { ids }, token)).data.data;
+  read(await call('POST', '/api/users/friends/status', { ids }, token));
+
+await check('malformed friends bodies answer 400', async () => {
+  for (const [path, body] of [
+    ['request', {}], ['request', { receiverId: 'nope' }],
+    ['accept', {}], ['accept', { requestId: 'nope' }],
+    ['reject', {}], ['reject', { requestId: 'nope' }],
+    ['cancel', {}], ['cancel', { requestId: 'nope' }],
+    ['remove', {}], ['remove', { friendId: 'nope' }],
+    ['status', {}], ['status', { ids: [] }],
+  ] as const) {
+    const res = await call('POST', `/api/users/friends/${path}`, body, vol.token);
+    assert.equal(res.status, 400, `${path} ${JSON.stringify(body)}: ${JSON.stringify(res.data)}`);
+  }
+});
 
 await check('a friend request is sent, seen by both sides, accepted, and the two become friends', async () => {
   const sent = await call('POST', '/api/users/friends/request', { receiverId: vol2.id }, vol.token);
-  assert.equal(sent.status, 201, JSON.stringify(sent.data));
-  const r = sent.data.data;
+  const r = read(sent, 201);
   assert.ok(r._id);
   assert.equal(r.sender, vol.id);
   assert.equal(r.receiver, vol2.id);
@@ -327,14 +351,14 @@ await check('a friend request is sent, seen by both sides, accepted, and the two
   assert.equal((await call('POST', '/api/users/friends/request', { receiverId: NO_SUCH_ID }, vol.token)).status, 404, 'unknown user');
 
   const incoming = await call('GET', '/api/users/friends/requests', undefined, vol2.token);
-  assert.equal(incoming.status, 200, JSON.stringify(incoming.data));
-  assert.equal(incoming.data.data.length, 1);
+  assert.equal(read(incoming).length, 1);
   assert.equal(incoming.data.data[0]._id, r._id);
   assert.equal(incoming.data.data[0].sender._id, vol.id, 'sender is populated');
   assert.equal(incoming.data.data[0].sender.username, `zz_vol_${stamp}`);
   assert.equal(incoming.data.data[0].sender.name, 'vol');
   assert.equal(incoming.data.data[0].status, 'pending');
   const outgoing = await call('GET', '/api/users/friends/sent', undefined, vol.token);
+  read(outgoing);
   assert.equal(outgoing.data.data[0]._id, r._id);
   assert.equal(outgoing.data.data[0].receiver._id, vol2.id, 'receiver is populated');
   assert.deepEqual((await call('GET', '/api/users/friends/requests', undefined, vol.token)).data.data, [], 'the sender has nothing incoming');
@@ -344,8 +368,7 @@ await check('a friend request is sent, seen by both sides, accepted, and the two
   assert.equal((await call('POST', '/api/users/friends/status', { ids: [] }, vol.token)).status, 400);
 
   assert.equal((await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol.token)).status, 404, 'the sender cannot accept');
-  const accepted = await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol2.token);
-  assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+  done(await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol2.token));
   assert.equal((await call('POST', '/api/users/friends/accept', { requestId: r._id }, vol2.token)).status, 404, 'the request is gone');
   assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: r._id }, vol.token)).status, 404, 'no row left for the sender either');
   assert.equal((await call('POST', '/api/users/friends/accept', { requestId: NO_SUCH_ID }, vol2.token)).status, 404);
@@ -360,7 +383,7 @@ await check('a friend request is sent, seen by both sides, accepted, and the two
 });
 
 await check('unfriending works once, and a request can be sent again afterwards', async () => {
-  assert.equal((await call('POST', '/api/users/friends/remove', { friendId: vol2.id }, vol.token)).status, 200);
+  done(await call('POST', '/api/users/friends/remove', { friendId: vol2.id }, vol.token));
   assert.deepEqual(await friendsOf(vol.token), []);
   assert.deepEqual(await friendsOf(vol2.token), []);
   assert.equal((await call('POST', '/api/users/friends/remove', { friendId: vol2.id }, vol.token)).status, 400, 'not friends any more');
@@ -388,14 +411,14 @@ await check('a request is rejected by its receiver or cancelled by its sender, a
   assert.equal((await call('POST', '/api/users/friends/reject', { requestId: toRejecting }, vol.token)).status, 403, 'the sender cannot reject');
   assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: toRejecting }, vol3.token)).status, 403, 'the receiver cannot cancel');
   assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: toRejecting }, vol2.token)).status, 403, 'a stranger cannot cancel');
-  assert.equal((await call('POST', '/api/users/friends/reject', { requestId: toRejecting }, vol3.token)).status, 200);
+  done(await call('POST', '/api/users/friends/reject', { requestId: toRejecting }, vol3.token));
   assert.equal((await call('POST', '/api/users/friends/reject', { requestId: toRejecting }, vol3.token)).status, 404, 'already gone');
   assert.deepEqual(await relations(vol.token, [vol3.id]), { [vol3.id]: 'none' });
 
   const resent = await call('POST', '/api/users/friends/request', { receiverId: vol3.id }, vol.token);
   assert.equal(resent.status, 201, 'a rejected request can be sent again');
   const toCancelling = resent.data.data._id;
-  assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: toCancelling }, vol.token)).status, 200);
+  done(await call('POST', '/api/users/friends/cancel', { requestId: toCancelling }, vol.token));
   assert.deepEqual((await call('GET', '/api/users/friends/requests', undefined, vol3.token)).data.data, []);
   assert.equal((await call('POST', '/api/users/friends/cancel', { requestId: NO_SUCH_ID }, vol.token)).status, 404);
 });
@@ -417,7 +440,7 @@ await check('there is no direct add-friend; an accepted request is symmetric and
 
 await check('suggestions rank by mutual friends; profiles show a friend count and list; deleting a user drops their friendships', async () => {
   // vol - vol2 - vol3: vol3 is a friend of a friend of vol, vol4 is nobody's.
-  const suggested = (await call('GET', '/api/users/friends/suggestions', undefined, vol.token)).data.data;
+  const suggested = read(await call('GET', '/api/users/friends/suggestions', undefined, vol.token));
   const ids = suggested.map((u: any) => u._id);
   assert.ok(!ids.includes(vol.id), 'not yourself');
   assert.ok(!ids.includes(vol2.id), 'not a current friend');
@@ -433,8 +456,7 @@ await check('suggestions rank by mutual friends; profiles show a friend count an
   assert.equal(stats.status, 200, JSON.stringify(stats.data));
   assert.equal(stats.data.data.stats.friends, 2);
   const list = await call('GET', `/api/users/zz_vol2_${stamp}/friends`);
-  assert.equal(list.status, 200, JSON.stringify(list.data));
-  assert.deepEqual(list.data.data.map((f: any) => [f._id, f.role]).sort(), [[vol.id, 'volunteer'], [vol3.id, 'volunteer']].sort());
+  assert.deepEqual(read(list).map((f: any) => [f._id, f.role]).sort(), [[vol.id, 'volunteer'], [vol3.id, 'volunteer']].sort());
   assert.equal((await call('GET', `/api/users/zz_admin_${stamp}/friends`)).status, 403, 'admin profiles stay private');
 
   const doomed = await mkUser('doomedfriend', 'volunteer');
