@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { getPublicProfile, getUserStats, getUserEventsList } from '@/services/user.service';
-import { useRelations, useUserFriends, useFriendActions } from '@/hooks/useFriends';
+import { useRelations, useUserFriends, useIncomingRequests, useFriendActions } from '@/hooks/useFriends';
 import { reportUser } from '@/services/report.service';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -103,6 +103,7 @@ export default function ProfilePage() {
   const { data: friends = [] } = useUserFriends(username);
   const { data: relations } = useRelations([profileId], Boolean(currentUser) && !isOwnProfile);
   const relation = isOwnProfile ? 'self' : relations?.[profileId] ?? 'none';
+  const { data: incoming = [] } = useIncomingRequests(relation === 'pending_received');
   const { send, accept, remove } = useFriendActions();
   const actionLoading = send.isPending || accept.isPending || remove.isPending;
 
@@ -271,15 +272,17 @@ export default function ProfilePage() {
     loadProfile();
   }, [username, currentUser, isOwnProfile]);
 
-  const friendAction = (action: typeof send, success: string, failure: string) => () => {
-    if (!profileId) return;
-    action.mutate(profileId, {
+  const friendAction = (action: typeof send, success: string, failure: string, id = () => profileId) => () => {
+    const target = id();
+    if (!target) return;
+    action.mutate(target, {
       onSuccess: () => toast.success(success),
       onError: (err) => toast.error(err instanceof Error ? err.message : failure),
     });
   };
   const handleSendFriendRequest = friendAction(send, 'Friend request sent!', 'Failed to send friend request');
-  const handleAccept = friendAction(accept, 'Friend request accepted', 'Failed to accept friend request');
+  const handleAccept = friendAction(accept, 'Friend request accepted', 'Failed to accept friend request',
+    () => incoming.find((r) => r.sender._id === profileId)?._id ?? '');
   const handleUnfriend = friendAction(remove, 'Friend removed', 'Failed to remove friend');
 
   // Handle report user
