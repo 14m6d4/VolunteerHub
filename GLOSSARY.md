@@ -27,3 +27,7 @@ _Avoid_: Alert, push
 **Cover image**:
 The single picture that represents an event, shown both as its thumbnail in lists and as the banner on its page.
 _Avoid_: Thumbnail, banner image, event image
+
+**Profile picture**:
+The single picture that represents a user, shown next to their name wherever they appear.
+_Avoid_: Avatar
