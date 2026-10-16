@@ -48,14 +48,6 @@ export async function listFriends(userId: string, withRole = false) {
 
 export const countFriends = (userId: string) => db.$count(friendships, involving(userId));
 
-export const addFriend = async (userId: string, friendId: string) => {
-  if (userId === friendId) throw new AppError('Cannot add yourself', 400);
-  if (!(await userExists(friendId))) throw new AppError('User not found', 404);
-  if (await areFriends(userId, friendId)) throw new AppError('Already friends', 400);
-
-  await db.insert(friendships).values(friendPair(userId, friendId)).onConflictDoNothing();
-};
-
 export const removeFriend = async (userId: string, friendId: string) => {
   if (userId === friendId) throw new AppError('Cannot remove yourself', 400);
 

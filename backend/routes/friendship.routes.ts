@@ -14,7 +14,6 @@ router.post('/accept', authMiddleware, c.acceptFriendRequest as any);
 router.post('/reject', authMiddleware, c.rejectFriendRequest as any);
 router.post('/cancel', authMiddleware, c.cancelFriendRequest as any);
 router.post('/status', authMiddleware, c.friendRelations as any);
-router.post('/add', authMiddleware, c.addFriend as any);
 router.post('/remove', authMiddleware, c.unfriendUser as any);
 
 export default router;
