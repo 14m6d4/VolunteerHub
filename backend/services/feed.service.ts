@@ -4,7 +4,7 @@ import { comments, events, posts, registrations, users } from "../db/schema.ts";
 import { EventStatus } from "../types/event.ts";
 import { RegistrationStatus } from "../types/registration.ts";
 import { toEvent } from "../utils/event.util.ts";
-import { friendIdsOf } from "../utils/friend.util.ts";
+import { friendIdsOf } from "./friendship.service.ts";
 import { commentLikerIds, postLikerIds, toComment, toPost } from "../utils/post.util.ts";
 import { toLean } from "../utils/user.util.ts";
 
