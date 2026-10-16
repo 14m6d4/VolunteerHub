@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
-import { discussions } from "../db/schema.ts";
+import { discussions, users } from "../db/schema.ts";
 import { UserRole } from "../types/user.ts";
 import { getEventRow } from "../utils/event.util.ts";
 import { getPostRow } from "../utils/post.util.ts";
@@ -49,6 +49,17 @@ export const ModerationService = {
     async isModerator(actor: Actor, target: ModerationTarget) {
         if (actor.role === UserRole.Admin) return true;
         return managesEvent(actor, await eventOf(target));
+    },
+
+    /** Who moderates the target: its event's manager, if any, and every admin. */
+    async moderatorIds(target: ModerationTarget) {
+        const [event, admins] = await Promise.all([eventOf(target), ModerationService.adminIds()]);
+        return [...(event ? [event.managerId] : []), ...admins];
+    },
+
+    /** Every admin's id. */
+    async adminIds() {
+        return (await db.select({ id: users.id }).from(users).where(eq(users.role, UserRole.Admin))).map((a) => a.id);
     },
 
     /** 404 when the target's event does not exist, 403 when the actor is not a moderator. Admins always pass. */

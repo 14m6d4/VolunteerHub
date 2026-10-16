@@ -4,7 +4,7 @@ import { db } from "../db/client.ts";
 import { discussions, postLikes, posts, users } from "../db/schema.ts";
 import { deleteImages, saveImage } from "./image.service.ts";
 import { ModerationService } from "./moderation.service.ts";
-import { NotificationService } from "./notification.service.ts";
+import { notify } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { getEventRow } from "../utils/event.util.ts";
 import { getPostRow, postLikerIds, postLikers, toPost } from "../utils/post.util.ts";
@@ -80,21 +80,11 @@ export const PostService = {
         const isLiked = removed.length > 0;
         if (!isLiked) await db.insert(postLikes).values({ postId: post.id, userId }).onConflictDoNothing();
 
-        // Send notification if it's a new like and not liking own post
-        if (!isLiked && post.authorId !== userId) {
-            try {
-                const [liker] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
-                if (liker) {
-                    await NotificationService.notify(post.authorId, {
-                        type: NotificationType.POST_LIKED,
-                        title: "Post Liked",
-                        body: `${liker.name} liked your post`,
-                        data: { postId, userId, actorName: liker.name, eventId: post.eventId }
-                    });
-                }
-            } catch (err) {
-                console.error("Failed to send like notification:", err);
-            }
+        if (!isLiked) {
+            // Notification work never fails the like: no name, no notification.
+            const [liker] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).catch(() => []);
+            if (liker) await notify({ userId: post.authorId }, NotificationType.POST_LIKED,
+                { postId, userId, actorName: liker.name, eventId: post.eventId }, userId);
         }
 
         return withLikeIds(post);

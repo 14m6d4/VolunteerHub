@@ -6,7 +6,7 @@ import { db } from '../db/client.ts';
 import { events, friendRequests, friendships, posts, registrations, users } from '../db/schema.ts';
 import { EventStatus } from '../types/event.ts';
 import { RegistrationStatus } from '../types/registration.ts';
-import * as notificationService from './notification.service.ts';
+import { notify } from './notification.service.ts';
 import { NotificationType } from '../types/notification.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
 import { isUniqueViolation, isUuid, normalizeEmail, toLean, toUser } from '../utils/user.util.ts';
@@ -250,20 +250,7 @@ export const sendFriendRequestService = async (senderId: string, receiverId: str
     throw err;
   }
 
-  try {
-    if (receiver.notificationsEnabled) {
-      await notificationService.createNotification({
-        userId: receiverId,
-        actorId: senderId,
-        type: NotificationType.FRIEND_REQUEST_RECEIVED,
-        title: 'New friend request',
-        body: 'You received a friend request',
-        data: { senderId }
-      });
-    }
-  } catch (err) {
-    console.error('Failed to create friend request notification:', err);
-  }
+  await notify({ userId: receiverId }, NotificationType.FRIEND_REQUEST_RECEIVED, { senderId }, senderId);
 
   return toFriendRequest(created!);
 };
@@ -288,18 +275,7 @@ export const acceptFriendRequestService = async (requestId: string, currentUserI
     await tx.insert(friendships).values(friendPair(request.senderId, request.receiverId)).onConflictDoNothing();
   });
 
-  try {
-    await notificationService.createNotification({
-      userId: request.senderId,
-      actorId: currentUserId,
-      type: NotificationType.FRIEND_REQUEST_ACCEPTED,
-      title: 'Friend request accepted',
-      body: 'Your friend request was accepted',
-      data: { by: currentUserId }
-    });
-  } catch (err) {
-    console.error('Failed to create friend-accepted notification:', err);
-  }
+  await notify({ userId: request.senderId }, NotificationType.FRIEND_REQUEST_ACCEPTED, { by: currentUserId }, currentUserId);
 
   return { success: true };
 };

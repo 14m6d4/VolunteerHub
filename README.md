@@ -139,7 +139,7 @@ npm run dev
 
 ### 1. Setup
 
-Copy `backend/.env.example` to `backend/.env` and fill in real secrets (JWT, Google OAuth, VAPID, email). The defaults in `.env.example` already match the dev compose Postgres; the hostname `postgres` is the compose service name, not `localhost`.
+Copy `backend/.env.example` to `backend/.env` and fill in real secrets (JWT, Google OAuth, email). The defaults in `.env.example` already match the dev compose Postgres; the hostname `postgres` is the compose service name, not `localhost`.
 
 Create `frontend/.env`:
 

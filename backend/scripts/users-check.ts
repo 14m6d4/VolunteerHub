@@ -14,7 +14,6 @@ import app from '../app.ts';
 import { db } from '../db/client.ts';
 import { pushSubscriptions, users } from '../db/schema.ts';
 import { findOrCreateByGoogleId, seedAdminUser } from '../services/user.service.ts';
-import { WebPushService } from '../services/webpush.service.ts';
 import { hashPassword } from '../utils/password.util.ts';
 import { createAccessToken, generateAuthToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
@@ -370,11 +369,9 @@ await check('Google sign-in finds or creates an account, which has no password',
   assert.equal(me.data.user.authProvider, 'google');
 });
 
-await check('push subscriptions belong to a user and go with them', async () => {
+await check('push subscriptions go with their user', async () => {
   const u = await mkUser('push', 'volunteer');
   await db.insert(pushSubscriptions).values({ userId: u.id, endpoint: 'https://127.0.0.1:9/none', p256dh: 'k', auth: 'a' });
-  await WebPushService.sendToUser(u.id, { title: 'x' }); // a dead endpoint must not throw
-  await WebPushService.sendToUser('507f1f77bcf86cd799439011', { title: 'x' }); // an old ObjectId is ignored
 
   await db.delete(users).where(eq(users.id, u.id));
   const left = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, u.id));
