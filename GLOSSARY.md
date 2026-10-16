@@ -24,6 +24,17 @@ _Avoid_: Flag, complaint, ticket
 A message in a user's inbox telling them something happened that concerns them, usually caused by another user (the actor). A user is never notified of their own action.
 _Avoid_: Alert, push
 
+**Friend**:
+A user connected to another user because both agreed to it. Friendship is symmetric: if A is B's friend, B is A's friend.
+_Avoid_: Follower, connection
+
+**Friend request**:
+One user's invitation to another to become friends, waiting for the receiver to accept or reject it; the sender may cancel it meanwhile. Accepting makes them friends.
+_Avoid_: Invite
+
+**Friend suggestion**:
+A user who is not yet your friend, proposed to you because of the friends you have in common.
+
 **Cover image**:
 The single picture that represents an event, shown both as its thumbnail in lists and as the banner on its page.
 _Avoid_: Thumbnail, banner image, event image
