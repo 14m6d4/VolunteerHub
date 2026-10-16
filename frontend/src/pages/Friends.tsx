@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -8,16 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import useAuth from '@/hooks/useAuth';
-import {
-  acceptFriendRequest,
-  getFriendRequests as apiGetRequests,
-  sendFriendRequest,
-  getRelations,
-  getSentFriendRequests,
-  cancelFriendRequest,
-  rejectFriendRequest,
-  searchUsers as apiSearchUsers
-} from '@/services/user.service';
+import { searchUsers as apiSearchUsers } from '@/services/user.service';
+import type { FriendUser, Relation } from '@/services/friends.service';
+import { useFriendActions, useFriendSuggestions, useFriendsList, useIncomingRequests, useOutgoingRequests, useRelations } from '@/hooks/useFriends';
 import { useSearchParams } from 'react-router-dom';
 import {
   Users,
@@ -33,21 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface User {
-  _id: string;
-  id?: string;
-  username: string;
-  name?: string;
-  profilePicture?: string;
-  relation?: string;
-}
-
-interface FriendRequest {
-  _id: string;
-  sender: User;
-  receiver: User;
-  createdAt?: string;
-}
+type SearchUser = FriendUser & { relation: Relation };
 
 export default function FriendsPage() {
   const { user } = useAuth();
@@ -60,191 +40,52 @@ export default function FriendsPage() {
   };
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
-  const [friends, setFriends] = useState<User[]>([]);
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [sendingToId, setSendingToId] = useState<string | null>(null);
-  const [loadingFriends, setLoadingFriends] = useState(false);
-  const [loadingRequests, setLoadingRequests] = useState(false);
-  const [loadingSent, setLoadingSent] = useState(false);
-
-  // Fetch friend requests
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   useEffect(() => {
-    (async () => {
-      if (!user) return;
-      try {
-        setLoadingRequests(true);
-        const res = await apiGetRequests();
-        setRequests(res.data || res || []);
-      } catch (err) {
-        console.error('Failed to fetch requests', err);
-        toast.error('Failed to load friend requests');
-      } finally {
-        setLoadingRequests(false);
-      }
-    })();
-  }, [user]);
-
-  // Fetch sent requests
-  useEffect(() => {
-    (async () => {
-      if (!user) return;
-      try {
-        setLoadingSent(true);
-        const res = await getSentFriendRequests();
-        setSentRequests(res.data || res || []);
-      } catch (err) {
-        console.error('Failed to fetch sent requests', err);
-        toast.error('Failed to load sent requests');
-      } finally {
-        setLoadingSent(false);
-      }
-    })();
-  }, [user]);
-
-  // Fetch friends list
-  useEffect(() => {
-    (async () => {
-      if (!user) return;
-      try {
-        setLoadingFriends(true);
-        const res = await (await import('@/services/user.service')).getFriends();
-        const list = res.data || res || [];
-        setFriends(list);
-      } catch (err) {
-        console.error('Failed to fetch friends', err);
-        toast.error('Failed to load friends');
-      } finally {
-        setLoadingFriends(false);
-      }
-    })();
-  }, [user]);
-
-  // Search users with debounce
-  useEffect(() => {
-    const t = setTimeout(() => {
-      (async () => {
-        if (!query.trim()) {
-          setResults([]);
-          return;
-        }
-        setLoading(true);
-        try {
-          const res = await apiSearchUsers(query);
-          const users = res.data || res || [];
-          const ids = users.map((u: User) => u._id || u.id).filter(Boolean);
-          let rel: Record<string, string> = {};
-          if (ids.length > 0) {
-            try {
-              rel = (await getRelations(ids)).data || {};
-            } catch (e) {
-              console.warn('getRelations failed', e);
-              rel = {};
-            }
-          }
-          const enriched = users.map((u: User) => ({ ...u, relation: rel[u._id || u.id!] || 'none' }));
-          setResults(enriched);
-        } catch (err) {
-          console.error('Search users error', err);
-          toast.error('Search failed');
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }, 400);
-
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 400);
     return () => clearTimeout(t);
-  }, [query, user]);
+  }, [query]);
 
-  const handleSend = async (id: string) => {
-    try {
-      setSendingToId(id);
-      await sendFriendRequest(id);
-      setResults(prev => prev.map(r => r._id === id ? { ...r, relation: 'pending_sent' } : r));
-      toast.success('Friend request sent');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Unable to send request');
-    } finally {
-      setSendingToId(null);
-    }
-  };
+  const signedIn = Boolean(user);
+  const friendsQuery = useFriendsList(signedIn);
+  const incomingQuery = useIncomingRequests(signedIn);
+  const outgoingQuery = useOutgoingRequests(signedIn);
+  const suggestionsQuery = useFriendSuggestions(signedIn);
+  const searchQuery = useQuery({
+    queryKey: ['users', 'search', debouncedQuery],
+    queryFn: async () => (await apiSearchUsers(debouncedQuery)).data as FriendUser[],
+    enabled: debouncedQuery.length > 0,
+  });
+  const found = debouncedQuery ? searchQuery.data ?? [] : [];
+  const relationsQuery = useRelations(found.map((u) => u._id), signedIn);
+  const { send, accept, reject, cancel, remove } = useFriendActions();
 
-  const handleAccept = async (requestId: string) => {
-    const reqItem = requests.find((r) => r._id === requestId);
-    const sender = reqItem?.sender;
-    try {
-      setAcceptingId(requestId);
-      await acceptFriendRequest(requestId);
+  const friends = friendsQuery.data ?? [];
+  const requests = incomingQuery.data ?? [];
+  const sentRequests = outgoingQuery.data ?? [];
+  const suggestions = (suggestionsQuery.data ?? []).filter((s) => !sentRequests.some((r) => r.receiver._id === s._id));
+  const results: SearchUser[] = found.map((u) => ({ ...u, relation: relationsQuery.data?.[u._id] ?? 'none' }));
+  const loading = searchQuery.isFetching;
+  const loadingFriends = friendsQuery.isLoading;
+  const loadingRequests = incomingQuery.isLoading;
+  const loadingSent = outgoingQuery.isLoading;
+  const pendingId = (m: { isPending: boolean; variables?: string }) => (m.isPending ? m.variables : null);
+  const acceptingId = pendingId(accept);
+  const rejectingId = pendingId(reject);
+  const cancellingId = pendingId(cancel);
+  const sendingToId = pendingId(send);
 
-      setRequests(prev => prev.filter(r => r._id !== requestId));
+  const run = (m: { mutateAsync: (id: string) => Promise<void> }, id: string, ok: string, fail: string) =>
+    m.mutateAsync(id).then(
+      () => { toast.success(ok); },
+      (err: unknown) => { toast.error(err instanceof Error ? err.message : fail); },
+    );
 
-      if (sender) {
-        setFriends(prev => {
-          const sid = sender._id || sender.id || sender.username;
-          if (prev.some((f) => (f._id || f.id || f.username) === sid)) return prev;
-          return [sender, ...prev];
-        });
-
-        setResults(prev => prev.map((u) => ({ ...u, relation: (u._id === (sender._id || sender.id) ? 'friends' : u.relation) })));
-      }
-
-      try {
-        const friendsRes = await (await import('@/services/user.service')).getFriends();
-        const list = friendsRes.data || friendsRes || [];
-        setFriends(list);
-      } catch (err) {
-        console.warn('Failed to refresh friends after accept', err);
-      }
-
-      toast.success('Friend request accepted');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Unable to accept');
-    } finally {
-      setAcceptingId(null);
-    }
-  };
-
-  const handleReject = async (requestId: string) => {
-    try {
-      setRejectingId(requestId);
-      await rejectFriendRequest(requestId);
-      setRequests(prev => prev.filter(r => r._id !== requestId));
-      toast.success('Friend request declined');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Unable to reject request');
-    } finally {
-      setRejectingId(null);
-    }
-  };
-
-  const handleUnfriend = async (friendId: string) => {
-    try {
-      const { removeFriend } = await import('@/services/user.service');
-      await removeFriend(friendId);
-      setFriends(prev => prev.filter((f) => (f._id || f.id || f.username) !== friendId));
-      toast.success('Friend removed');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Unable to remove friend');
-    }
-  };
-
-  const handleCancelRequest = async (requestId: string) => {
-    try {
-      setCancellingId(requestId);
-      await cancelFriendRequest(requestId);
-      setSentRequests(prev => prev.filter(r => r._id !== requestId));
-      toast.success('Request cancelled');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Unable to cancel request');
-    } finally {
-      setCancellingId(null);
-    }
-  };
+  const handleSend = (id: string) => run(send, id, 'Friend request sent', 'Unable to send request');
+  const handleAccept = (id: string) => run(accept, id, 'Friend request accepted', 'Unable to accept');
+  const handleReject = (id: string) => run(reject, id, 'Friend request declined', 'Unable to reject request');
+  const handleUnfriend = (id: string) => run(remove, id, 'Friend removed', 'Unable to remove friend');
+  const handleCancelRequest = (id: string) => run(cancel, id, 'Request cancelled', 'Unable to cancel request');
 
   const handleUserClick = (username: string) => {
     navigate(`/u/${username}`);
@@ -333,7 +174,7 @@ export default function FriendsPage() {
                 <div className="space-y-2">
                   {friends.map((f) => (
                     <div
-                      key={f._id || f.id}
+                      key={f._id}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
                       onClick={() => handleUserClick(f.username)}
                     >
@@ -355,7 +196,7 @@ export default function FriendsPage() {
                         className="text-destructive hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleUnfriend(f._id || f.id || f.username);
+                          handleUnfriend(f._id);
                         }}
                       >
                         <UserX className="h-4 w-4 mr-2" />
@@ -673,6 +514,61 @@ export default function FriendsPage() {
               )}
             </CardContent>
           </Card>
+          {suggestions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  People You May Know
+                </CardTitle>
+                <CardDescription>
+                  Suggested volunteers, ranked by friends in common
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {suggestions.map((u) => (
+                    <div
+                      key={u._id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group"
+                      onClick={() => handleUserClick(u.username)}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <Avatar className="h-12 w-12 border-2 border-muted">
+                          <AvatarImage src={u.profilePicture} />
+                          <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
+                            {u.username[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-base truncate">{u.name || u.username}</div>
+                          <div className="text-sm text-muted-foreground truncate">
+                            @{u.username}
+                            {u.mutualFriends > 0 && ` · ${u.mutualFriends} mutual friend${u.mutualFriends === 1 ? '' : 's'}`}
+                          </div>
+                        </div>
+                      </div>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Button size="sm" onClick={() => handleSend(u._id)} disabled={sendingToId === u._id}>
+                          {sendingToId === u._id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Add Friend
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

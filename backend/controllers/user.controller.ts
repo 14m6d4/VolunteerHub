@@ -71,92 +71,6 @@ export async function getPublicProfile(
   }
 }
 
-export async function sendFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const senderId = req.user._id.toString();
-    const { receiverId } = req.body as { receiverId: string };
-    const created = await userService.sendFriendRequestService(senderId, receiverId);
-    return res.status(201).json({ status: 'success', data: created });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function acceptFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const { requestId } = req.body as { requestId: string };
-    const currentUserId = req.user._id.toString();
-    await userService.acceptFriendRequestService(requestId, currentUserId);
-    return res.status(200).json({ status: 'success', message: 'Friend request accepted' });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function listFriendRequests(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user._id.toString();
-    const requests = await userService.listIncomingFriendRequestsService(userId);
-    return res.status(200).json({ status: 'success', data: requests });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function listFriends(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user._id.toString();
-    const friends = await userService.listFriendsService(userId);
-    return res.status(200).json({ status: 'success', data: friends });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function listSentFriendRequests(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user._id.toString();
-    const requests = await userService.listOutgoingFriendRequestsService(userId);
-    return res.status(200).json({ status: 'success', data: requests });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function cancelFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user._id.toString();
-    const { requestId } = req.body as { requestId: string };
-    const result = await userService.cancelFriendRequestService(userId, requestId);
-    return res.status(200).json({ status: 'success', message: result.message });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function rejectFriendRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user._id.toString();
-    const { requestId } = req.body as { requestId: string };
-    const result = await userService.rejectFriendRequestService(userId, requestId);
-    return res.status(200).json({ status: 'success', message: result.message });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function friendRelations(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user._id.toString();
-    const ids = req.body.ids as string[];
-    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ status: 'fail', message: 'ids required' });
-    const map = await userService.getRelationsForTargets(userId, ids);
-    return res.status(200).json({ status: 'success', data: map });
-  } catch (error) {
-    next(error);
-  }
-}
-
 export async function banUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.params.id as string;
@@ -187,28 +101,6 @@ export async function searchUsers(req: AuthenticatedRequest, res: Response, next
     const { q } = req.query; // query string
     const users = await userService.searchUsersService(q as string);
     return res.status(200).json({ status: 'success', data: users });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function addFriend(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user._id.toString();
-    const { friendId } = req.body;
-    await userService.addFriendService(userId, friendId);
-    return res.status(200).json({ status: 'success', message: 'Friend added' });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function unfriendUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user._id.toString();
-    const { friendId } = req.body as { friendId: string };
-    await userService.removeFriendService(userId, friendId);
-    return res.status(200).json({ status: 'success', message: 'Friend removed' });
   } catch (error) {
     next(error);
   }
@@ -285,16 +177,6 @@ export async function getBannedUsersController(req: AuthenticatedRequest, res: R
   }
 }
 
-export async function getFriendSuggestions(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user._id.toString();
-    const suggestions = await userService.getFriendSuggestionsService(userId);
-    return res.status(200).json({ status: 'success', data: suggestions });
-  } catch (error) {
-    next(error);
-  }
-}
-
 export async function getUserStats(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const { username } = req.params;
@@ -334,10 +216,7 @@ export async function getUserFriendsList(req: AuthenticatedRequest, res: Respons
 
     const friends = await userService.getUserFriendsListService(username as string);
 
-    return res.status(200).json({
-      status: 'success',
-      data: friends
-    });
+    return res.status(200).json({ success: true, data: friends });
   } catch (error) {
     next(error);
   }

@@ -1,6 +1,6 @@
 
 import { Router } from 'express';
-import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, addFriend, reportUser, sendFriendRequest, acceptFriendRequest, listFriendRequests, listFriends, friendRelations, unfriendUser, adminSearchUsersController, getBannedUsersController, createUserController, deleteUserController, updateUserController, getFriendSuggestions, getUserStats, getUserEvents, getUserFriendsList, listSentFriendRequests, cancelFriendRequest, rejectFriendRequest } from '../controllers/user.controller.ts';
+import { updateProfileSecure, banUser, unbanUser, getPublicProfile, searchUsers, reportUser, adminSearchUsersController, getBannedUsersController, createUserController, deleteUserController, updateUserController, getUserStats, getUserEvents, getUserFriendsList } from '../controllers/user.controller.ts';
 import { authMiddleware } from '../middlewares/auth.middleware.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
@@ -8,7 +8,6 @@ import { roleMiddleware } from '../middlewares/role.middleware.ts';
 import { UserRole } from '../types/user.ts';
 
 const router = Router();
-
 
 router.patch(
   '/profile/secure',
@@ -20,17 +19,6 @@ router.patch(
 
 router.get('/search/query', searchUsers as any);
 
-router.get('/friends', authMiddleware, listFriends as any);
-router.get('/friends/suggestions', authMiddleware, getFriendSuggestions as any);
-router.get('/friends/requests', authMiddleware, listFriendRequests as any);
-router.get('/friends/sent', authMiddleware, listSentFriendRequests as any);
-router.post('/friends/request', authMiddleware, sendFriendRequest as any);
-router.post('/friends/accept', authMiddleware, acceptFriendRequest as any);
-router.post('/friends/reject', authMiddleware, rejectFriendRequest as any);
-router.post('/friends/cancel', authMiddleware, cancelFriendRequest as any);
-router.post('/friends/status', authMiddleware, friendRelations as any);
-router.post('/friends/add', authMiddleware, addFriend as any);
-router.post('/friends/remove', authMiddleware, unfriendUser as any);
 
 router.post('/report-user', authMiddleware, reportUser as any);
 

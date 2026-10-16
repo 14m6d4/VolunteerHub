@@ -146,6 +146,7 @@ await check('notifications are listed newest first with the actor, counted, and 
 await check('accepting a friend request notifies its sender with the receiver as the actor', async () => {
   const incoming = await call('GET', '/api/users/friends/requests', undefined, vol2.token);
   assert.equal(incoming.status, 200, JSON.stringify(incoming.data));
+  assert.equal(incoming.data.success, true);
   const req = (incoming.data.data as any[]).find((r) => (r.sender?._id ?? r.sender) === vol.id);
   assert.ok(req, JSON.stringify(incoming.data));
   const ok = await call('POST', '/api/users/friends/accept', { requestId: req._id }, vol2.token);
