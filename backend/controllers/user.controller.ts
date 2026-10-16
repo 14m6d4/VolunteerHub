@@ -6,30 +6,29 @@ import AppError from '../utils/appError.ts';
 import * as userService from '../services/user.service.ts';
 import { UserRole } from '../types/user.ts';
 import { roleMiddleware } from '../middlewares/role.middleware.ts';
-import { deleteImages, MAX_IMAGE_BYTES, saveImage } from '../services/image.service.ts';
+import { MAX_IMAGE_BYTES } from '../services/image.service.ts';
 
 export type SecureUpdateProfilePayload = UpdateProfileData & {
   currentPassword?: string;
 };
 
 export async function updateProfileSecure(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  // An avatar saved for a request that then fails is deleted again.
-  let avatar: string | undefined;
   try {
     const userId = req.user._id.toString();
 
     const { currentPassword, ...updateData }: SecureUpdateProfilePayload = req.body;
 
-    // Any data URL the validator let through is re-encoded, even an empty or
-    // line-wrapped one, so no raw upload ever lands in the column.
+    // Transport parsing only: a data URL becomes raw bytes for the User module,
+    // even an empty or line-wrapped one, so no raw upload ever lands in the column.
     const base64 = updateData.profilePicture?.match(/^data:image\/[a-zA-Z]+;base64,(.*)$/s)?.[1];
+    let picture: Buffer | undefined;
     if (base64 !== undefined) {
-      const buffer = Buffer.from(base64, 'base64');
-      if (buffer.length > MAX_IMAGE_BYTES) throw new AppError('Image must be 2 MB or smaller', 413);
-      updateData.profilePicture = avatar = await saveImage(buffer);
+      picture = Buffer.from(base64, 'base64');
+      if (picture.length > MAX_IMAGE_BYTES) throw new AppError('Image must be 2 MB or smaller', 413);
+      delete updateData.profilePicture;
     }
 
-    const updatedUser = await updateProfileWithPasswordCheck(userId, currentPassword, updateData);
+    const updatedUser = await updateProfileWithPasswordCheck(userId, currentPassword, updateData, picture);
 
     return res.status(200).json({
       message: 'Profile updated successfully',
@@ -37,7 +36,6 @@ export async function updateProfileSecure(req: AuthenticatedRequest, res: Respon
     });
 
   } catch (error) {
-    await deleteImages(avatar);
     next(error);
   }
 }

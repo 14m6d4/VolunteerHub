@@ -13,7 +13,7 @@ import { isUniqueViolation, isUuid, normalizeEmail, toLean, toUser } from '../ut
 import { containsPattern } from '../utils/sql.util.ts';
 import { areFriends, friendIdsOf, friendPair, involving, listFriends } from '../utils/friend.util.ts';
 import { imagesDeletedWithEvents } from '../utils/event.util.ts';
-import { deleteImages } from './image.service.ts';
+import { deleteImages, saveImage } from './image.service.ts';
 
 const getRow = async (id: string) => {
   if (!isUuid(id)) return undefined;
@@ -29,7 +29,9 @@ export const findUserById = async (id: string): Promise<IUser | null> => {
 export async function updateProfileWithPasswordCheck(
   userId: string,
   currentPassword: string | undefined,
-  updateData: UpdateProfileData
+  updateData: UpdateProfileData,
+  // A new Profile picture as raw bytes; stored only after every check passed.
+  picture?: Buffer
 ): Promise<IUser> {
 
   const user = await getRow(userId);
@@ -49,7 +51,7 @@ export async function updateProfileWithPasswordCheck(
     }
   }
 
-  if (Object.keys(updateData).length === 0) {
+  if (Object.keys(updateData).length === 0 && !picture) {
     throw new AppError('No update fields provided', 400); // Bad Request
   }
 
@@ -85,18 +87,19 @@ export async function updateProfileWithPasswordCheck(
     changes.passwordHash = await hashPassword(input.password);
   }
 
+  if (picture) changes.profilePicture = await saveImage(picture);
+
+  let updated;
   try {
-    const [updated] = await db.update(users).set(changes).where(eq(users.id, userId)).returning();
+    // ponytail: two concurrent replacements both read the same old picture, so the loser's new file is orphaned;
+    // read the old picture in the same statement as the update, or sweep for unreferenced files.
+    [updated] = await db.update(users).set(changes).where(eq(users.id, userId)).returning();
 
     if (!updated) {
       throw new AppError('User not found after update', 500);
     }
-    if (updated.profilePicture !== user.profilePicture) await deleteImages(user.profilePicture);
-
-    const { authProvider, ...profile } = toUser(updated);
-    return profile as IUser;
-
   } catch (error) {
+    if (picture) await deleteImages(changes.profilePicture);
     if (error instanceof AppError) {
       throw error;
     }
@@ -106,6 +109,12 @@ export async function updateProfileWithPasswordCheck(
     console.error('Database error during secure profile update:', error);
     throw new AppError('Failed to update profile due to invalid data or server error', 500);
   }
+
+  // After the try: a failure here must never delete the new file the row now references.
+  if (updated.profilePicture !== user.profilePicture) await deleteImages(user.profilePicture);
+
+  const { authProvider, ...profile } = toUser(updated);
+  return profile as IUser;
 }
 
 interface GoogleProfileData {

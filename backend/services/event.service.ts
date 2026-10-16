@@ -9,7 +9,7 @@ import { notify } from "./notification.service.ts";
 import { NotificationType } from "../types/notification.ts";
 import { imagesDeletedWithEvents, getEventRow, toEvent } from "../utils/event.util.ts";
 import { ModerationService } from "./moderation.service.ts";
-import { deleteImages } from "./image.service.ts";
+import { deleteImages, saveImage } from "./image.service.ts";
 import { getPostRow, postLikerIds, toPost } from "../utils/post.util.ts";
 import { containsPattern } from "../utils/sql.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
@@ -32,6 +32,7 @@ function pickEventFields(input: EventInput) {
     }
     if (startAt !== undefined) picked.startAt = toDate(startAt);
     if (endAt !== undefined) picked.endAt = endAt === null ? null : toDate(endAt);
+    for (const d of [picked.startAt, picked.endAt]) if (d && Number.isNaN(d.getTime())) throw createHttpError(400, "Invalid date");
     return picked;
 }
 
@@ -68,27 +69,46 @@ export const EventService = {
         return rows.map(toEvent);
     },
 
-    async createEvent(payload: EventInput, managerId: string) {
+    /** `cover` is the Cover image's raw bytes; it is saved only once the fields are valid. */
+    async createEvent(payload: EventInput, managerId: string, cover?: Buffer) {
         const fields = pickEventFields(payload);
         if (!fields.title || !fields.startAt) throw createHttpError(400, "title and startAt are required");
 
-        const [event] = await db.insert(events)
-            .values({ ...fields, title: fields.title, startAt: fields.startAt, managerId })
-            .returning();
+        const image = cover ? await saveImage(cover) : undefined;
+        let event;
+        try {
+            [event] = await db.insert(events)
+                .values({ ...fields, ...(image && { image }), title: fields.title, startAt: fields.startAt, managerId })
+                .returning();
+        } catch (err) {
+            await deleteImages(image);
+            throw err;
+        }
 
         await notify("admins", NotificationType.EVENT_PENDING, { eventId: event!.id, eventTitle: event!.title }, managerId);
         return toEvent(event!);
     },
 
-    async updateEvent(eventId: string, updates: EventInput, currentUserId: string, currentUserRole: string) {
+    /** `cover` is the Cover image's raw bytes; it is saved only once the event and the actor check out. */
+    async updateEvent(eventId: string, updates: EventInput, currentUserId: string, currentUserRole: string, cover?: Buffer) {
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
         await ModerationService.assertModerator({ id: currentUserId, role: currentUserRole }, { event });
 
-        const [updated] = await db.update(events)
-            .set({ ...pickEventFields(updates), updatedAt: new Date() })
-            .where(eq(events.id, event.id))
-            .returning();
+        const fields = pickEventFields(updates);
+        const image = cover ? await saveImage(cover) : undefined;
+        let updated;
+        try {
+            // ponytail: two concurrent replacements both read the same old Cover image, so the losing
+            // request's new file is orphaned; read the old image in the update statement, or sweep unreferenced files.
+            [updated] = await db.update(events)
+                .set({ ...fields, ...(image && { image }), updatedAt: new Date() })
+                .where(eq(events.id, event.id))
+                .returning();
+        } catch (err) {
+            await deleteImages(image);
+            throw err;
+        }
         if (updated!.image !== event.image) await deleteImages(event.image);
 
         await notify({ userIds: await approvedMemberIds(event.id) }, NotificationType.EVENT_UPDATED,
