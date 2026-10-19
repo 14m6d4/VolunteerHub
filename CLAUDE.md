@@ -9,7 +9,7 @@ VolunteerHub is a MERN-style volunteer event platform. It is a two-package monor
 - `backend/` — Express 5 + Drizzle/PostgreSQL REST API, written in TypeScript, run directly via `tsx` (no build step in dev).
 - `frontend/` — React 19 + Vite + TypeScript SPA, styled with Tailwind v4 and shadcn/ui (Radix) components.
 
-The root `package.json` is unrelated tooling scratch space; the two real packages each have their own `package.json` and `node_modules`.
+There is no root `package.json`; each package has its own `package.json` and `node_modules`.
 
 ## Commands
 
