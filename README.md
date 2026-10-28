@@ -1,3 +1,5 @@
+<div align="center">
+
 # VolunteerHub
 
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/14m6d4/VolunteerHub/ci.yml?branch=main&label=CI%2FCD&logo=githubactions&logoColor=white)](https://github.com/14m6d4/VolunteerHub/actions/workflows/ci.yml)
@@ -16,6 +18,8 @@
 A volunteer event platform. Volunteers find events, sign up and talk about them, managers publish and run events, and admins moderate the site.
 
 Live at <https://volunteerhub.l4mbd4.me>.
+
+</div>
 
 ## Features
 
