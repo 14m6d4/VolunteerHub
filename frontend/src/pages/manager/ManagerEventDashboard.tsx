@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatEventDate } from '@/utils/formatDate';
+import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ import {
 
 export const ManagerEventDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<EventFilters>({
@@ -68,7 +70,9 @@ export const ManagerEventDashboard = () => {
   // Maps userId -> registrationId for actions
   const [registrationMap, setRegistrationMap] = useState<Record<string, string>>({});
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
+    // Without a user there is no scope to apply; never fall back to every event.
+    if (!user?.id) return;
     try {
       setLoading(true);
       interface RawEvent {
@@ -81,15 +85,23 @@ export const ManagerEventDashboard = () => {
         tags?: string[];
         [key: string]: unknown;
       }
-      const response = await getEvents();
-      const fetchedEvents = (response.items || []).map((event: RawEvent) => ({
-        ...event,
-        date: formatEventDate(event.startAt || ''),
-        managerStatus: event.status === 'pending' ? 'pending'
-          : event.status === 'approved' ? 'active'
-            : 'completed',
-        membersCount: event.currentMembers || 0
-      }));
+      // A manager sees only the events they manage, an admin every event. The API
+      // caps a page at 100, so keep reading pages until total is reached.
+      const managerId = user.role === 'admin' ? undefined : user.id;
+      const fetchedEvents: Event[] = [];
+      for (let page = 1; ; page++) {
+        const response = await getEvents({ managerId, status: 'all', page, limit: 100 });
+        const items = response.items || [];
+        fetchedEvents.push(...items.map((event: RawEvent) => ({
+          ...event,
+          date: formatEventDate(event.startAt || ''),
+          managerStatus: event.status === 'pending' ? 'pending'
+            : event.status === 'approved' ? 'active'
+              : 'completed',
+          membersCount: event.currentMembers || 0
+        })));
+        if (!items.length || fetchedEvents.length >= response.total) break;
+      }
 
       setEvents(fetchedEvents);
     } catch (error) {
@@ -98,11 +110,11 @@ export const ManagerEventDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [fetchEvents]);
 
   const allTags = useMemo(() => {
     const predefinedTags = [

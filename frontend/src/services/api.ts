@@ -1,12 +1,13 @@
 // Simple fetch wrapper for API calls
 const API_BASE = (import.meta.env.VITE_API_URL as string) || '/api';
 
-type FetchOptions = RequestInit & { query?: Record<string, string | number | boolean> };
+type FetchOptions = RequestInit & { query?: Record<string, string | number | boolean | undefined> };
 
-function buildUrl(path: string, query?: Record<string, string | number | boolean>) {
+function buildUrl(path: string, query?: Record<string, string | number | boolean | undefined>) {
   const url = new URL(path.startsWith('/') ? `${API_BASE}${path}` : `${API_BASE}/${path}`, window.location.origin);
   if (query) {
-    Object.entries(query).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+    // An unset filter is left out; String(undefined) would send "undefined".
+    Object.entries(query).forEach(([k, v]) => { if (v !== undefined) url.searchParams.set(k, String(v)); });
   }
   return url.toString();
 }
