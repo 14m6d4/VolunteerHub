@@ -23,6 +23,10 @@ assert.equal(
 // Formula characters open as text; numbers are left alone.
 const formulas = [{ a: '=1+1', b: '+33 123', c: '-cmd', d: '@SUM(A1)', e: -5, f: 'safe' }];
 assert.deepEqual(lines(toCsv(formulas))[1]!.split(','), ["'=1+1", "'+33 123", "'-cmd", "'@SUM(A1)", '-5', 'safe']);
+// So do a leading tab or CR, a formula behind whitespace, and fullwidth signs.
+const sneaky = [{ a: '\tx', b: '  =1+1', c: '＝1+1', d: '　@x' }];
+assert.deepEqual(lines(toCsv(sneaky))[1]!.split(','), ["'\tx", "'  =1+1", "'＝1+1", "'　@x"]);
+assert.equal(lines(toCsv([{ a: '\r=1' }]))[1], `"'\r=1"`);
 
 // Every row follows the header order; a missing key or null leaves an empty field.
 const ragged = [{ a: 1, b: null }, { b: 'x', c: true }];

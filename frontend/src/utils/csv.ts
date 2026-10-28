@@ -3,8 +3,9 @@
 function field(value: unknown): string {
   if (value == null) return '';
   let text = Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : String(value);
-  // A leading =, +, - or @ runs as a formula in a spreadsheet; the ' makes it text.
-  if (typeof value !== 'number' && /^[=+\-@]/.test(text)) text = `'${text}`;
+  // A leading =, +, - or @ (also behind whitespace, or fullwidth), tab or CR can
+  // run as a formula in a spreadsheet; the ' makes it text.
+  if (typeof value !== 'number' && /^(\s*[=+\-@＝＋－＠]|[\t\r])/.test(text)) text = `'${text}`;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
