@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { toCsv } from '@/utils/csv';
 import {
   Search,
   X,
@@ -221,15 +222,7 @@ export default function ReportsManagement() {
     }));
 
     if (format === 'csv') {
-      const headers = ['reporter', 'targetType', 'targetId', 'reason', 'description', 'status', 'createdAt'] as const;
-      const rows = dataToExport.map(row =>
-        headers.map(h => {
-          const val = row[h];
-          return typeof val === 'string' && val.includes(',') ? `"${val}"` : val || '';
-        }).join(',')
-      );
-      const csv = [headers.join(','), ...rows].join('\n');
-      downloadFile(csv, 'reports.csv', 'text/csv');
+      downloadFile(toCsv(dataToExport), 'reports.csv', 'text/csv');
     } else {
       const json = JSON.stringify(dataToExport, null, 2);
       downloadFile(json, 'reports.json', 'application/json');

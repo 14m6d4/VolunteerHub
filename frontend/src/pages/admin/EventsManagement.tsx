@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toCsv } from '@/utils/csv';
 import { Link } from 'react-router-dom';
 import {
   Download,
@@ -184,12 +185,7 @@ export default function EventsManagement() {
     const dataToExport = events.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
 
     if (format === 'csv') {
-      const headers = Object.keys(dataToExport[0]).join(',');
-      const rows = dataToExport.map(row =>
-        Object.values(row).map(v => Array.isArray(v) ? `"${v.join(', ')}"` : v).join(',')
-      );
-      const csv = [headers, ...rows].join('\n');
-      downloadFile(csv, 'events.csv', 'text/csv');
+      downloadFile(toCsv(dataToExport), 'events.csv', 'text/csv');
     } else {
       const json = JSON.stringify(dataToExport, null, 2);
       downloadFile(json, 'events.json', 'application/json');

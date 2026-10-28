@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "build:docker": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:csv": "node scripts/csv-check.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

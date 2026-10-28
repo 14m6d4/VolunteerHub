@@ -125,6 +125,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm run check:csv
       - run: npm run build
 
   # Native arm64 runner: the VM is aarch64, so no QEMU emulation.

@@ -1,6 +1,6 @@
 # Coding standards
 
-Judgement calls a reviewer checks by reading the diff. Anything a script can check lives in CI instead (`backend` `smoke:security` and `check:*`, frontend `lint`).
+Judgement calls a reviewer checks by reading the diff. Anything a script can check lives in CI instead (`backend` `smoke:security` and `check:*`, frontend `lint` and `check:csv`).
 
 ## Logs leave the machine
 

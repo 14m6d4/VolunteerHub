@@ -114,6 +114,6 @@ The project has no unit test framework. Behaviour checks are scripts that start 
 | `npm run check:uploads` | image storage and cleanup |
 | `npm run check:seed` | the seed script and its production flags |
 
-The frontend has `npm run lint` (ESLint) and `npm run build` (typecheck and Vite build).
+The frontend has `npm run lint` (ESLint), `npm run build` (typecheck and Vite build) and `npm run check:csv` (the admin CSV export helper, plain Node with no database).
 
 Review rules are in [CODING_STANDARDS.md](../CODING_STANDARDS.md).

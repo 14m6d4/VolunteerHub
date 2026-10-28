@@ -26,6 +26,7 @@ Frontend (`cd frontend`):
 - `npm run build` — `tsc -b && vite build`.
 - `npm run lint` — ESLint over the project.
 - `npm run preview` — preview the production build.
+- `npm run check:csv` — assert-based check of the admin CSV export helper (`src/utils/csv.ts`), run by plain Node with no database.
 
 Behaviour checks are the `backend` scripts `npm run smoke:security` and `npm run check:*`. They need `DATABASE_URL` pointing at a migrated Postgres, and CI runs all of them (`.github/workflows/ci.yml`). There is no test framework (`npm test` errors out). Review rules: `CODING_STANDARDS.md`.
 
