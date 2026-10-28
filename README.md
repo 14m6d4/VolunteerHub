@@ -59,7 +59,7 @@ Live at <https://volunteerhub.l4mbd4.me>.
     <td><img src="docs/images/event-details.png" alt="Event page with its discussion"></td>
   </tr>
   <tr>
-    <td><img src="docs/images/manager-dashboard.png" alt="Manager's event dashboard"></td>
+    <td><img src="docs/images/events-list.png" alt="Event list"></td>
     <td><img src="docs/images/admin-analytics.png" alt="Admin analytics dashboard"></td>
   </tr>
 </table>
