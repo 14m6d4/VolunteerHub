@@ -16,6 +16,10 @@ _Avoid_: Owner, host
 For a given event, its event manager or any admin. A post or comment is moderated by the moderators of the event it belongs to; content outside any event is moderated by admins only.
 _Avoid_: Mod, reviewer
 
+**Discussion**:
+The board attached to an event where users post and comment about it. Every event has exactly one, and it goes away with the event.
+_Avoid_: Group, forum, channel
+
 **Report**:
 A user's complaint about a user, an event or a post, waiting for a moderator to resolve it (act on it) or reject it (dismiss it).
 _Avoid_: Flag, complaint, ticket
