@@ -41,7 +41,7 @@ const wording = {
 		['Event Reported', `Event ${d.eventTitle} has been reported for the following reason: ${d.reason}`],
 	[NotificationType.USER_REPORTED]: (d: { username: string; reason: string; targetUserId: string; reportId: string }) =>
 		['User Reported', `User ${d.username} has been reported. Reason: ${d.reason}`],
-	[NotificationType.POST_REPORTED]: (d: { reason: string; postId: string; reportId: string }) =>
+	[NotificationType.POST_REPORTED]: (d: { reason: string; postId: string; eventId: string | null; reportId: string }) =>
 		['Post Reported', `Post has been reported for the following reason: ${d.reason}`],
 	[NotificationType.REPORT_RESOLVED]: (_d: ReportOutcome) =>
 		['Report Resolved', 'Your report has been resolved. Action has been taken.'],

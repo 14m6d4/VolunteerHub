@@ -6,7 +6,7 @@ import { NotificationType } from "../types/notification.ts";
 import { ReportTargetType, type ReportStatus } from "../types/report.ts";
 import { UserRole } from "../types/user.ts";
 import { getEventRow } from "../utils/event.util.ts";
-import { getPostRow } from "../utils/post.util.ts";
+import { eventIdOfPost, getPostRow } from "../utils/post.util.ts";
 import { toReport } from "../utils/report.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
 import { type Actor, ModerationService } from "./moderation.service.ts";
@@ -105,7 +105,7 @@ export const ReportService = {
 
         // The post's event's moderators, or only the admins for a post outside any event.
         await notify({ moderatorsOf: { post } }, NotificationType.POST_REPORTED,
-            { postId: post.id, reason, reportId: report.id }, reporterId);
+            { postId: post.id, eventId: await eventIdOfPost(post) ?? null, reason, reportId: report.id }, reporterId);
 
         return toReport(report);
     },

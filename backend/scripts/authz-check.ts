@@ -19,7 +19,7 @@ import 'dotenv/config';
 import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
-import { comments, discussions, events, posts, registrations, reports, users } from '../db/schema.ts';
+import { comments, discussions, events, notifications, posts, registrations, reports, users } from '../db/schema.ts';
 import { UPLOADS_DIR } from '../services/image.service.ts';
 import { UserRole } from '../types/user.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
@@ -370,6 +370,8 @@ await check("a report about a post in an event's discussion goes to that event's
   const id = await fileReport('post', { postId });
   assert.ok((await listed('/api/report/admin/all', victimMgr)).some((r) => r._id === id), "in the event manager's list");
   assert.ok((await listed(`/api/report/event/${victimEvent!.id}/reports`, victimMgr)).some((r) => r._id === id), "in the event's list");
+  const heard = await db.select({ data: notifications.data }).from(notifications).where(eq(notifications.userId, victimMgr.id));
+  assert.equal((heard.find((n: any) => n.data?.reportId === id)?.data as any)?.eventId, victimEvent!.id, 'the notification points at the event');
   assert.ok(!(await listed('/api/report/admin/all', evilMgr)).some((r) => r._id === id), "in another manager's list");
   assert.deepEqual(await listed('/api/report/admin/all?type=user', victimMgr), [], 'a manager filtering to user reports');
   assert.equal((await setStatus(id, 'rejected', evilMgr)).status, 403, 'manager of another event');

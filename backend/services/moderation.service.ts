@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import createHttpError from "http-errors";
 import { db } from "../db/client.ts";
-import { discussions, users } from "../db/schema.ts";
+import { users } from "../db/schema.ts";
 import { UserRole } from "../types/user.ts";
 import { getEventRow } from "../utils/event.util.ts";
-import { getPostRow } from "../utils/post.util.ts";
+import { eventIdOfPost, getPostRow } from "../utils/post.util.ts";
 
 export type Actor = { id: string; role: string };
 
@@ -26,12 +26,8 @@ async function eventOf(target: ModerationTarget): Promise<{ managerId: string } 
         const post = await getPostRow(target.comment.postId);
         return post && eventOf({ post });
     }
-    const { eventId, discussionId } = target.post;
-    if (eventId) return getEventRow(eventId);
-    if (!discussionId) return null;
-    const [discussion] = await db.select({ eventId: discussions.eventId }).from(discussions)
-        .where(eq(discussions.id, discussionId));
-    return discussion && getEventRow(discussion.eventId);
+    const eventId = await eventIdOfPost(target.post);
+    return eventId == null ? eventId : getEventRow(eventId);
 }
 
 // Role alone is not enough: it proves the caller is *a* manager, never that

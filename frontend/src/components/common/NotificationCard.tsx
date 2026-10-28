@@ -49,8 +49,9 @@ export function NotificationCard({ notification, onMarkRead, userRole }: Notific
         if (type === 'event_report' || type === 'user_report' || type === 'post_report') {
             if (userRole === 'admin') {
                 navigate('/manage/reports');
-            } else if (data?.eventId) {
-                navigate(`/manage-event/${data.eventId}?tab=reports`);
+            } else {
+                // Opens that event's reports on the dashboard; older notifications carry no eventId.
+                navigate(data?.eventId ? `/manage-events?reports=${data.eventId}` : '/manage-events');
             }
             return;
         }

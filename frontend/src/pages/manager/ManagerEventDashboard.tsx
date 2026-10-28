@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatEventDate } from '@/utils/formatDate';
@@ -33,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ManagerEventCard } from '@/components/event/manager-event-card';
 import { CreateEditEventModal } from '@/components/event/create-edit-event-modal';
 import { ManageMembersModal } from '@/components/event/manage-members-modal';
+import { EventReportsDialog } from '@/components/event/event-reports-dialog';
 import type { Event, EventFilters, User } from '@/types/event';
 import {
   getEvents,
@@ -51,6 +52,8 @@ import {
 export const ManagerEventDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // ?reports=<eventId> opens that event's reports, e.g. from a report notification.
+  const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<EventFilters>({
@@ -470,6 +473,8 @@ export const ManagerEventDashboard = () => {
     }));
   };
 
+  const reportsEvent = events.find(ev => ev.id === searchParams.get('reports'));
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Header Section */}
@@ -681,6 +686,16 @@ export const ManagerEventDashboard = () => {
         onApproveAll={handleApproveAll}
         onRejectAll={handleRejectAll}
       />
+
+      {reportsEvent && (
+        <EventReportsDialog
+          open
+          onOpenChange={(open) => { if (!open) setSearchParams({}, { replace: true }); }}
+          eventId={reportsEvent.id}
+          eventTitle={reportsEvent.title}
+          onReportAction={() => handleReportAction(reportsEvent)}
+        />
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

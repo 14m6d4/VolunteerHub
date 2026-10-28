@@ -395,6 +395,7 @@ await check('events, users and posts can be reported, and the people who act on 
   const managerHeard = await heard(mgr.token, 'post_report', postReport._id);
   assert.equal(managerHeard.title, 'Post Reported');
   assert.equal(managerHeard.data.postId, reportedPost);
+  assert.equal(managerHeard.data.eventId, reportEv, 'the manager can open the reports of the event');
   for (const a of [admin, admin2]) {
     await heard(a.token, 'event_report', eventReport._id);
     await heard(a.token, 'user_report', userReport._id);
@@ -410,7 +411,10 @@ await check('a report about a post outside any event reaches every admin; resolv
   assert.equal(loose.status, 201, JSON.stringify(loose.data));
   const r = await call('POST', '/api/report/post', { postId: loose.data.data._id, reason: 'spam' }, vol3.token);
   assert.equal(r.status, 201, JSON.stringify(r.data));
-  for (const a of [admin, admin2]) assert.equal((await heard(a.token, 'post_report', r.data._id)).actor._id, vol3.id);
+  for (const a of [admin, admin2]) {
+    const n = await heard(a.token, 'post_report', r.data._id);
+    assert.deepEqual([n.actor._id, n.data.eventId], [vol3.id, null]);
+  }
   assert.ok(!(await mine(mgr.token, '?limit=100')).some((n) => n.data?.reportId === r.data._id));
 
   const own = await call('POST', '/api/report/user', { targetId: vol.id, reason: 'mine' }, admin.token);

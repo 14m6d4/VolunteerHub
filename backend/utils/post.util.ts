@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client.ts';
-import { commentLikes, comments, postLikes, posts, users } from '../db/schema.ts';
+import { commentLikes, comments, discussions, postLikes, posts, users } from '../db/schema.ts';
 import { isUuid, toLean } from './user.util.ts';
 
 export type PostRow = typeof posts.$inferSelect;
@@ -10,6 +10,15 @@ export const getPostRow = async (postId: unknown) => {
   if (!isUuid(postId)) return undefined;
   const [row] = await db.select().from(posts).where(eq(posts.id, postId));
   return row;
+};
+
+/** The post's event id, directly or through its discussion: null outside any event, undefined when the discussion is gone. */
+export const eventIdOfPost = async ({ eventId, discussionId }: { eventId: string | null; discussionId: string | null }) => {
+  if (eventId) return eventId;
+  if (!discussionId) return null;
+  const [discussion] = await db.select({ eventId: discussions.eventId }).from(discussions)
+    .where(eq(discussions.id, discussionId));
+  return discussion?.eventId;
 };
 
 /**
