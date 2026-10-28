@@ -200,8 +200,10 @@ await check("another manager's event listing hides another manager's pending eve
 
 await check('pending events cannot be listed through a status list either', async () => {
   const anon = await fetch(`${base}/api/events?status=approved,pending&q=Victim%20Event`);
-  assert.equal(anon.status, 403, 'anonymous caller');
-  const evil = await fetch(`${base}/api/events?status=approved,pending&q=Victim%20Event`, { headers: EH });
+  assert.equal(anon.status, 200);
+  const anonBody = await anon.json() as { items: { _id: string }[] };
+  assert.ok(!anonBody.items.some((e) => e._id === victimEvent!.id), 'an anonymous caller saw a pending event');
+  const evil =await fetch(`${base}/api/events?status=approved,pending&q=Victim%20Event`, { headers: EH });
   assert.equal(evil.status, 200);
   const body = await evil.json() as { items: { _id: string }[] };
   assert.ok(!body.items.some((e) => e._id === victimEvent!.id), "another manager's pending event was listed");

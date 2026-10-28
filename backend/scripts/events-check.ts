@@ -168,11 +168,11 @@ await check('listing: search, tag, status, start date, ordering and pagination',
   assert.equal((await call('GET', `/api/events?q=${stamp}&status=approved,finished`)).data.total, 2);
   assert.equal((await call('GET', `/api/events?q=${stamp}&status=nonsense`)).data.total, 0);
   assert.equal((await call('GET', `/api/events?q=${stamp}&status=pending`, undefined, admin.token)).data.total, 1);
-  assert.equal((await call('GET', `/api/events?q=${stamp}&status=all`)).data.total, 3);
+  assert.equal((await call('GET', `/api/events?q=${stamp}&status=all`, undefined, admin.token)).data.total, 3);
   assert.equal((await call('GET', `/api/events?q=${stamp}&startFrom=${encodeURIComponent(inDays(25))}`)).data.total, 1);
 
-  const p1 = await call('GET', `/api/events?q=${stamp}&limit=2&page=1`);
-  const p2 = await call('GET', `/api/events?q=${stamp}&limit=2&page=2`);
+  const p1 = await call('GET', `/api/events?q=${stamp}&limit=2&page=1`, undefined, admin.token);
+  const p2 = await call('GET', `/api/events?q=${stamp}&limit=2&page=2`, undefined, admin.token);
   assert.equal(p1.data.items.length, 2);
   assert.equal(p2.data.items.length, 1);
   assert.notEqual(p2.data.items[0]._id, p1.data.items[0]._id);
@@ -184,20 +184,27 @@ await check('listing: search, tag, status, start date, ordering and pagination',
   assert.equal((await call('GET', '/api/events?managerId=not-an-id')).data.total, 0);
 });
 
-await check('listing personalises pending events by who is asking', async () => {
-  const mine = `/api/events?q=${stamp}&status=pending`;
-  assert.equal((await call('GET', mine)).status, 403, 'anonymous');
-  assert.equal((await call('GET', mine, undefined, vol.token)).status, 403, 'volunteer');
+await check('listing shows unpublished events only to their manager and admins', async () => {
+  const ids = (r: any) => r.data.items.map((e: any) => e._id);
+  // evId is pending; every way of asking must leave it out for outsiders.
+  for (const query of ['', '&status=all', '&status=pending', '&status=approved,pending', '&status=draft,cancelled']) {
+    const url = `/api/events?q=${stamp}${query}`;
+    for (const [who, token] of [['anonymous', undefined], ['volunteer', vol.token], ['another manager', otherMgr.token]] as const) {
+      const res = await call('GET', url, undefined, token);
+      assert.equal(res.status, 200, `${who} ${query}`);
+      assert.ok(!ids(res).includes(evId), `${who} saw a pending event with "${query}"`);
+    }
+  }
 
-  const own = await call('GET', mine, undefined, mgr.token);
-  assert.equal(own.status, 200);
-  assert.deepEqual(own.data.items.map((e: any) => e._id), [evId]);
-  const other = await call('GET', mine, undefined, otherMgr.token);
-  assert.equal(other.data.total, 0, "another manager sees none of mgr's pending events");
+  const mine = `/api/events?q=${stamp}&status=pending`;
+  assert.deepEqual(ids(await call('GET', mine, undefined, mgr.token)), [evId]);
   assert.equal((await call('GET', mine, undefined, admin.token)).data.total, 1);
   // A manager cannot widen the view by asking for someone else's events.
   const spoof = await call('GET', `${mine}&managerId=${otherMgr.id}`, undefined, mgr.token);
-  assert.deepEqual(spoof.data.items.map((e: any) => e._id), [evId]);
+  assert.equal(spoof.data.total, 0);
+
+  // The old unfiltered dump of every event is gone (it now reads as an event id).
+  assert.equal((await call('GET', '/api/events/all')).status, 404);
 });
 
 await check('the event conflict check flags an overlapping joined event', async () => {

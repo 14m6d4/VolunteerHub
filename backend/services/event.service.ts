@@ -64,11 +64,6 @@ async function countPendingPostReports(eventIds: string[]) {
 }
 
 export const EventService = {
-    async getAllEvents() {
-        const rows = await db.select().from(events).orderBy(desc(events.createdAt), asc(events.id));
-        return rows.map(toEvent);
-    },
-
     /** `cover` is the Cover image's raw bytes; it is saved only once the fields are valid. */
     async createEvent(payload: EventInput, managerId: string, cover?: Buffer) {
         const fields = pickEventFields(payload);
@@ -184,6 +179,14 @@ export const EventService = {
 
         if (filters.managerId) {
             conditions.push(isUuid(filters.managerId) ? eq(events.managerId, filters.managerId) : sql`false`);
+        }
+
+        // Whatever the filters ask for, only approved and finished events are public.
+        // A manager also sees their own events in any status; an admin sees everything.
+        const viewer = filters.viewer as { id: string; role: string } | undefined;
+        if (viewer?.role !== "admin") {
+            const published = inArray(events.status, [EventStatus.APPROVED, EventStatus.FINISHED]);
+            conditions.push(viewer?.role === "manager" ? or(published, eq(events.managerId, viewer.id))! : published);
         }
 
         const where = and(...conditions);
