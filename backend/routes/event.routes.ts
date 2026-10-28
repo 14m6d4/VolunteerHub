@@ -13,7 +13,6 @@ const router = express.Router();
 
 router.get("/", optionalAuthMiddleware, EventController.list);
 router.post("/", authMiddleware, roleMiddleware(["manager", "admin"]), uploadImage("image"), validateBody(createEventSchema), EventController.create);
-router.get("/all", EventController.getAll);
 router.put("/:id", authMiddleware, roleMiddleware(["manager", "admin"]), uploadImage("image"), validateBody(updateEventSchema), EventController.update);
 router.patch("/:id/approve", authMiddleware, roleMiddleware(["admin"]), EventController.approve);
 router.delete("/:id", authMiddleware, roleMiddleware(["manager", "admin"]), EventController.delete);
