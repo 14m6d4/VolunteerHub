@@ -9,9 +9,10 @@ on:
       - backup/**
       - docker-compose*.yml
       - .github/workflows/ci.yml
+  # No path filter: backend and frontend are required checks, and a workflow that
+  # never starts leaves them waiting forever. The changes job skips them instead.
   pull_request:
     branches: [main]
-    paths: *paths
   workflow_dispatch:
     inputs:
       sha:
@@ -33,8 +34,35 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  backend:
+  # Does this PR touch anything the push paths above cover? Pushes only start when it
+  # does, so they always say yes. A skipped job counts as passing, so this job is a
+  # required check too: if it fails, backend and frontend must not pass by skipping.
+  changes:
     if: ${{ !inputs.sha }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -z "$PR" ]; then echo code=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(gh pr diff "$PR" --name-only -R "$GITHUB_REPOSITORY")
+          # Keep in step with the push paths.
+          if grep -qE '^(backend/|frontend/|backup/|docker-compose[^/]*\.yml$|\.github/workflows/ci\.yml$)' <<< "$files"; then
+            echo code=true >> "$GITHUB_OUTPUT"
+          else
+            echo code=false >> "$GITHUB_OUTPUT"
+          fi
+
+  backend:
+    needs: changes
+    if: ${{ !inputs.sha && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -84,7 +112,8 @@ jobs:
       - run: npm run check:seed
 
   frontend:
-    if: ${{ !inputs.sha }}
+    needs: changes
+    if: ${{ !inputs.sha && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
     defaults:
       run:
