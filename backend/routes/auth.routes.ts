@@ -3,7 +3,6 @@ import * as authController from '../controllers/auth.controller.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
 import { authMiddleware } from '../middlewares/auth.middleware.ts';
-import passport from '../config/passport.ts';
 import { authLimiter, otpLimiter } from '../middlewares/rateLimit.middleware.ts';
 
 const router = express.Router();
@@ -77,20 +76,6 @@ router.get(
   '/me',
   authMiddleware,
   authController.getMe
-);
-
-router.get(
-  '/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
-
-router.get(
-  '/google/callback',
-  passport.authenticate('google', {
-    failureRedirect: `${process.env.FRONTEND_URL}/login?error=google_auth_failed`,
-    session: false
-  }),
-  authController.googleAuthCallback
 );
 
 export default router;

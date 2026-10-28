@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -31,7 +31,6 @@ import {
   TrendingUp,
   Play,
 } from "lucide-react";
-import * as authService from "@/services/auth.service";
 
 // ============== MOCK DATA ==============
 
@@ -816,17 +815,6 @@ function CTASection() {
 // ============== MAIN LANDING PAGE ==============
 
 export default function LandingPage() {
-  const [searchParams] = useSearchParams();
-
-  useEffect(() => {
-    // Handle OAuth redirect token
-    const accessToken = searchParams.get("accessToken");
-    if (accessToken) {
-      authService.setAuthToken(accessToken);
-      window.history.replaceState({}, document.title, "/");
-    }
-  }, [searchParams]);
-
   return (
     <div className="min-h-screen">
       <HeroSection />

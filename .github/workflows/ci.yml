@@ -85,8 +85,6 @@ jobs:
     env:
       DATABASE_URL: postgres://ci:ci@localhost:5432/volunteerhub
       JWT_SECRET: ci-only-not-a-secret
-      GOOGLE_CLIENT_ID: ci-dummy
-      GOOGLE_CLIENT_SECRET: ci-dummy
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

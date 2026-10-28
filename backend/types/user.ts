@@ -53,6 +53,15 @@ export interface IUser {
 
 export type IUserDocument = IUser;
 
+// authMiddleware and optionalAuthMiddleware load the user onto req.user.
+declare global {
+  namespace Express {
+    interface Request {
+      user?: IUserDocument;
+    }
+  }
+}
+
 /**
  * @interface ITokenPayload
  * Data encoded inside the JWT (used for authentication).

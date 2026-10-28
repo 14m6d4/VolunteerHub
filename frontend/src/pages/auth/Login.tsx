@@ -1,21 +1,9 @@
 import illustration from "@/assets/login-illustration.jpg"
 import logoImage from "@/assets/logo.png"
 import { LoginForm } from "@/components/login-form"
-import { useEffect } from "react"
-import { useSearchParams, Link } from "react-router-dom"
-import * as authService from "@/services/auth.service"
+import { Link } from "react-router-dom"
 
 export default function LoginPage() {
-  const [searchParams] = useSearchParams()
-
-  useEffect(() => {
-    const accessToken = searchParams.get('accessToken')
-    if (accessToken) {
-      authService.setAuthToken(accessToken)
-      window.location.href = '/feed'
-    }
-  }, [searchParams])
-
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">

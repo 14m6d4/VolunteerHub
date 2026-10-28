@@ -2,7 +2,7 @@ import { type IUserDocument } from '../types/user.ts';
 
 /**
  * A user is banned if the flag is set, or if a temporary ban has not expired.
- * Three call sites decide this (login, Google callback, authMiddleware), so the
+ * Two call sites decide this (login, authMiddleware), so the
  * predicate lives here rather than being re-derived - and slightly differently -
  * in each of them.
  */

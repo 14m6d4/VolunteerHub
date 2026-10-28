@@ -1,8 +1,9 @@
 /**
  * Exercises users and auth end to end against a real PostgreSQL: sign-up, OTP
- * verification, login, profile, bans on live tokens, admin management, Google
- * sign-in and env-driven admin seeding. Same shape as authz-check: boot the
- * exported app on an ephemeral port and assert on HTTP responses.
+ * verification, login, profile, bans on live tokens, admin management, the
+ * absence of Google sign-in and env-driven admin seeding. Same shape as
+ * authz-check: boot the exported app on an ephemeral port and assert on HTTP
+ * responses.
  *
  * Needs a migrated PostgreSQL (DATABASE_URL). Run with: npm run check:users
  * Test accounts are prefixed zz_ and removed afterwards.
@@ -13,7 +14,7 @@ import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { db } from '../db/client.ts';
 import { pushSubscriptions, users } from '../db/schema.ts';
-import { findOrCreateByGoogleId, seedAdminUser } from '../services/user.service.ts';
+import { seedAdminUser } from '../services/user.service.ts';
 import { hashPassword } from '../utils/password.util.ts';
 import { createAccessToken, generateAuthToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
@@ -341,32 +342,11 @@ await check('public profile, search and admin-profile protection', async () => {
   assert.equal((await call('GET', `/api/users/search/query?q=${encodeURIComponent(`zz_prof_${stamp}`)}`)).data.data.length, 0);
 });
 
-// --- Google sign-in and push subscriptions -------------------------------
-// The OAuth redirect needs Google, so the service behind the passport callback
-// is called directly.
+// --- Removed Google sign-in and push subscriptions ----------------------
 
-await check('Google sign-in finds or creates an account, which has no password', async () => {
-  const profile = { email: mail('goog'), name: 'Gee', googleId: `g_${stamp}` };
-  const first = await findOrCreateByGoogleId(profile);
-  assert.equal(first.authProvider, 'google');
-  assert.equal(first.isVerified, true);
-  assert.equal(first.username, `zz_goog_${stamp}`);
-
-  const again = await findOrCreateByGoogleId(profile);
-  assert.equal(again._id, first._id, 'second sign-in must not create another account');
-
-  const sameEmail = await findOrCreateByGoogleId({ ...profile, googleId: `g2_${stamp}` });
-  assert.equal(sameEmail._id, first._id, 'matched by email');
-
-  const clash = await findOrCreateByGoogleId({ email: `zz_goog_${stamp}@elsewhere.test`, name: 'Other', googleId: `g3_${stamp}` });
-  assert.notEqual(clash._id, first._id);
-  assert.match(clash.username, new RegExp(`^zz_goog_${stamp}\\d{3}$`), 'username collision gets a suffix');
-
-  assert.equal((await call('POST', '/api/auth/login', { email: mail('goog'), password: 'anything-at-all' })).status, 401);
-
-  const me = await call('GET', '/api/auth/me', undefined, generateAuthToken(first));
-  assert.equal(me.status, 200, JSON.stringify(me.data));
-  assert.equal(me.data.user.authProvider, 'google');
+await check('Google sign-in no longer exists', async () => {
+  assert.equal((await call('GET', '/api/auth/google')).status, 404);
+  assert.equal((await call('GET', '/api/auth/google/callback')).status, 404);
 });
 
 await check('push subscriptions go with their user', async () => {

@@ -115,49 +115,7 @@ export async function updateProfileWithPasswordCheck(
   return profile as IUser;
 }
 
-interface GoogleProfileData {
-  email: string;
-  name: string;
-  googleId: string;
-}
-
 const DEFAULT_BIRTHDATE = new Date('2000-01-01');
-
-export async function findOrCreateByGoogleId(
-  profileData: GoogleProfileData
-): Promise<IUser> {
-  const { name, googleId } = profileData;
-  const email = normalizeEmail(profileData.email);
-
-  const [found] = await db.select().from(users).where(or(eq(users.googleId, googleId), eq(users.email, email)));
-
-  if (found) {
-    return toUser(found);
-  }
-
-  try {
-    const baseUsername = email.split('@')[0]!;
-
-    const uniqueUsername = await generateUniqueUsername(baseUsername);
-
-    const [created] = await db.insert(users).values({
-      email,
-      name,
-      googleId,
-      username: uniqueUsername,
-      authProvider: 'google',
-      isVerified: true,
-      birthdate: DEFAULT_BIRTHDATE,
-    }).returning();
-
-    return toUser(created!);
-
-  } catch (error) {
-    if (error instanceof AppError) throw error;
-    console.error('Database error during Google user creation:', error);
-    throw new AppError('Failed to create user with Google', 500);
-  }
-}
 
 async function generateUniqueUsername(baseUsername: string): Promise<string> {
   let username = baseUsername;

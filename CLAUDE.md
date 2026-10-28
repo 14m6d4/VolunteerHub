@@ -33,7 +33,7 @@ First-time setup: `npm i` in both `backend/` and `frontend/`, configure `backend
 
 ## Environment
 
-`backend/.env` (required keys): `PORT`, `BACKEND_URL`, `FRONTEND_URL`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `EMAIL_USERNAME`/`EMAIL_PASSWORD` (nodemailer OTP), `DATABASE_URL` + `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (PostgreSQL; the prod `postgres` container reads the trio from this same file, so they must agree with `DATABASE_URL`).
+`backend/.env` (required keys): `PORT`, `BACKEND_URL`, `FRONTEND_URL`, `JWT_SECRET`, `EMAIL_USERNAME`/`EMAIL_PASSWORD` (nodemailer OTP), `DATABASE_URL` + `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (PostgreSQL; the prod `postgres` container reads the trio from this same file, so they must agree with `DATABASE_URL`).
 
 `.env.backup` (prod VM only, next to `docker-compose.prod.yml`): the OCI bucket's write key for the `backup` service (`backup/`): `OCI_S3_ENDPOINT`, `OCI_S3_REGION`, `OCI_S3_BUCKET`, `OCI_S3_ACCESS_KEY_ID`, `OCI_S3_SECRET_ACCESS_KEY`.
 
@@ -62,7 +62,7 @@ Key cross-cutting middleware (`middlewares/`):
 - `observability.middleware.ts` — pino JSON request log with a request ID (`X-Request-Id`, echoed or generated) and `prom-client` RED metrics. `/metrics` is internal-only (never under `/api`, no Traefik route, refused when `X-Forwarded-For` is set). `npm run check:observability` covers it.
 - `error.middleware.ts` — centralized JSON error handler, registered last. Throw `AppError(message, statusCode)` (`utils/appError.ts`) or `http-errors` from services to control the response.
 
-Auth specifics: JWT-only (no server sessions, `session: false`). Local login + email/OTP verification (`nodemailer`) and Google OAuth via Passport (`config/passport.ts`, callback in `auth.controller.ts`). Notifications are persisted `notifications` rows (no push delivery).
+Auth specifics: JWT-only (no server sessions). Auth is local login with email/OTP verification (`nodemailer`) only; there is no third-party sign-in. Notifications are persisted `notifications` rows (no push delivery).
 
 ### TypeScript / ESM quirk (important)
 

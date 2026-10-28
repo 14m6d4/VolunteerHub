@@ -15,7 +15,6 @@ import userRoutes from './routes/user.routes.ts';
 import friendshipRoutes from './routes/friendship.routes.ts';
 import errorHandler from './middlewares/error.middleware.ts';
 import { requestLogger, httpMetrics, metricsHandler } from './middlewares/observability.middleware.ts';
-import passport from "./config/passport.ts";
 import postRoutes from "./routes/post.routes.ts";
 import notificationRoutes from "./routes/notification.routes.ts";
 import reportRoutes from "./routes/report.routes.ts"
@@ -84,8 +83,6 @@ app.get('/api/health', async (req, res) => {
         res.status(503).json({ status: 'error', message: 'database unreachable' });
     }
 });
-
-app.use(passport.initialize());
 
 app.use('/api/auth', authRoutes);
 app.use("/api/events", eventRoutes);

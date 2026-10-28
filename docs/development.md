@@ -50,7 +50,6 @@ The frontend reads the API address from `VITE_API_URL` in `frontend/.env`, for e
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | initialise the Postgres container; must agree with `DATABASE_URL` |
 | `JWT_SECRET` | signs access tokens |
 | `EMAIL_USERNAME`, `EMAIL_PASSWORD` | the mailbox that sends verification codes |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth client |
 | `TRUST_PROXY` | reverse proxies in front of the API: 0 locally, 1 in production |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | optional first admin; leave unset to skip |
 
@@ -60,7 +59,7 @@ The frontend reads the API address from `VITE_API_URL` in `frontend/.env`, for e
 
 ### 1. Setup
 
-Copy `backend/.env.example` to `backend/.env` and fill in real secrets (JWT, OAuth client, email). The database defaults in `.env.example` already match the dev compose Postgres, where the host is `postgres`, the compose service name, not `localhost`.
+Copy `backend/.env.example` to `backend/.env` and fill in real secrets (JWT, email). The database defaults in `.env.example` already match the dev compose Postgres, where the host is `postgres`, the compose service name, not `localhost`.
 
 Create `frontend/.env`:
 
