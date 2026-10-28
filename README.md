@@ -55,12 +55,15 @@ Live at <https://volunteerhub.l4mbd4.me>.
 
 <table>
   <tr>
-    <td><img src="docs/images/landing.png" alt="Landing page"></td>
-    <td><img src="docs/images/event-details.png" alt="Event page with its discussion"></td>
+    <td><img src="docs/images/feed.png" alt="Personal feed with event shortcuts and friend suggestions"><br><sub>Feed</sub></td>
+    <td><img src="docs/images/events-list.jpg" alt="Event list with search, tag filter and sorting"><br><sub>Events</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/images/events-list.png" alt="Event list"></td>
-    <td><img src="docs/images/admin-analytics.png" alt="Admin analytics dashboard"></td>
+    <td><img src="docs/images/event-discussion.png" alt="An event's discussion"><br><sub>Event discussion</sub></td>
+    <td><img src="docs/images/profile.png" alt="A volunteer's profile with stats and events"><br><sub>Profile</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/admin-events.png" alt="Admin event management"><br><sub>Admin: event management</sub></td>
   </tr>
 </table>
 
