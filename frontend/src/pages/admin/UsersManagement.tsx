@@ -55,6 +55,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { apiFetch } from '@/services/api';
+import { toCsv } from '@/utils/csv';
 
 type SortField = 'fullName' | 'username' | 'email' | 'createdAt' | null;
 type SortOrder = 'asc' | 'desc';
@@ -282,9 +283,7 @@ export default function UsersManagement() {
     const dataToExport = users.map(({ _id, ...rest }) => ({ id: _id, ...rest }));
 
     if (format === 'csv') {
-      const headers = Object.keys(dataToExport[0]).join(',');
-      const rows = dataToExport.map(row => Object.values(row).join(','));
-      const csv = [headers, ...rows].join('\n');
+      const csv = toCsv(dataToExport);
       downloadFile(csv, 'users.csv', 'text/csv');
     } else {
       const json = JSON.stringify(dataToExport, null, 2);
