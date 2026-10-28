@@ -311,12 +311,12 @@ export default function ReportsManagement() {
           <Input
             placeholder="Search by reporter, reason..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             className="pl-9"
           />
         </div>
         <div className="flex gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -327,7 +327,7 @@ export default function ReportsManagement() {
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setCurrentPage(1); }}>
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
@@ -335,6 +335,7 @@ export default function ReportsManagement() {
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="post">Post</SelectItem>
               <SelectItem value="user">User</SelectItem>
+              <SelectItem value="event">Event</SelectItem>
             </SelectContent>
           </Select>
         </div>
