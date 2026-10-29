@@ -37,7 +37,7 @@ IMAGE_TAG=<commit-sha> docker compose -f docker-compose.prod.yml up -d
 
 To build a production image locally instead: `docker build --target prod ./backend`, or `docker build --target prod --build-arg VITE_API_URL=/api ./frontend`. `VITE_API_URL` is baked into the frontend bundle at build time.
 
-The production backend runs the compiled `node dist/server.js`; `tsx` is not in the image. The same goes for the migration (`node dist/db/migrate.js`) and the seed script, where only `--append` and `--covers` may run in production (see [development](development.md#2-prepare-postgresql)).
+The production backend runs the compiled `node dist/server.js`; `tsx` is not in the image. The same goes for the migration (`node dist/db/migrate.js`) and the seed script, where only `--append`, `--covers` and `--reset-demo` may run in production (see [development](development.md#2-prepare-postgresql)).
 
 ## Production configuration
 

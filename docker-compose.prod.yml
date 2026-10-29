@@ -80,6 +80,39 @@ services:
       postgres:
         condition: service_healthy
 
+  # Nightly demo reset (docs/operations.md): rebuilds the demo accounts' data
+  # with `seed.js --reset-demo`. Needs SEED_DEMO_PASSWORD in backend/.env and
+  # skips the run without it. The hour differs from the backup's (20 UTC).
+  demo-reset:
+    image: ghcr.io/14m6d4/volunteerhub-backend:${IMAGE_TAG:?set IMAGE_TAG to a commit SHA}
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      # 04:00 in Vietnam, clear of the backup and the VM's 02:00-05:00 UTC CPU reclaim guard.
+      DEMO_RESET_HOUR_UTC: 21
+    command:
+      - sh
+      - -c
+      - |
+        while :; do
+          sleep $$((86400 - ($$(date +%s) - DEMO_RESET_HOUR_UTC * 3600) % 86400))
+          if [ -z "$${SEED_DEMO_PASSWORD:-}" ]; then echo "demo reset skipped: SEED_DEMO_PASSWORD is unset"; continue; fi
+          node dist/scripts/seed.js --reset-demo && echo "demo reset ok" || echo "demo reset failed: exit $$?"
+        done
+    # Deletes the demo users' uploads and copies the demo covers back.
+    volumes:
+      - uploads:/app/uploads
+    # Same reason as the backup's: a shell as PID 1 ignores SIGTERM.
+    init: true
+    restart: unless-stopped
+    # The image's healthcheck probes the API, which this container does not run.
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   frontend:
     image: ghcr.io/14m6d4/volunteerhub-frontend:${IMAGE_TAG:?set IMAGE_TAG to a commit SHA}
     restart: unless-stopped

@@ -23,7 +23,7 @@ npm run db:migrate
 npm run db:seed   # optional; prints the demo accounts and their generated password
 ```
 
-`db:seed` wipes the database first and refuses to run when `NODE_ENV=production`. `db:seed -- --append` keeps existing data, adds no demo admin and takes the shared password from `SEED_DEMO_PASSWORD` without printing it. `db:seed -- --covers` only sets the demo cover images on demo events that already exist, and can be run again safely. These two are the only forms allowed in production.
+`db:seed` wipes the database first and refuses to run when `NODE_ENV=production`. `db:seed -- --append` keeps existing data, adds no demo admin and takes the shared password from `SEED_DEMO_PASSWORD` without printing it. `db:seed -- --covers` only sets the demo cover images on demo events that already exist, and can be run again safely. `db:seed -- --reset-demo` deletes every demo user and what they own, then adds the demo data as `--append` does; production runs it nightly ([operations](operations.md#demo-reset)). These three are the only forms allowed in production.
 
 ### 3. Start the dev servers
 

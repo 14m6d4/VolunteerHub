@@ -16,7 +16,13 @@
  * SEED_DEMO_PASSWORD and never prints it: on the VM, container stdout is shipped
  * to Grafana Cloud.
  *
- * Both modes give each demo event its cover image from demo-covers/. With --covers
+ * --reset-demo first deletes every demo user, and through the foreign keys all
+ * they own (what real users wrote on demo content included), then adds the data
+ * as --append does. Delete and insert share one transaction, so a failure keeps
+ * the old demo data; the orphaned uploads are deleted after the commit. Allowed in
+ * production and run nightly there (docker-compose.prod.yml, demo-reset).
+ *
+ * All modes give each demo event its cover image from demo-covers/. With --covers
  * it does only that, on the demo events that already exist (matched by title and
  * demo manager) and have no cover a manager uploaded, and is safe to run again; it
  * is allowed in production
@@ -32,7 +38,8 @@ import {
   commentLikes, comments, discussions, events, friendRequests, friendships, notifications,
   postLikes, posts, pushSubscriptions, registrations, reports, users,
 } from '../db/schema.ts';
-import { UPLOADS_DIR } from '../services/image.service.ts';
+import { deleteImages, UPLOADS_DIR } from '../services/image.service.ts';
+import { imagesDeletedWithEvents } from '../utils/event.util.ts';
 import { hashPassword } from '../utils/password.util.ts';
 import { DEMO_EMAIL_DOMAIN } from '../utils/demo.util.ts';
 import { notify } from '../services/notification.service.ts';
@@ -84,16 +91,17 @@ if (process.argv.includes('--covers')) {
   process.exit();
 }
 
-const append = process.argv.includes('--append');
+const reset = process.argv.includes('--reset-demo');
+const append = reset || process.argv.includes('--append');
 // Dropping data or adding a demo admin has no place in production.
 if (process.env.NODE_ENV === 'production' && !append) {
-  console.error('Refusing to seed: NODE_ENV is production (use --append).');
+  console.error('Refusing to seed: NODE_ENV is production (use --append or --reset-demo).');
   process.exit(1);
 }
 
 const password = append ? process.env.SEED_DEMO_PASSWORD ?? '' : randomBytes(9).toString('base64url');
 if (password.length < 12) {
-  console.error('Refusing to seed: --append needs SEED_DEMO_PASSWORD of at least 12 characters.');
+  console.error('Refusing to seed: --append and --reset-demo need SEED_DEMO_PASSWORD of at least 12 characters.');
   process.exit(1);
 }
 const passwordHash = await hashPassword(password);
@@ -108,87 +116,104 @@ const demoUser = (name: string, role: 'volunteer' | 'manager' | 'admin') => ({
   isVerified: true,
 });
 
-// Children first, so the order doesn't depend on cascades.
-if (!append) for (const table of [
-  commentLikes, postLikes, comments, posts, discussions, registrations, notifications, reports,
-  friendships, friendRequests, pushSubscriptions, events, users,
-]) await db.delete(table);
+// The files the reset's cascades orphan: what the demo users uploaded, and the
+// covers and post images of their events (posts real users wrote there included).
+const demoEmail = like(users.email, `%@${DEMO_EMAIL_DOMAIN}`);
+const demoIds = db.select({ id: users.id }).from(users).where(demoEmail);
+const orphans = reset ? (await Promise.all([
+  db.select({ image: users.profilePicture }).from(users).where(demoEmail),
+  db.select({ image: posts.image }).from(posts).where(inArray(posts.authorId, demoIds)),
+])).flat().map((r) => r.image).concat(await imagesDeletedWithEvents(inArray(events.managerId, demoIds))) : [];
 
-if (!append) await db.insert(users).values(demoUser('admin', 'admin'));
-const managers = await db.insert(users)
-  .values(['ava', 'ben', 'chloe'].map((n) => demoUser(n, 'manager'))).returning();
-const volunteers = await db.insert(users)
-  .values(['dan', 'eve', 'finn', 'gia', 'hugo', 'ivy', 'jack', 'kai', 'lena', 'milo', 'nina', 'omar']
-    .map((n) => demoUser(n, 'volunteer'))).returning();
+// One transaction: a failed reset leaves the old demo data in place.
+const { managers, volunteers, eventRows, dan, gia } = await db.transaction(async (tx) => {
+  // Every demo user, and through the foreign keys all they own; no one else.
+  if (reset) await tx.delete(users).where(demoEmail);
+  // Children first, so the order doesn't depend on cascades.
+  if (!append) for (const table of [
+    commentLikes, postLikes, comments, posts, discussions, registrations, notifications, reports,
+    friendships, friendRequests, pushSubscriptions, events, users,
+  ]) await tx.delete(table);
 
-const eventRows = await db.insert(events).values(eventSpecs.map((s, i) => ({
-  title: s.title,
-  description: `${s.title}: bring water, gloves and good company.`,
-  location: ['Riverside Park', 'Central Food Bank', 'City Library', 'Maple Street Garden', 'Old Town Square', 'Town Hall', 'North Beach', 'Elm Woods',
-    'Mangrove Bay', 'City Hospital', 'Happy Paws Shelter', 'Heritage Archive', 'Community Centre'][i]!,
-  startAt: from(s.start),
-  endAt: from(s.start, 13),
-  maxMembers: s.max,
-  status: s.status,
-  managerId: managers[i % managers.length]!.id,
-  tags: [...s.tags],
-})) ).returning();
+  if (!append) await tx.insert(users).values(demoUser('admin', 'admin'));
+  const managers = await tx.insert(users)
+    .values(['ava', 'ben', 'chloe'].map((n) => demoUser(n, 'manager'))).returning();
+  const volunteers = await tx.insert(users)
+    .values(['dan', 'eve', 'finn', 'gia', 'hugo', 'ivy', 'jack', 'kai', 'lena', 'milo', 'nina', 'omar']
+      .map((n) => demoUser(n, 'volunteer'))).returning();
+
+  const eventRows = await tx.insert(events).values(eventSpecs.map((s, i) => ({
+    title: s.title,
+    description: `${s.title}: bring water, gloves and good company.`,
+    location: ['Riverside Park', 'Central Food Bank', 'City Library', 'Maple Street Garden', 'Old Town Square', 'Town Hall', 'North Beach', 'Elm Woods',
+      'Mangrove Bay', 'City Hospital', 'Happy Paws Shelter', 'Heritage Archive', 'Community Centre'][i]!,
+    startAt: from(s.start),
+    endAt: from(s.start, 13),
+    maxMembers: s.max,
+    status: s.status,
+    managerId: managers[i % managers.length]!.id,
+    tags: [...s.tags],
+  })) ).returning();
+
+  // Registrations: every volunteer joins a few events; the list below is (event index, volunteer index, status).
+  const regs: [number, number, 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed'][] = [];
+  for (let v = 0; v < volunteers.length; v++) {
+    regs.push([v % 4, v, v % 5 === 4 ? 'pending' : 'approved']);
+    regs.push([(v + 1) % 4, v, v % 6 === 5 ? 'rejected' : 'approved']);
+  }
+  for (let v = 0; v < 6; v++) regs.push([7, v, 'completed']);
+  for (let v = 0; v < volunteers.length; v++) regs.push([8 + (v % 5), v, 'approved']);
+  regs.push([6, 0, 'cancelled']);
+  const regRows = regs.map(([e, v, status]) => ({
+      eventId: eventRows[e]!.id, volunteerId: volunteers[v]!.id, status,
+      completedAt: status === 'completed' ? from(-19) : null,
+    }));
+  await tx.insert(registrations).values(regRows);
+
+  // An event counts the volunteers it has accepted, capped at its size.
+  for (const [i, e] of eventRows.entries()) {
+    const members = regRows.filter((r) => r.eventId === e.id && (r.status === 'approved' || r.status === 'completed')).length;
+    const cap = eventSpecs[i]!.max;
+    await tx.update(events).set({ currentMembers: cap === null ? members : Math.min(members, cap) })
+      .where(eq(events.id, e.id));
+  }
+
+  const approved = eventRows.filter((e) => e.status === 'approved');
+  const discussionRows = await tx.insert(discussions).values(approved.map((e) => ({ eventId: e.id }))).returning();
+  const postRows = await tx.insert(posts).values(approved.flatMap((e, i) => [
+    { eventId: e.id, authorId: managers[i % managers.length]!.id, content: `Welcome to ${e.title}! Details are pinned here.`, pinned: true },
+    { eventId: e.id, authorId: volunteers[i]!.id, content: 'Can anyone share a ride from the station?' },
+    { discussionId: discussionRows[i]!.id, authorId: volunteers[(i + 4) % volunteers.length]!.id, content: 'What should I bring?' },
+  ])).returning();
+  const commentRows = await tx.insert(comments).values(postRows.map((p, i) => ({
+    postId: p.id, authorId: volunteers[(i + 2) % volunteers.length]!.id, content: 'Count me in!',
+  }))).returning();
+  await tx.insert(postLikes).values(postRows.flatMap((p, i) =>
+    [i, i + 1, i + 2].map((v) => ({ postId: p.id, userId: volunteers[v % volunteers.length]!.id }))));
+  await tx.insert(commentLikes).values(commentRows.map((c, i) => ({ commentId: c.id, userId: volunteers[(i + 5) % volunteers.length]!.id })));
+
+  // Friends: dan–eve and dan–finn are accepted; gia has a pending request to dan.
+  const [dan, eve, finn, gia] = volunteers as [typeof volunteers[0], typeof volunteers[0], typeof volunteers[0], typeof volunteers[0]];
+  await tx.insert(friendRequests).values([
+    { senderId: dan.id, receiverId: eve.id, status: 'accepted' },
+    { senderId: finn.id, receiverId: dan.id, status: 'accepted' },
+    { senderId: gia.id, receiverId: dan.id, status: 'pending' },
+  ]);
+  // One row per pair, smaller id first.
+  await tx.insert(friendships).values([[dan.id, eve.id], [dan.id, finn.id]]
+    .map(([a, b]) => (a! < b! ? { userLow: a!, userHigh: b! } : { userLow: b!, userHigh: a! })));
+
+  await tx.insert(reports).values({
+    reporterId: eve.id, targetId: postRows[1]!.id, targetType: 'post', reason: 'spam', description: 'Demo report for the admin queue.',
+  });
+  return { managers, volunteers, eventRows, dan, gia };
+});
+
+await deleteImages(...orphans);
 await setCovers();
-
-// Registrations: every volunteer joins a few events; the list below is (event index, volunteer index, status).
-const regs: [number, number, 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed'][] = [];
-for (let v = 0; v < volunteers.length; v++) {
-  regs.push([v % 4, v, v % 5 === 4 ? 'pending' : 'approved']);
-  regs.push([(v + 1) % 4, v, v % 6 === 5 ? 'rejected' : 'approved']);
-}
-for (let v = 0; v < 6; v++) regs.push([7, v, 'completed']);
-for (let v = 0; v < volunteers.length; v++) regs.push([8 + (v % 5), v, 'approved']);
-regs.push([6, 0, 'cancelled']);
-const regRows = regs.map(([e, v, status]) => ({
-    eventId: eventRows[e]!.id, volunteerId: volunteers[v]!.id, status,
-    completedAt: status === 'completed' ? from(-19) : null,
-  }));
-await db.insert(registrations).values(regRows);
-
-// An event counts the volunteers it has accepted, capped at its size.
-for (const [i, e] of eventRows.entries()) {
-  const members = regRows.filter((r) => r.eventId === e.id && (r.status === 'approved' || r.status === 'completed')).length;
-  const cap = eventSpecs[i]!.max;
-  await db.update(events).set({ currentMembers: cap === null ? members : Math.min(members, cap) })
-    .where(eq(events.id, e.id));
-}
-
-const approved = eventRows.filter((e) => e.status === 'approved');
-const discussionRows = await db.insert(discussions).values(approved.map((e) => ({ eventId: e.id }))).returning();
-const postRows = await db.insert(posts).values(approved.flatMap((e, i) => [
-  { eventId: e.id, authorId: managers[i % managers.length]!.id, content: `Welcome to ${e.title}! Details are pinned here.`, pinned: true },
-  { eventId: e.id, authorId: volunteers[i]!.id, content: 'Can anyone share a ride from the station?' },
-  { discussionId: discussionRows[i]!.id, authorId: volunteers[(i + 4) % volunteers.length]!.id, content: 'What should I bring?' },
-])).returning();
-const commentRows = await db.insert(comments).values(postRows.map((p, i) => ({
-  postId: p.id, authorId: volunteers[(i + 2) % volunteers.length]!.id, content: 'Count me in!',
-}))).returning();
-await db.insert(postLikes).values(postRows.flatMap((p, i) =>
-  [i, i + 1, i + 2].map((v) => ({ postId: p.id, userId: volunteers[v % volunteers.length]!.id }))));
-await db.insert(commentLikes).values(commentRows.map((c, i) => ({ commentId: c.id, userId: volunteers[(i + 5) % volunteers.length]!.id })));
-
-// Friends: dan–eve and dan–finn are accepted; gia has a pending request to dan.
-const [dan, eve, finn, gia] = volunteers as [typeof volunteers[0], typeof volunteers[0], typeof volunteers[0], typeof volunteers[0]];
-await db.insert(friendRequests).values([
-  { senderId: dan.id, receiverId: eve.id, status: 'accepted' },
-  { senderId: finn.id, receiverId: dan.id, status: 'accepted' },
-  { senderId: gia.id, receiverId: dan.id, status: 'pending' },
-]);
-// One row per pair, smaller id first.
-await db.insert(friendships).values([[dan.id, eve.id], [dan.id, finn.id]]
-  .map(([a, b]) => (a! < b! ? { userLow: a!, userHigh: b! } : { userLow: b!, userHigh: a! })));
-
-// Through notify, the one writer of notification rows.
+// Through notify, the one writer of notification rows, which runs after the commit.
 await notify({ userId: dan.id }, NotificationType.EVENT_UPDATED, { eventId: eventRows[0]!.id, eventTitle: eventRows[0]!.title }, managers[0]!.id);
 await notify({ userId: dan.id }, NotificationType.FRIEND_REQUEST_RECEIVED, { senderId: gia.id }, gia.id);
-await db.insert(reports).values({
-  reporterId: eve.id, targetId: postRows[1]!.id, targetType: 'post', reason: 'spam', description: 'Demo report for the admin queue.',
-});
 
 console.log(`Seeded ${managers.length + volunteers.length + (append ? 0 : 1)} accounts, ${eventRows.length} events.`);
 if (!append) console.log(`Password for every account: ${password}`);

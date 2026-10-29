@@ -1,7 +1,8 @@
 /**
  * Checks the demo seed: a fresh seed gives every demo event its own cover image,
  * and `--covers` puts them back on demo events that already exist (prod) without
- * touching anything else, as often as it is run.
+ * touching anything else, as often as it is run. `--reset-demo` brings the demo
+ * dataset back as seeded, every time, and leaves non-demo users and their data alone.
  *
  * WIPES THE DATABASE (it runs the seed). Needs a migrated PostgreSQL (DATABASE_URL).
  * Run with: npm run check:seed. Leaves the demo dataset in place; the zz_ fixtures
@@ -10,12 +11,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import 'dotenv/config';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { asc, eq, like } from 'drizzle-orm';
+import { asc, eq, like, notLike } from 'drizzle-orm';
 import { closeDb, db } from '../db/client.ts';
-import { events, users } from '../db/schema.ts';
+import { events, posts, users } from '../db/schema.ts';
 import { hashPassword } from '../utils/password.util.ts';
 
 const dir = await mkdtemp(path.join(tmpdir(), 'vh-seed-'));
@@ -92,9 +93,58 @@ await check('--covers restores missing demo covers on a fresh volume, touches no
   }
 });
 
+await check('--reset-demo restores the demo dataset, twice in a row, and leaves other users and their data alone', async () => {
+  // Non-demo data: a manager with an event and a post with an image (the zz_ manager above has one too).
+  const [real] = await db.insert(users).values({
+    username: `zz_seed_${stamp}_r`, email: `zz_seed_${stamp}_r@test.local`, passwordHash: await hashPassword('Passw0rdLong1'),
+    name: 'real', role: 'manager', isVerified: true, profilePicture: '/uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp',
+  }).returning();
+  const [realEvent] = await db.insert(events).values({ title: 'Real Event', startAt: new Date(), managerId: real!.id }).returning();
+  await db.insert(posts).values({ eventId: realEvent!.id, authorId: real!.id, content: 'real', image: '/uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp' });
+  const others = async () => ({
+    users: await db.select().from(users).where(notLike(users.email, '%@demo.volunteerhub.test')).orderBy(asc(users.id)),
+    events: (await db.select({ event: events }).from(events).innerJoin(users, eq(users.id, events.managerId))
+      .where(notLike(users.email, '%@demo.volunteerhub.test')).orderBy(asc(events.id))).map((r) => r.event),
+    posts: (await db.select({ post: posts }).from(posts).innerJoin(users, eq(users.id, posts.authorId))
+      .where(notLike(users.email, '%@demo.volunteerhub.test')).orderBy(asc(posts.id))).map((r) => r.post),
+  });
+  const seeded = new Map((await demoEvents()).map((e) => [e.title, e]));
+
+  // Damage, as a visitor on a demo account would: delete one event, edit another, upload a profile picture.
+  const [gone, edited] = await demoEvents();
+  await db.delete(events).where(eq(events.id, gone!.id));
+  await db.update(events).set({ title: 'Vandalised', description: 'x', location: 'y' }).where(eq(events.id, edited!.id));
+  const upload = 'cccccccccccccccccccccccccccccccc.webp';
+  await writeFile(path.join(dir, upload), 'x');
+  await db.update(users).set({ profilePicture: `/uploads/${upload}` }).where(eq(users.email, 'demo-dan@demo.volunteerhub.test'));
+  const before = await others();
+
+  for (let run = 0; run < 2; run++) {
+    // As on the VM: production, password from the environment.
+    seed(['--reset-demo'], { NODE_ENV: 'production', SEED_DEMO_PASSWORD: 'demo-password-long' });
+    const demoUsers = await db.select().from(users).where(like(users.email, '%@demo.volunteerhub.test'));
+    assert.equal(demoUsers.length, 15, `run ${run}: 3 managers and 12 volunteers`);
+    assert.ok(!demoUsers.some((u) => u.role === 'admin'), 'no demo admin');
+    const demo = await demoEvents();
+    assert.equal(demo.length, 13, `run ${run}: demo events`);
+    for (const e of demo) {
+      const s = seeded.get(e.title);
+      assert.ok(s, `${e.title} is a seeded title`);
+      assert.deepEqual([e.description, e.location, e.status], [s.description, s.location, s.status], e.title);
+      assert.match(e.image, /^\/uploads\/demo-[a-z0-9-]+\.webp$/, `${e.title} has its demo cover`);
+    }
+    assert.equal(new Set(demo.map((e) => e.title)).size, 13, 'every seeded event is back once');
+    const demoPosts = await db.select({ id: posts.id }).from(posts).innerJoin(users, eq(users.id, posts.authorId))
+      .where(like(users.email, '%@demo.volunteerhub.test'));
+    assert.equal(demoPosts.length, 27, `run ${run}: demo posts`);
+    assert.deepEqual(await others(), before, `run ${run}: non-demo users, events and posts unchanged`);
+    assert.ok(!(await stored()).has(upload), 'the demo user\'s upload is deleted');
+  }
+});
+
 out.forEach((line) => console.log(line));
 console.log(process.exitCode ? 'SEED CHECK FAILED' : 'SEED CHECK PASSED');
 
-await db.delete(users).where(like(users.username, `zz\\_seed\\_${stamp}`));
+await db.delete(users).where(like(users.username, `zz\\_seed\\_${stamp}%`));
 await rm(dir, { recursive: true, force: true });
 await closeDb();
