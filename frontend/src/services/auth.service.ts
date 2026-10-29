@@ -17,10 +17,12 @@ interface AuthResponse {
   [key: string]: unknown;
 }
 
-export async function login(payload: LoginPayload) {
-  const data = await apiFetch<AuthResponse>('/auth/login', {
+export type DemoRole = 'volunteer' | 'manager';
+
+async function signIn(path: string, body: unknown) {
+  const data = await apiFetch<AuthResponse>(path, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 
   try {
@@ -36,6 +38,11 @@ export async function login(payload: LoginPayload) {
 
   return data;
 }
+
+export const login = (payload: LoginPayload) => signIn('/auth/login', payload);
+
+/** One-click sign-in as the shared demo volunteer or manager. */
+export const demoLogin = (role: DemoRole) => signIn('/auth/demo-login', { role });
 
 export async function getProfile() {
   const data = await apiFetch<AuthResponse>('/auth/me');

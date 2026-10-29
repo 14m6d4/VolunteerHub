@@ -16,6 +16,10 @@ export const loginSchema = z.object({
   { message: 'Either email or username is required' }
 );
 
+export const demoLoginSchema = z.object({
+  role: z.enum(['volunteer', 'manager']),
+});
+
 // --- Register Schema ---
 export const registerSchema = z.object({
   name: z.string().min(1, 'Name cannot be empty').max(100, 'Name too long').optional(),

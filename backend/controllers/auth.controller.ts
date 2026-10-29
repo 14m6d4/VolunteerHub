@@ -1,22 +1,32 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { loginUser, registerUser, verifyUserOTP, sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtp, getAuthenticatedUser } from '../services/auth.service.ts';
+import { loginUser, loginDemoUser, registerUser, verifyUserOTP, sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtp, getAuthenticatedUser } from '../services/auth.service.ts';
 import { createAccessToken, verifyToken } from '../utils/jwt.util.ts';
 import { type ITokenPayload } from '../types/user.ts';
 
+const sendSignIn = (res: Response, authData: Awaited<ReturnType<typeof loginUser>>) => {
+  res.cookie('refreshToken', authData.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  res.status(200).json({
+    accessToken: authData.accessToken,
+    user: authData.user,
+  });
+};
+
 export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authData = await loginUser(req.body);
+    sendSignIn(res, await loginUser(req.body));
+  } catch (error) {
+    next(error);
+  }
+}
 
-    res.cookie('refreshToken', authData.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    res.status(200).json({
-      accessToken: authData.accessToken,
-      user: authData.user,
-    });
+export async function demoLogin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    sendSignIn(res, await loginDemoUser(req.body.role));
   } catch (error) {
     next(error);
   }

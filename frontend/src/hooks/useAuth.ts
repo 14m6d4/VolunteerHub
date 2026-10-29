@@ -19,6 +19,7 @@ export interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (payload: { email?: string; username?: string; password: string }) => Promise<unknown>;
+  demoLogin: (role: 'volunteer' | 'manager') => Promise<unknown>;
   logout: () => void;
 }
 

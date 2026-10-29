@@ -8,6 +8,7 @@ import { generateOTP, getOTPExpiration } from '../utils/otp.util.ts';
 import { isBanned, banMessage } from '../utils/ban.util.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
 import { isUniqueViolation, normalizeEmail, toUser } from '../utils/user.util.ts';
+import { DEMO_LOGIN_EMAILS, type DemoRole } from '../utils/demo.util.ts';
 import { sendVerificationEmail, sendResetPasswordEmail } from './email.service.ts';
 import { findUserById } from './user.service.ts';
 
@@ -51,6 +52,20 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
     throw new AppError('Invalid email/username or password.', 401);
   }
 
+  return signIn(row);
+}
+
+/** Signs in as the fixed demo account for `role`; no password, but the same checks as any login. */
+export async function loginDemoUser(role: DemoRole): Promise<IAuthResponse> {
+  const row = await findByEmail(DEMO_LOGIN_EMAILS[role]);
+  if (!row) {
+    throw new AppError('Demo account not available', 404);
+  }
+  return signIn(row);
+}
+
+/** What every login checks before it hands out tokens. */
+function signIn(row: typeof users.$inferSelect): IAuthResponse {
   if (!row.isVerified) {
     throw new AppError('Account is not verified. Please verify your email before logging in.', 403);
   }
