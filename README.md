@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="frontend/public/favicon.png" alt="VolunteerHub logo" width="96" />
+
 # VolunteerHub
 
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/14m6d4/VolunteerHub/ci.yml?branch=main&label=CI%2FCD&logo=githubactions&logoColor=white)](https://github.com/14m6d4/VolunteerHub/actions/workflows/ci.yml)
