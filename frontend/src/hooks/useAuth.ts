@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getAuthConfig } from '@/services/auth.service';
+import { getAuthConfig, type DemoRole } from '@/services/auth.service';
 
 export interface User {
   _id?: string;
@@ -21,7 +21,7 @@ export interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (payload: { email?: string; username?: string; password: string }) => Promise<unknown>;
-  demoLogin: (role: 'volunteer' | 'manager') => Promise<unknown>;
+  demoLogin: (role: DemoRole) => Promise<unknown>;
   logout: () => void;
 }
 

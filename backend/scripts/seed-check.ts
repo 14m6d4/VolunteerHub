@@ -18,6 +18,7 @@ import { asc, eq, like, notLike } from 'drizzle-orm';
 import { closeDb, db } from '../db/client.ts';
 import { events, posts, users } from '../db/schema.ts';
 import { hashPassword } from '../utils/password.util.ts';
+import { DEMO_EMAIL_DOMAIN } from '../utils/demo.util.ts';
 
 const dir = await mkdtemp(path.join(tmpdir(), 'vh-seed-'));
 const stamp = Date.now();
@@ -33,7 +34,7 @@ const seed = (args: string[], env: Record<string, string> = {}) => {
 const allEvents = () => db.select().from(events).orderBy(asc(events.id));
 const demoEvents = async () => (await db.select({ event: events }).from(events)
   .innerJoin(users, eq(users.id, events.managerId))
-  .where(like(users.email, '%@demo.volunteerhub.test'))
+  .where(like(users.email, `%@${DEMO_EMAIL_DOMAIN}`))
   .orderBy(asc(events.id))).map((r) => r.event);
 const stored = async () => new Set(await readdir(dir));
 
@@ -102,11 +103,11 @@ await check('--reset-demo restores the demo dataset, twice in a row, and leaves 
   const [realEvent] = await db.insert(events).values({ title: 'Real Event', startAt: new Date(), managerId: real!.id }).returning();
   await db.insert(posts).values({ eventId: realEvent!.id, authorId: real!.id, content: 'real', image: '/uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp' });
   const others = async () => ({
-    users: await db.select().from(users).where(notLike(users.email, '%@demo.volunteerhub.test')).orderBy(asc(users.id)),
+    users: await db.select().from(users).where(notLike(users.email, `%@${DEMO_EMAIL_DOMAIN}`)).orderBy(asc(users.id)),
     events: (await db.select({ event: events }).from(events).innerJoin(users, eq(users.id, events.managerId))
-      .where(notLike(users.email, '%@demo.volunteerhub.test')).orderBy(asc(events.id))).map((r) => r.event),
+      .where(notLike(users.email, `%@${DEMO_EMAIL_DOMAIN}`)).orderBy(asc(events.id))).map((r) => r.event),
     posts: (await db.select({ post: posts }).from(posts).innerJoin(users, eq(users.id, posts.authorId))
-      .where(notLike(users.email, '%@demo.volunteerhub.test')).orderBy(asc(posts.id))).map((r) => r.post),
+      .where(notLike(users.email, `%@${DEMO_EMAIL_DOMAIN}`)).orderBy(asc(posts.id))).map((r) => r.post),
   });
   const seeded = new Map((await demoEvents()).map((e) => [e.title, e]));
 
@@ -116,13 +117,13 @@ await check('--reset-demo restores the demo dataset, twice in a row, and leaves 
   await db.update(events).set({ title: 'Vandalised', description: 'x', location: 'y' }).where(eq(events.id, edited!.id));
   const upload = 'cccccccccccccccccccccccccccccccc.webp';
   await writeFile(path.join(dir, upload), 'x');
-  await db.update(users).set({ profilePicture: `/uploads/${upload}` }).where(eq(users.email, 'demo-dan@demo.volunteerhub.test'));
+  await db.update(users).set({ profilePicture: `/uploads/${upload}` }).where(eq(users.email, `demo-dan@${DEMO_EMAIL_DOMAIN}`));
   const before = await others();
 
   for (let run = 0; run < 2; run++) {
     // As on the VM: production, password from the environment.
     seed(['--reset-demo'], { NODE_ENV: 'production', SEED_DEMO_PASSWORD: 'demo-password-long' });
-    const demoUsers = await db.select().from(users).where(like(users.email, '%@demo.volunteerhub.test'));
+    const demoUsers = await db.select().from(users).where(like(users.email, `%@${DEMO_EMAIL_DOMAIN}`));
     assert.equal(demoUsers.length, 15, `run ${run}: 3 managers and 12 volunteers`);
     assert.ok(!demoUsers.some((u) => u.role === 'admin'), 'no demo admin');
     const demo = await demoEvents();
@@ -135,7 +136,7 @@ await check('--reset-demo restores the demo dataset, twice in a row, and leaves 
     }
     assert.equal(new Set(demo.map((e) => e.title)).size, 13, 'every seeded event is back once');
     const demoPosts = await db.select({ id: posts.id }).from(posts).innerJoin(users, eq(users.id, posts.authorId))
-      .where(like(users.email, '%@demo.volunteerhub.test'));
+      .where(like(users.email, `%@${DEMO_EMAIL_DOMAIN}`));
     assert.equal(demoPosts.length, 27, `run ${run}: demo posts`);
     assert.deepEqual(await others(), before, `run ${run}: non-demo users, events and posts unchanged`);
     assert.ok(!(await stored()).has(upload), 'the demo user\'s upload is deleted');

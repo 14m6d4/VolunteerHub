@@ -302,6 +302,9 @@ function useInView(threshold: number = 0.1) {
 
 // ============== COMPONENTS ==============
 
+/** Where a "join" button goes: sign-up when it is open, else login (demo accounts). */
+const joinHref = (signupEnabled: boolean) => (signupEnabled ? "/register" : "/login");
+
 function HeroSection() {
   const { signupEnabled } = useSignupEnabled();
   return (
@@ -341,7 +344,7 @@ function HeroSection() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-slide-up animation-delay-200">
             <Button size="lg" className="text-base px-8 py-6" asChild>
-              <Link to={signupEnabled ? "/register" : "/login"}>
+              <Link to={joinHref(signupEnabled)}>
                 Start Volunteering
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
@@ -794,7 +797,7 @@ function CTASection() {
                 className="text-base px-8 py-6"
                 asChild
               >
-                <Link to={signupEnabled ? "/register" : "/login"}>
+                <Link to={joinHref(signupEnabled)}>
                   {signupEnabled ? "Create Free Account" : "Try a Demo Account"}
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>

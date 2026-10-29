@@ -1,9 +1,9 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { loginUser, loginDemoUser, registerUser, verifyUserOTP, sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtp, getAuthenticatedUser, isSignupEnabled } from '../services/auth.service.ts';
+import { loginUser, loginDemoUser, registerUser, verifyUserOTP, sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtp, getAuthenticatedUser, isSignupEnabled, type IAuthResponse } from '../services/auth.service.ts';
 import { createAccessToken, verifyToken } from '../utils/jwt.util.ts';
 import { type ITokenPayload } from '../types/user.ts';
 
-const sendSignIn = (res: Response, authData: Awaited<ReturnType<typeof loginUser>>) => {
+const sendSignIn = (res: Response, authData: IAuthResponse) => {
   res.cookie('refreshToken', authData.refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

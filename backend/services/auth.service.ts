@@ -12,7 +12,7 @@ import { DEMO_LOGIN_EMAILS, type DemoRole } from '../utils/demo.util.ts';
 import { sendVerificationEmail, sendResetPasswordEmail } from './email.service.ts';
 import { findUserById } from './user.service.ts';
 
-interface IAuthResponse {
+export interface IAuthResponse {
   accessToken: string;
   refreshToken: string;
   user: {

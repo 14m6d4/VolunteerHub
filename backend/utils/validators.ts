@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { userRole } from '../db/schema.ts';
+import { DEMO_LOGIN_EMAILS, type DemoRole } from './demo.util.ts';
 
 // --- Login Schema ---
 export const loginSchema = z.object({
@@ -17,7 +18,7 @@ export const loginSchema = z.object({
 );
 
 export const demoLoginSchema = z.object({
-  role: z.enum(['volunteer', 'manager']),
+  role: z.enum(Object.keys(DEMO_LOGIN_EMAILS) as [DemoRole, ...DemoRole[]]),
 });
 
 // --- Register Schema ---
