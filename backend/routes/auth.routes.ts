@@ -20,6 +20,25 @@ router.post(
 );
 
 /**
+ * @route POST /api/auth/demo-login
+ * @description One-click sign-in as the fixed demo volunteer or manager, no password
+ * @access Public
+ */
+router.post(
+  '/demo-login',
+  authLimiter,
+  validateBody(validators.demoLoginSchema),
+  authController.demoLogin
+);
+
+/**
+ * @route GET /api/auth/config
+ * @description Public auth settings the frontend needs: { signupEnabled }
+ * @access Public
+ */
+router.get('/config', authController.getConfig);
+
+/**
  * @route POST /api/auth/register
  * @description User registration (Volunteer/Manager)
  * @access Public

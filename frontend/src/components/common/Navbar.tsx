@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils"
 import logoImage from "@/assets/logo.png"
 import { useNavigate } from "react-router-dom"
 import { ModeToggle } from "@/components/mode-toggle"
+import { useSignupEnabled } from "@/hooks/useAuth"
 import { ThemeSelector } from "@/components/theme-selector"
 import { NotificationCard, type NotificationItem } from "@/components/common/NotificationCard"
 
@@ -267,6 +268,7 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
   ) => {
     const navigate = useNavigate()
     const location = useLocation()
+    const { signupEnabled } = useSignupEnabled()
     const [isMobile, setIsMobile] = useState(false)
     const containerRef = useRef<HTMLElement | null>(null)
 
@@ -595,20 +597,23 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                 >
                   {signInText}
                 </Button>
-                <Button
-                  size="sm"
-                  className="text-sm font-medium px-4 h-9 rounded-md shadow-sm"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    if (onCtaClick) {
-                      onCtaClick()
-                    } else {
-                      handleNavigation("/register")
-                    }
-                  }}
-                >
-                  {ctaText}
-                </Button>
+                {/* The CTA is a sign-up button, so it goes when sign-up is closed. */}
+                {signupEnabled && (
+                  <Button
+                    size="sm"
+                    className="text-sm font-medium px-4 h-9 rounded-md shadow-sm"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (onCtaClick) {
+                        onCtaClick()
+                      } else {
+                        handleNavigation("/register")
+                      }
+                    }}
+                  >
+                    {ctaText}
+                  </Button>
+                )}
                 {/* Theme toggle - after Get Started when not logged in */}
                 <ModeToggle />
               </>

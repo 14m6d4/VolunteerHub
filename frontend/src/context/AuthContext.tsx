@@ -75,9 +75,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  const login = useCallback(async (payload: { email?: string; username?: string; password: string }) => {
-    const data = await authService.login(payload);
-
+  const syncAfterSignIn = useCallback(async <T,>(data: T) => {
     try {
       const profile = await authService.getProfile();
       if (profile?.user?.isBanned) {
@@ -95,13 +93,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return data;
   }, []);
 
+  const login = useCallback(
+    async (payload: { email?: string; username?: string; password: string }) => syncAfterSignIn(await authService.login(payload)),
+    [syncAfterSignIn],
+  );
+
+  const demoLogin = useCallback(
+    async (role: authService.DemoRole) => syncAfterSignIn(await authService.demoLogin(role)),
+    [syncAfterSignIn],
+  );
+
   const logout = useCallback(() => {
     authService.logout();
     setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, demoLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );

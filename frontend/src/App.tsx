@@ -29,7 +29,7 @@ import Footer from "@/components/common/Footer"
 import NavBar from "@/features/navigation-menu"
 import QueryProvider from "./providers/QueryProvider"
 import { AuthProvider } from "@/context/AuthContext"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth, useSignupEnabled } from "@/hooks/useAuth"
 import SettingsPage from "./pages/Settings";
 import ProfilePage from "./pages/Profile";
 import AboutPage from "./pages/About";
@@ -59,6 +59,13 @@ function HomeRoute() {
   }
   
   return <LandingPage />;
+}
+
+function RegisterRoute() {
+  const { signupEnabled, loading } = useSignupEnabled();
+  if (loading) return null;
+  if (!signupEnabled) return <Navigate to="/login" replace />;
+  return page("Sign Up", <SignupPage />);
 }
 
 function AppContent() {
@@ -126,7 +133,7 @@ function AppContent() {
         >
           <Route path="/login" element={page("Log In", <LoginPage />)} />
           <Route path="/banned" element={page("Account Suspended", <BannedPage />)} />
-          <Route path="/register" element={page("Sign Up", <SignupPage />)} />
+          <Route path="/register" element={<RegisterRoute />} />
           <Route path="/password_reset" element={page("Reset Password", <PasswordResetPage />)} />
           <Route path="500" element={page("Server Error", <Error500 />)} />
           <Route path="503" element={page("Unavailable", <Error503 />)} />

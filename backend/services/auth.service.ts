@@ -8,10 +8,11 @@ import { generateOTP, getOTPExpiration } from '../utils/otp.util.ts';
 import { isBanned, banMessage } from '../utils/ban.util.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
 import { isUniqueViolation, normalizeEmail, toUser } from '../utils/user.util.ts';
+import { DEMO_LOGIN_EMAILS, type DemoRole } from '../utils/demo.util.ts';
 import { sendVerificationEmail, sendResetPasswordEmail } from './email.service.ts';
 import { findUserById } from './user.service.ts';
 
-interface IAuthResponse {
+export interface IAuthResponse {
   accessToken: string;
   refreshToken: string;
   user: {
@@ -51,6 +52,20 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
     throw new AppError('Invalid email/username or password.', 401);
   }
 
+  return signIn(row);
+}
+
+/** Signs in as the fixed demo account for `role`; no password, but the same checks as any login. */
+export async function loginDemoUser(role: DemoRole): Promise<IAuthResponse> {
+  const row = await findByEmail(DEMO_LOGIN_EMAILS[role]);
+  if (!row) {
+    throw new AppError('Demo account not available', 404);
+  }
+  return signIn(row);
+}
+
+/** What every login checks before it hands out tokens. */
+function signIn(row: typeof users.$inferSelect): IAuthResponse {
   if (!row.isVerified) {
     throw new AppError('Account is not verified. Please verify your email before logging in.', 403);
   }
@@ -84,7 +99,14 @@ export async function loginUser(data: ILoginDTO): Promise<IAuthResponse> {
   };
 }
 
+/** Public sign-up is off unless SIGNUP_ENABLED is exactly 'true'. Read per request, like DISABLE_EMAIL_OTP. */
+export const isSignupEnabled = () => process.env.SIGNUP_ENABLED === 'true';
+
 export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
+  if (!isSignupEnabled()) {
+    throw new AppError('Sign-up is closed', 403);
+  }
+
   const { username, password, birthdate, role, name } = data;
   const email = normalizeEmail(data.email);
 

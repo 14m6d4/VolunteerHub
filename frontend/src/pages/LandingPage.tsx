@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useSignupEnabled } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -301,7 +302,11 @@ function useInView(threshold: number = 0.1) {
 
 // ============== COMPONENTS ==============
 
+/** Where a "join" button goes: sign-up when it is open, else login (demo accounts). */
+const joinHref = (signupEnabled: boolean) => (signupEnabled ? "/register" : "/login");
+
 function HeroSection() {
+  const { signupEnabled } = useSignupEnabled();
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
       {/* Background Image with Overlay */}
@@ -339,7 +344,7 @@ function HeroSection() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-slide-up animation-delay-200">
             <Button size="lg" className="text-base px-8 py-6" asChild>
-              <Link to="/register">
+              <Link to={joinHref(signupEnabled)}>
                 Start Volunteering
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
@@ -766,6 +771,7 @@ function PartnersSection() {
 }
 
 function CTASection() {
+  const { signupEnabled } = useSignupEnabled();
   return (
     <section className="py-20 md:py-28">
       <div className="container mx-auto px-4">
@@ -791,8 +797,8 @@ function CTASection() {
                 className="text-base px-8 py-6"
                 asChild
               >
-                <Link to="/register">
-                  Create Free Account
+                <Link to={joinHref(signupEnabled)}>
+                  {signupEnabled ? "Create Free Account" : "Try a Demo Account"}
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>

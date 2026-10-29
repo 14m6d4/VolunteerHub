@@ -1,11 +1,12 @@
 /**
  * Exercises users and auth end to end against a real PostgreSQL: sign-up, OTP
- * verification, login, profile, bans on live tokens, admin management, the
+ * verification, login, one-click demo login, profile, bans on live tokens, admin management, the
  * absence of Google sign-in and env-driven admin seeding. Same shape as
  * authz-check: boot the exported app on an ephemeral port and assert on HTTP
  * responses.
  *
- * Needs a migrated PostgreSQL (DATABASE_URL). Run with: npm run check:users
+ * Needs a migrated PostgreSQL (DATABASE_URL) and SIGNUP_ENABLED=true, as CI
+ * sets; the closed state is checked by unsetting it. Run with: npm run check:users
  * Test accounts are prefixed zz_ and removed afterwards.
  */
 import assert from 'node:assert/strict';
@@ -75,6 +76,34 @@ const mkUser = async (n: string, role: 'volunteer' | 'manager' | 'admin', passwo
 const rowOf = async (id: string) => (await db.select().from(users).where(eq(users.id, id)))[0];
 
 // --- sign-up, verification, login ----------------------------------------
+
+await check('sign-up is closed unless SIGNUP_ENABLED is exactly true', async () => {
+  const prev = process.env.SIGNUP_ENABLED;
+  try {
+    for (const value of [undefined, 'yes', 'TRUE']) {
+      if (value === undefined) delete process.env.SIGNUP_ENABLED;
+      else process.env.SIGNUP_ENABLED = value;
+      const reg = await call('POST', '/api/auth/register', {
+        username: uname('closed'), email: mail('closed'), password: PASSWORD, birthdate: '1995-05-05T00:00:00.000Z',
+      });
+      assert.equal(reg.status, 403, `SIGNUP_ENABLED=${value}: ${JSON.stringify(reg.data)}`);
+      assert.equal(reg.data.message, 'Sign-up is closed');
+      const config = await call('GET', '/api/auth/config');
+      assert.equal(config.status, 200);
+      assert.deepEqual(config.data, { success: true, data: { signupEnabled: false } });
+    }
+    assert.equal((await db.select().from(users).where(eq(users.email, mail('closed')))).length, 0, 'account created while closed');
+  } finally {
+    if (prev === undefined) delete process.env.SIGNUP_ENABLED;
+    else process.env.SIGNUP_ENABLED = prev;
+  }
+});
+
+await check('SIGNUP_ENABLED=true opens sign-up and says so in /auth/config', async () => {
+  assert.equal(process.env.SIGNUP_ENABLED, 'true', 'run this check with SIGNUP_ENABLED=true, as CI does');
+  const config = await call('GET', '/api/auth/config');
+  assert.deepEqual(config.data, { success: true, data: { signupEnabled: true } });
+});
 
 await check('DISABLE_EMAIL_OTP signs up verified, with no code to enter', async () => {
   process.env.DISABLE_EMAIL_OTP = 'true';
@@ -367,6 +396,50 @@ await check('public profile, search and admin-profile protection', async () => {
   await db.update(users).set({ isActive: false }).where(eq(users.username, uname('prof')));
   assert.equal((await call('GET', `/api/users/${uname('prof')}`)).status, 404, 'deactivated profile');
   assert.equal((await call('GET', `/api/users/search/query?q=${encodeURIComponent(`zz_prof_${stamp}`)}`)).data.data.length, 0);
+});
+
+// --- One-click demo login ------------------------------------------------
+
+await check('demo login signs in as the fixed volunteer or manager, never admin, and honours bans', async () => {
+  // Spelled out rather than read from DEMO_LOGIN_EMAILS: the ticket fixes these two accounts.
+  const fixed = { volunteer: `demo-dan@${DEMO_EMAIL_DOMAIN}`, manager: `demo-ava@${DEMO_EMAIL_DOMAIN}` } as const;
+
+  for (const role of ['admin', 'superuser']) {
+    assert.equal((await call('POST', '/api/auth/demo-login', { role })).status, 400, `role ${role}`);
+  }
+  assert.equal((await call('POST', '/api/auth/demo-login', {})).status, 400, 'no role');
+
+  // A database seeded with demo data already holds both accounts; otherwise the
+  // 404 is checked first and zz_ stand-ins are created (CI runs this before check:seed).
+  for (const [role, email] of Object.entries(fixed)) {
+    const [row] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+    if (row) continue;
+    const missing = await call('POST', '/api/auth/demo-login', { role });
+    assert.equal(missing.status, 404, JSON.stringify(missing.data));
+    assert.equal(missing.data.message, 'Demo account not available');
+    await mkUser(`demo_${role}`, role as 'volunteer' | 'manager', PASSWORD, email);
+  }
+
+  for (const [role, email] of Object.entries(fixed)) {
+    const res = await fetch(`${base}/api/auth/demo-login`, {
+      method: 'POST', headers: { ...json, 'CF-Connecting-IP': `10.1.0.${caller++ & 255}` }, body: JSON.stringify({ role }),
+    });
+    const data = await res.json();
+    assert.equal(res.status, 200, JSON.stringify(data));
+    assert.equal(data.user.email, email);
+    assert.equal(data.user.role, role);
+    assert.match(res.headers.get('set-cookie') ?? '', /refreshToken=/, 'refresh cookie');
+    const me = await call('GET', '/api/auth/me', undefined, data.accessToken);
+    assert.equal(me.data.user.id, data.user.id);
+  }
+
+  const [dan] = await db.select().from(users).where(eq(users.email, fixed.volunteer));
+  try {
+    await db.update(users).set({ bannedUntil: new Date(Date.now() + 60_000) }).where(eq(users.id, dan!.id));
+    assert.equal((await call('POST', '/api/auth/demo-login', { role: 'volunteer' })).status, 403, 'banned demo account');
+  } finally {
+    await db.update(users).set({ bannedUntil: dan!.bannedUntil }).where(eq(users.id, dan!.id));
+  }
 });
 
 // --- Removed Google sign-in and push subscriptions ----------------------

@@ -19,7 +19,7 @@ Backend (`cd backend`):
 - `npm start` — run compiled `dist/server.js`. This is what the prod Docker image runs (no `tsx` in prod).
 - `npm run db:generate` — drizzle-kit: turn `db/schema.ts` changes into a new SQL migration in `backend/drizzle/`.
 - `npm run db:migrate` — apply pending migrations to `DATABASE_URL` (via `tsx`). Prod runs the compiled `node dist/db/migrate.js` as the one-shot `migrate` compose service.
-- `npm run db:seed` — wipe the database and load the dev/demo dataset, demo cover images included (`scripts/seed.ts`; prints the generated password for the `demo-*@demo.volunteerhub.test` accounts). In production only two flags run, via the compiled `node dist/scripts/seed.js`: `--append` adds the demo data without wiping, and needs `SEED_DEMO_PASSWORD`. `--covers` only sets the demo covers from `scripts/demo-covers/` on existing demo events and is safe to re-run. `npm run check:seed` covers both.
+- `npm run db:seed` — wipe the database and load the dev/demo dataset, demo cover images included (`scripts/seed.ts`; prints the generated password for the `demo-*@demo.volunteerhub.test` accounts). In production only three flags run, via the compiled `node dist/scripts/seed.js`: `--append` adds the demo data without wiping, and needs `SEED_DEMO_PASSWORD`. `--reset-demo` deletes the demo users (and by cascade all they own) and appends again in one transaction; the `demo-reset` compose service runs it nightly. `--covers` only sets the demo covers from `scripts/demo-covers/` on existing demo events and is safe to re-run. `npm run check:seed` covers all three.
 
 Frontend (`cd frontend`):
 - `npm run dev` — Vite dev server (default port 5173).
@@ -35,6 +35,8 @@ First-time setup: `npm i` in both `backend/` and `frontend/`, configure `backend
 ## Environment
 
 `backend/.env` (required keys): `PORT`, `BACKEND_URL`, `FRONTEND_URL`, `JWT_SECRET`, `EMAIL_USERNAME`/`EMAIL_PASSWORD` (nodemailer OTP), `DATABASE_URL` + `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (PostgreSQL; the prod `postgres` container reads the trio from this same file, so they must agree with `DATABASE_URL`).
+
+`SIGNUP_ENABLED` (optional): public sign-up is open only when it is exactly `true`, read per request. Otherwise `POST /api/auth/register` answers 403 and the frontend, which learns the flag from `GET /api/auth/config`, hides every sign-up link and redirects `/register` to `/login`. Login, demo login, OTP verification, password reset and admin-created users ignore it. `check:users` needs it set to `true`, as CI does.
 
 `.env.backup` (prod VM only, next to `docker-compose.prod.yml`): the OCI bucket's write key for the `backup` service (`backup/`): `OCI_S3_ENDPOINT`, `OCI_S3_REGION`, `OCI_S3_BUCKET`, `OCI_S3_ACCESS_KEY_ID`, `OCI_S3_SECRET_ACCESS_KEY`.
 

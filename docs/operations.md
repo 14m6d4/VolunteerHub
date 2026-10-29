@@ -27,6 +27,18 @@ The `backup` container ([`backup/`](../backup/)) runs `pg_dump` once a day and u
 
 Uploaded images are not backed up; [ADR 0002](adr/0002-store-uploads-on-the-vm.md) explains the decision.
 
+## Demo reset
+
+Anyone can edit and delete data as a demo account, so the `demo-reset` container rebuilds it every night at 21:00 UTC. It runs `node dist/scripts/seed.js --reset-demo`, which deletes every `@demo.volunteerhub.test` user (their events, posts, comments and the rest go with them through the foreign keys, as do their uploaded images) and adds the demo dataset again, covers included, in one transaction. No other account is touched, but what real users wrote on demo content goes too, and demo sessions from before the reset stop working. Each run logs `demo reset ok`, `demo reset failed: exit N`, or `demo reset skipped: SEED_DEMO_PASSWORD is unset` when `backend/.env` has no demo password.
+
+To reset by hand on the VM, from the directory that holds `docker-compose.prod.yml`:
+
+```sh
+docker compose -f docker-compose.prod.yml run --rm demo-reset node dist/scripts/seed.js --reset-demo
+```
+
+To change the hour, edit `DEMO_RESET_HOUR_UTC` on the service in `docker-compose.prod.yml` (keep it clear of the backup's 20 UTC and the 02:00-05:00 UTC reclaim guard). To disable the schedule, remove the service from that file; `docker compose stop demo-reset` lasts only until the next deploy recreates it.
+
 ## Restore check
 
 Once a month, [`restore-check.yml`](../.github/workflows/restore-check.yml) downloads the newest dump with a read-only key, restores it into a throwaway Postgres, checks that users and an admin exist, and records how long the restore took. A failure posts to Discord, and the restore badge at the top of the README shows the result of the latest run.

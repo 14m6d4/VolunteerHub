@@ -36,13 +36,14 @@ export const getEventRow = async (eventId: string) => {
 /**
  * The cover images of the matching events and the images of their posts (on
  * the event or in its discussion): the files deleting those events orphans,
- * since the posts go with them through foreign keys.
+ * since the posts go with them through foreign keys. Pass the transaction that
+ * deletes them as `conn` so the read and the delete share it.
  */
-export async function imagesDeletedWithEvents(where: SQL) {
-  const ids = db.select({ id: events.id }).from(events).where(where);
+export async function imagesDeletedWithEvents(where: SQL, conn: Pick<typeof db, 'select'> = db) {
+  const ids = conn.select({ id: events.id }).from(events).where(where);
   const [covers, postImages] = await Promise.all([
-    db.select({ image: events.image }).from(events).where(where),
-    db.select({ image: posts.image }).from(posts)
+    conn.select({ image: events.image }).from(events).where(where),
+    conn.select({ image: posts.image }).from(posts)
       .leftJoin(discussions, eq(discussions.id, posts.discussionId))
       .where(or(inArray(posts.eventId, ids), inArray(discussions.eventId, ids))),
   ]);

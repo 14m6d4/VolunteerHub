@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { useState } from 'react'
-import useAuth from '@/hooks/useAuth'
+import useAuth, { useSignupEnabled } from '@/hooks/useAuth'
 
 function stripHtml(html: string) {
   return html.replace(/<[^>]*>/g, '').trim()
@@ -53,22 +53,25 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
-  const { login } = useAuth()
+  const { login, demoLogin } = useAuth()
+  const { signupEnabled } = useSignupEnabled()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [errorDetails, setErrorDetails] = useState<string[] | null>(null)
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
-    const form = e.currentTarget
-    const formData = new FormData(form)
+    const formData = new FormData(e.currentTarget)
     const email = (formData.get('email') as string) || undefined
     const password = (formData.get('password') as string) || ''
+    return signIn(() => login({ email, password }))
+  }
 
+  async function signIn(attempt: () => Promise<unknown>) {
+    setError(null)
+    setLoading(true)
     try {
-      await login({ email, password })
+      await attempt()
       window.location.href = '/feed'
     } catch (err) {
       const raw = (err instanceof Error ? err.message : '') || String(err) || 'Login failed'
@@ -121,12 +124,25 @@ export function LoginForm({
         )}
         <Field>
           <Button type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Login'}</Button>
-          <FieldDescription className="text-center">
-            Don&apos;t have an account?{" "}
-            <a href="/register" className="underline underline-offset-4">
-              Sign up
-            </a>
-          </FieldDescription>
+          {signupEnabled && (
+            <FieldDescription className="text-center">
+              Don&apos;t have an account?{" "}
+              <a href="/register" className="underline underline-offset-4">
+                Sign up
+              </a>
+            </FieldDescription>
+          )}
+        </Field>
+        <Field>
+          <FieldDescription className="text-center">Just looking around? Sign in to a demo account.</FieldDescription>
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="button" variant="outline" disabled={loading} onClick={() => signIn(() => demoLogin('volunteer'))}>
+              Try as volunteer
+            </Button>
+            <Button type="button" variant="outline" disabled={loading} onClick={() => signIn(() => demoLogin('manager'))}>
+              Try as manager
+            </Button>
+          </div>
         </Field>
       </FieldGroup>
     </form>
