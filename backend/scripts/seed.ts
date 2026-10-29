@@ -92,14 +92,15 @@ if (process.argv.includes('--covers')) {
 }
 
 const reset = process.argv.includes('--reset-demo');
-const append = reset || process.argv.includes('--append');
+// Keep the non-demo data and add no demo admin: what production allows.
+const keepNonDemoData = reset || process.argv.includes('--append');
 // Dropping data or adding a demo admin has no place in production.
-if (process.env.NODE_ENV === 'production' && !append) {
+if (process.env.NODE_ENV === 'production' && !keepNonDemoData) {
   console.error('Refusing to seed: NODE_ENV is production (use --append or --reset-demo).');
   process.exit(1);
 }
 
-const password = append ? process.env.SEED_DEMO_PASSWORD ?? '' : randomBytes(9).toString('base64url');
+const password = keepNonDemoData ? process.env.SEED_DEMO_PASSWORD ?? '' : randomBytes(9).toString('base64url');
 if (password.length < 12) {
   console.error('Refusing to seed: --append and --reset-demo need SEED_DEMO_PASSWORD of at least 12 characters.');
   process.exit(1);
@@ -116,26 +117,30 @@ const demoUser = (name: string, role: 'volunteer' | 'manager' | 'admin') => ({
   isVerified: true,
 });
 
-// The files the reset's cascades orphan: what the demo users uploaded, and the
-// covers and post images of their events (posts real users wrote there included).
 const demoEmail = like(users.email, `%@${DEMO_EMAIL_DOMAIN}`);
-const demoIds = db.select({ id: users.id }).from(users).where(demoEmail);
-const orphans = reset ? (await Promise.all([
-  db.select({ image: users.profilePicture }).from(users).where(demoEmail),
-  db.select({ image: posts.image }).from(posts).where(inArray(posts.authorId, demoIds)),
-])).flat().map((r) => r.image).concat(await imagesDeletedWithEvents(inArray(events.managerId, demoIds))) : [];
 
 // One transaction: a failed reset leaves the old demo data in place.
-const { managers, volunteers, eventRows, dan, gia } = await db.transaction(async (tx) => {
-  // Every demo user, and through the foreign keys all they own; no one else.
-  if (reset) await tx.delete(users).where(demoEmail);
+const seedAll = () => db.transaction(async (tx) => {
+  // The files the reset's cascades orphan: what the demo users uploaded, and the
+  // covers and post images of their events (posts real users wrote there included).
+  // Read in the delete's transaction, and the avatars from the delete itself.
+  const orphans: (string | null)[] = [];
+  if (reset) {
+    const demoIds = tx.select({ id: users.id }).from(users).where(demoEmail);
+    const postImages = await tx.select({ image: posts.image }).from(posts).where(inArray(posts.authorId, demoIds));
+    orphans.push(...postImages.map((r) => r.image));
+    orphans.push(...await imagesDeletedWithEvents(inArray(events.managerId, demoIds), tx));
+    // Every demo user, and through the foreign keys all they own; no one else.
+    const deleted = await tx.delete(users).where(demoEmail).returning({ image: users.profilePicture });
+    orphans.push(...deleted.map((r) => r.image));
+  }
   // Children first, so the order doesn't depend on cascades.
-  if (!append) for (const table of [
+  if (!keepNonDemoData) for (const table of [
     commentLikes, postLikes, comments, posts, discussions, registrations, notifications, reports,
     friendships, friendRequests, pushSubscriptions, events, users,
   ]) await tx.delete(table);
 
-  if (!append) await tx.insert(users).values(demoUser('admin', 'admin'));
+  if (!keepNonDemoData) await tx.insert(users).values(demoUser('admin', 'admin'));
   const managers = await tx.insert(users)
     .values(['ava', 'ben', 'chloe'].map((n) => demoUser(n, 'manager'))).returning();
   const volunteers = await tx.insert(users)
@@ -206,18 +211,27 @@ const { managers, volunteers, eventRows, dan, gia } = await db.transaction(async
   await tx.insert(reports).values({
     reporterId: eve.id, targetId: postRows[1]!.id, targetType: 'post', reason: 'spam', description: 'Demo report for the admin queue.',
   });
-  return { managers, volunteers, eventRows, dan, gia };
+  return { managers, volunteers, eventRows, dan, gia, orphans };
 });
 
+// The raw error is a Drizzle query error whose params hold the demo password's
+// bcrypt hash, and container stdout is shipped, so log only the SQLSTATE.
+const seeded = await seedAll().catch((err: { code?: string; cause?: { code?: string } }) => {
+  console.error(`Seeding failed (SQLSTATE ${err?.cause?.code ?? err?.code ?? 'unknown'}); the transaction rolled back.`);
+  return process.exit(1);
+});
+const { managers, volunteers, eventRows, dan, gia, orphans } = seeded;
+
 await deleteImages(...orphans);
+// After the commit, not through tx: setCovers copies files and is shared with
+// --covers, and notify writes through db (the one writer of notification rows).
 await setCovers();
-// Through notify, the one writer of notification rows, which runs after the commit.
 await notify({ userId: dan.id }, NotificationType.EVENT_UPDATED, { eventId: eventRows[0]!.id, eventTitle: eventRows[0]!.title }, managers[0]!.id);
 await notify({ userId: dan.id }, NotificationType.FRIEND_REQUEST_RECEIVED, { senderId: gia.id }, gia.id);
 
-console.log(`Seeded ${managers.length + volunteers.length + (append ? 0 : 1)} accounts, ${eventRows.length} events.`);
-if (!append) console.log(`Password for every account: ${password}`);
-if (!append) console.log('Admin: demo-admin@demo.volunteerhub.test');
+console.log(`Seeded ${managers.length + volunteers.length + (keepNonDemoData ? 0 : 1)} accounts, ${eventRows.length} events.`);
+if (!keepNonDemoData) console.log(`Password for every account: ${password}`);
+if (!keepNonDemoData) console.log('Admin: demo-admin@demo.volunteerhub.test');
 console.log('Managers: demo-ava@, demo-ben@, demo-chloe@demo.volunteerhub.test');
 console.log('Volunteers: demo-dan@ ... demo-omar@demo.volunteerhub.test');
 await closeDb();
