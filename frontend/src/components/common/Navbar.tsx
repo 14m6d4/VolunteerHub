@@ -597,7 +597,8 @@ export const Navbar01 = React.forwardRef<HTMLElement, Navbar01Props>(
                 >
                   {signInText}
                 </Button>
-                {(onCtaClick || signupEnabled) && (
+                {/* The CTA is a sign-up button, so it goes when sign-up is closed. */}
+                {signupEnabled && (
                   <Button
                     size="sm"
                     className="text-sm font-medium px-4 h-9 rounded-md shadow-sm"
