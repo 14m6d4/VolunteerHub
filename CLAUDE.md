@@ -36,6 +36,8 @@ First-time setup: `npm i` in both `backend/` and `frontend/`, configure `backend
 
 `backend/.env` (required keys): `PORT`, `BACKEND_URL`, `FRONTEND_URL`, `JWT_SECRET`, `EMAIL_USERNAME`/`EMAIL_PASSWORD` (nodemailer OTP), `DATABASE_URL` + `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (PostgreSQL; the prod `postgres` container reads the trio from this same file, so they must agree with `DATABASE_URL`).
 
+`SIGNUP_ENABLED` (optional): public sign-up is open only when it is exactly `true`, read per request. Otherwise `POST /api/auth/register` answers 403 and the frontend, which learns the flag from `GET /api/auth/config`, hides every sign-up link and redirects `/register` to `/login`. Login, demo login, OTP verification, password reset and admin-created users ignore it. `check:users` needs it set to `true`, as CI does.
+
 `.env.backup` (prod VM only, next to `docker-compose.prod.yml`): the OCI bucket's write key for the `backup` service (`backup/`): `OCI_S3_ENDPOINT`, `OCI_S3_REGION`, `OCI_S3_BUCKET`, `OCI_S3_ACCESS_KEY_ID`, `OCI_S3_SECRET_ACCESS_KEY`.
 
 `frontend/.env`: `VITE_API_URL` is the API base used by `services/api.ts` (falls back to `/api`). Point it at the backend, e.g. `http://localhost:5000/api`.

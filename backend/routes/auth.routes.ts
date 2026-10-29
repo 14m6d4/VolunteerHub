@@ -32,6 +32,13 @@ router.post(
 );
 
 /**
+ * @route GET /api/auth/config
+ * @description Public auth settings the frontend needs: { signupEnabled }
+ * @access Public
+ */
+router.get('/config', authController.getConfig);
+
+/**
  * @route POST /api/auth/register
  * @description User registration (Volunteer/Manager)
  * @access Public

@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { useState } from 'react'
-import useAuth from '@/hooks/useAuth'
+import useAuth, { useSignupEnabled } from '@/hooks/useAuth'
 
 function stripHtml(html: string) {
   return html.replace(/<[^>]*>/g, '').trim()
@@ -54,6 +54,7 @@ export function LoginForm({
   ...props
 }: React.ComponentProps<"form">) {
   const { login, demoLogin } = useAuth()
+  const { signupEnabled } = useSignupEnabled()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [errorDetails, setErrorDetails] = useState<string[] | null>(null)
@@ -123,12 +124,14 @@ export function LoginForm({
         )}
         <Field>
           <Button type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Login'}</Button>
-          <FieldDescription className="text-center">
-            Don&apos;t have an account?{" "}
-            <a href="/register" className="underline underline-offset-4">
-              Sign up
-            </a>
-          </FieldDescription>
+          {signupEnabled && (
+            <FieldDescription className="text-center">
+              Don&apos;t have an account?{" "}
+              <a href="/register" className="underline underline-offset-4">
+                Sign up
+              </a>
+            </FieldDescription>
+          )}
         </Field>
         <Field>
           <FieldDescription className="text-center">Just looking around? Sign in to a demo account.</FieldDescription>

@@ -5,7 +5,8 @@
  * authz-check: boot the exported app on an ephemeral port and assert on HTTP
  * responses.
  *
- * Needs a migrated PostgreSQL (DATABASE_URL). Run with: npm run check:users
+ * Needs a migrated PostgreSQL (DATABASE_URL) and SIGNUP_ENABLED=true, as CI
+ * sets; the closed state is checked by unsetting it. Run with: npm run check:users
  * Test accounts are prefixed zz_ and removed afterwards.
  */
 import assert from 'node:assert/strict';
@@ -75,6 +76,34 @@ const mkUser = async (n: string, role: 'volunteer' | 'manager' | 'admin', passwo
 const rowOf = async (id: string) => (await db.select().from(users).where(eq(users.id, id)))[0];
 
 // --- sign-up, verification, login ----------------------------------------
+
+await check('sign-up is closed unless SIGNUP_ENABLED is exactly true', async () => {
+  const prev = process.env.SIGNUP_ENABLED;
+  try {
+    for (const value of [undefined, 'yes', 'TRUE']) {
+      if (value === undefined) delete process.env.SIGNUP_ENABLED;
+      else process.env.SIGNUP_ENABLED = value;
+      const reg = await call('POST', '/api/auth/register', {
+        username: uname('closed'), email: mail('closed'), password: PASSWORD, birthdate: '1995-05-05T00:00:00.000Z',
+      });
+      assert.equal(reg.status, 403, `SIGNUP_ENABLED=${value}: ${JSON.stringify(reg.data)}`);
+      assert.equal(reg.data.message, 'Sign-up is closed');
+      const config = await call('GET', '/api/auth/config');
+      assert.equal(config.status, 200);
+      assert.deepEqual(config.data, { success: true, data: { signupEnabled: false } });
+    }
+    assert.equal((await db.select().from(users).where(eq(users.email, mail('closed')))).length, 0, 'account created while closed');
+  } finally {
+    if (prev === undefined) delete process.env.SIGNUP_ENABLED;
+    else process.env.SIGNUP_ENABLED = prev;
+  }
+});
+
+await check('SIGNUP_ENABLED=true opens sign-up and says so in /auth/config', async () => {
+  assert.equal(process.env.SIGNUP_ENABLED, 'true', 'run this check with SIGNUP_ENABLED=true, as CI does');
+  const config = await call('GET', '/api/auth/config');
+  assert.deepEqual(config.data, { success: true, data: { signupEnabled: true } });
+});
 
 await check('DISABLE_EMAIL_OTP signs up verified, with no code to enter', async () => {
   process.env.DISABLE_EMAIL_OTP = 'true';

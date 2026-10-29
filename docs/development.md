@@ -52,6 +52,7 @@ The frontend reads the API address from `VITE_API_URL` in `frontend/.env`, for e
 | `EMAIL_USERNAME`, `EMAIL_PASSWORD` | the mailbox that sends verification codes |
 | `TRUST_PROXY` | reverse proxies in front of the API: 0 locally, 1 in production |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | optional first admin; leave unset to skip |
+| `SIGNUP_ENABLED` | `true` opens public sign-up; unset or any other value closes it, and the frontend hides every sign-up link |
 
 `backend/.env.example` explains each key.
 
@@ -100,7 +101,7 @@ Edit `backend/db/schema.ts`, then run `npm run db:generate` to write a new SQL m
 
 ## Checks
 
-The project has no unit test framework. Behaviour checks are scripts that start the real app and call it over HTTP. They need `DATABASE_URL` pointing at a migrated Postgres, and CI runs all of them.
+The project has no unit test framework. Behaviour checks are scripts that start the real app and call it over HTTP. They need `DATABASE_URL` pointing at a migrated Postgres, and CI runs all of them. `check:users` signs accounts up, so run it with `SIGNUP_ENABLED=true`, as CI does.
 
 | Script | Covers |
 | --- | --- |

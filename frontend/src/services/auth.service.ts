@@ -1,4 +1,4 @@
-import apiFetch, { setAuthToken, clearAuth } from './api';
+import apiFetch, { apiData, setAuthToken, clearAuth } from './api';
 
 export { setAuthToken, clearAuth };
 
@@ -43,6 +43,9 @@ export const login = (payload: LoginPayload) => signIn('/auth/login', payload);
 
 /** One-click sign-in as the shared demo volunteer or manager. */
 export const demoLogin = (role: DemoRole) => signIn('/auth/demo-login', { role });
+
+/** Public auth settings: whether sign-up is open. */
+export const getAuthConfig = () => apiData<{ signupEnabled: boolean }>('/auth/config');
 
 export async function getProfile() {
   const data = await apiFetch<AuthResponse>('/auth/me');

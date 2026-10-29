@@ -99,7 +99,14 @@ function signIn(row: typeof users.$inferSelect): IAuthResponse {
   };
 }
 
+/** Public sign-up is off unless SIGNUP_ENABLED is exactly 'true'. Read per request, like DISABLE_EMAIL_OTP. */
+export const isSignupEnabled = () => process.env.SIGNUP_ENABLED === 'true';
+
 export async function registerUser(data: IRegisterDTO): Promise<IUserDocument> {
+  if (!isSignupEnabled()) {
+    throw new AppError('Sign-up is closed', 403);
+  }
+
   const { username, password, birthdate, role, name } = data;
   const email = normalizeEmail(data.email);
 

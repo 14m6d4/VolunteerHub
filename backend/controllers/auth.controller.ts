@@ -1,5 +1,5 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import { loginUser, loginDemoUser, registerUser, verifyUserOTP, sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtp, getAuthenticatedUser } from '../services/auth.service.ts';
+import { loginUser, loginDemoUser, registerUser, verifyUserOTP, sendPasswordResetOtp, verifyPasswordResetOtp, resetPasswordWithOtp, getAuthenticatedUser, isSignupEnabled } from '../services/auth.service.ts';
 import { createAccessToken, verifyToken } from '../utils/jwt.util.ts';
 import { type ITokenPayload } from '../types/user.ts';
 
@@ -30,6 +30,10 @@ export async function demoLogin(req: Request, res: Response, next: NextFunction)
   } catch (error) {
     next(error);
   }
+}
+
+export function getConfig(_req: Request, res: Response): void {
+  res.json({ success: true, data: { signupEnabled: isSignupEnabled() } });
 }
 
 export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
