@@ -16,6 +16,7 @@ import { closeDb, db } from '../db/client.ts';
 import { events, registrations, users } from '../db/schema.ts';
 import { EventService } from '../services/event.service.ts';
 import { hashPassword } from '../utils/password.util.ts';
+import { DEMO_EMAIL_DOMAIN } from '../utils/demo.util.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
 
@@ -55,9 +56,9 @@ const check = async (name: string, fn: () => Promise<void>) => {
 };
 
 const PASSWORD = 'Passw0rdLong1';
-const mkUser = async (n: string, role: 'volunteer' | 'manager' | 'admin') => {
+const mkUser = async (n: string, role: 'volunteer' | 'manager' | 'admin', email = `zz_${n}_${stamp}@test.local`) => {
   const [row] = await db.insert(users).values({
-    username: `zz_${n}_${stamp}`, email: `zz_${n}_${stamp}@test.local`, passwordHash: await hashPassword(PASSWORD),
+    username: `zz_${n}_${stamp}`, email, passwordHash: await hashPassword(PASSWORD),
     name: n, birthdate: new Date('1990-01-01'), role, isVerified: true,
   }).returning();
   return { id: row!.id, token: createAccessToken({ id: row!.id, email: row!.email, role: role as UserRole }) };
@@ -377,6 +378,15 @@ await check('deleting an event removes its registrations, and a manager takes th
   assert.equal((await call('DELETE', `/api/users/admin/${doomed.id}`, undefined, admin.token)).status, 200);
   assert.equal((await db.select().from(events).where(eq(events.id, ev!.id))).length, 0, 'no orphaned event');
   assert.equal(await regRow(reg!.id), undefined, 'no orphaned registration');
+});
+
+await check('a demo manager cannot delete its own event', async () => {
+  const demo = await mkUser('demomgr', 'manager', `zz_demomgr_${stamp}@${DEMO_EMAIL_DOMAIN}`);
+  const [ev] = await db.insert(events).values({ title: title('demo'), startAt: new Date(Date.now() + DAY), managerId: demo.id }).returning();
+  const del = await call('DELETE', `/api/events/${ev!.id}`, undefined, demo.token);
+  assert.equal(del.status, 403, JSON.stringify(del.data));
+  assert.match(del.data.message, /Demo accounts can't delete events/);
+  assert.equal((await db.select().from(events).where(eq(events.id, ev!.id))).length, 1, 'event is still there');
 });
 
 out.forEach((line) => console.log(line));

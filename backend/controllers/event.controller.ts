@@ -103,7 +103,7 @@ export const EventController = {
     },
     async delete(req: Request, res: Response, next: NextFunction) {
         try {
-            await EventService.deleteEvent(req.params.id as string, (req.user as any)._id, (req.user as any).role);
+            await EventService.deleteEvent(req.params.id as string, (req.user as any)._id, (req.user as any).role, (req.user as any).email);
             return res.json({ success: true, message: "Event deleted" });
         } catch (err) {
             next(err);

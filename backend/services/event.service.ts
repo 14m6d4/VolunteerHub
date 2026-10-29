@@ -13,6 +13,7 @@ import { deleteImages, saveImage } from "./image.service.ts";
 import { getPostRow, postLikerIds, toPost } from "../utils/post.util.ts";
 import { containsPattern } from "../utils/sql.util.ts";
 import { isUuid, toLean } from "../utils/user.util.ts";
+import { isDemoAccount } from "../utils/demo.util.ts";
 
 /** The fields a create or update may set; anything else in the payload is ignored. */
 type EventInput = Partial<Pick<typeof events.$inferInsert,
@@ -282,11 +283,13 @@ export const EventService = {
         };
     },
 
-    async deleteEvent(eventId: string, actorId: string, actorRole: string) {
+    async deleteEvent(eventId: string, actorId: string, actorRole: string, actorEmail: string) {
         // Lookup and authorization sit outside the try: the catch below turns
         // everything into a 500, which would mask the 404 and the 403.
         const event = await getEventRow(eventId);
         if (!event) throw createHttpError(404, "Event not found");
+        // The next visitor comes to see the demo events; edits are undone by the demo reset (#111).
+        if (isDemoAccount(actorEmail)) throw createHttpError(403, "Demo accounts can't delete events");
         await ModerationService.assertModerator({ id: actorId, role: actorRole }, { event });
 
         try {

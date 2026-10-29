@@ -34,6 +34,7 @@ import {
 } from '../db/schema.ts';
 import { UPLOADS_DIR } from '../services/image.service.ts';
 import { hashPassword } from '../utils/password.util.ts';
+import { DEMO_EMAIL_DOMAIN } from '../utils/demo.util.ts';
 import { notify } from '../services/notification.service.ts';
 import { NotificationType } from '../types/notification.ts';
 
@@ -63,7 +64,7 @@ const eventSpecs = [
  */
 async function setCovers() {
   await mkdir(UPLOADS_DIR, { recursive: true });
-  const demoManagers = db.select({ id: users.id }).from(users).where(like(users.email, '%@demo.volunteerhub.test'));
+  const demoManagers = db.select({ id: users.id }).from(users).where(like(users.email, `%@${DEMO_EMAIL_DOMAIN}`));
   let updated = 0;
   for (const { title } of eventSpecs) {
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -101,7 +102,7 @@ const from = (days: number, hours = 9) => new Date(Date.now() + days * day + hou
 const demoUser = (name: string, role: 'volunteer' | 'manager' | 'admin') => ({
   username: `demo_${name}`,
   name: `Demo ${name[0]!.toUpperCase()}${name.slice(1)}`,
-  email: `demo-${name}@demo.volunteerhub.test`,
+  email: `demo-${name}@${DEMO_EMAIL_DOMAIN}`,
   passwordHash,
   role,
   isVerified: true,

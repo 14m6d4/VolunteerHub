@@ -16,6 +16,7 @@ import { db } from '../db/client.ts';
 import { pushSubscriptions, users } from '../db/schema.ts';
 import { seedAdminUser } from '../services/user.service.ts';
 import { hashPassword } from '../utils/password.util.ts';
+import { DEMO_EMAIL_DOMAIN } from '../utils/demo.util.ts';
 import { createAccessToken, generateAuthToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
 
@@ -63,9 +64,9 @@ const PASSWORD = 'Passw0rdLong1';
 const mail = (n: string) => `zz_${n}_${stamp}@test.local`;
 const uname = (n: string) => `zz_${n}_${stamp}`;
 
-const mkUser = async (n: string, role: 'volunteer' | 'manager' | 'admin', password = PASSWORD) => {
+const mkUser = async (n: string, role: 'volunteer' | 'manager' | 'admin', password = PASSWORD, email = mail(n)) => {
   const [row] = await db.insert(users).values({
-    username: uname(n), email: mail(n), passwordHash: await hashPassword(password), name: n,
+    username: uname(n), email, passwordHash: await hashPassword(password), name: n,
     birthdate: new Date('1990-01-01'), role, isVerified: true,
   }).returning();
   const token = createAccessToken({ id: row!.id, email: row!.email, role: role as UserRole });
@@ -293,7 +294,33 @@ await check('profile edit: fields, password change and username clash', async ()
   assert.equal(ok.status, 200, JSON.stringify(ok.data));
   assert.equal((await call('POST', '/api/auth/login', { email: mail('prof'), password: 'BrandNewPass1' })).status, 200);
   assert.equal((await call('POST', '/api/auth/login', { email: mail('prof'), password: PASSWORD })).status, 401);
-  void other;
+
+  const renamed = await call('PATCH', '/api/users/profile/secure', { username: uname('other2') }, other.token);
+  assert.equal(renamed.status, 200, JSON.stringify(renamed.data));
+  assert.equal(renamed.data.user.username, uname('other2'));
+});
+
+await check('a demo account cannot change its password or username, but edits the rest', async () => {
+  const demoMail = `zz_demo_${stamp}@${DEMO_EMAIL_DOMAIN}`;
+  const demo = await mkUser('demo', 'volunteer', PASSWORD, demoMail);
+
+  const pw = await call('PATCH', '/api/users/profile/secure', { password: 'BrandNewPass1', currentPassword: PASSWORD }, demo.token);
+  assert.equal(pw.status, 403, JSON.stringify(pw.data));
+  assert.match(pw.data.message, /Demo accounts can't change their password/);
+  assert.equal((await call('POST', '/api/auth/login', { email: demoMail, password: PASSWORD })).status, 200, 'old password still works');
+
+  const rename = await call('PATCH', '/api/users/profile/secure', { name: 'Renamed', username: uname('demo2') }, demo.token);
+  assert.equal(rename.status, 403, JSON.stringify(rename.data));
+  assert.match(rename.data.message, /Demo accounts can't change their username/);
+  const row = await rowOf(demo.id);
+  assert.equal(row!.username, uname('demo'));
+  assert.equal(row!.name, 'demo', 'nothing in a refused request is saved');
+
+  // The settings page always sends the username back; unchanged, it is not a change.
+  const edit = await call('PATCH', '/api/users/profile/secure', { name: 'Dee', username: uname('demo'), notifyOnMention: false }, demo.token);
+  assert.equal(edit.status, 200, JSON.stringify(edit.data));
+  assert.equal(edit.data.user.name, 'Dee');
+  assert.equal(edit.data.user.notifyOnMention, false);
 });
 
 await check('forgotten password: OTP, verify, reset, and reuse is refused', async () => {

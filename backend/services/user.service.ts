@@ -9,6 +9,7 @@ import { RegistrationStatus } from '../types/registration.ts';
 import { comparePassword, hashPassword } from '../utils/password.util.ts';
 import { isUniqueViolation, isUuid, normalizeEmail, toLean, toUser } from '../utils/user.util.ts';
 import { containsPattern } from '../utils/sql.util.ts';
+import { isDemoAccount } from '../utils/demo.util.ts';
 import { countFriends, listFriends } from './friendship.service.ts';
 import { imagesDeletedWithEvents } from '../utils/event.util.ts';
 import { deleteImages, saveImage } from './image.service.ts';
@@ -39,6 +40,14 @@ export async function updateProfileWithPasswordCheck(
   }
 
   const isChangingPassword = !!(updateData as any).password;
+
+  // Demo accounts are shared: a new password or username would spoil them for the next visitor.
+  if (isDemoAccount(user.email)) {
+    if (isChangingPassword) throw new AppError("Demo accounts can't change their password", 403);
+    if (updateData.username && updateData.username !== user.username) {
+      throw new AppError("Demo accounts can't change their username", 403);
+    }
+  }
 
   if (isChangingPassword && user.authProvider === 'local') {
     if (!currentPassword) {

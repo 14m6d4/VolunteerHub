@@ -13,6 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { EventReportsDialog } from '@/components/event/event-reports-dialog';
 import type { Event } from '@/types/event';
+import { useAuth } from '@/hooks/useAuth';
+import { isDemoAccount } from '@/utils/demo';
 
 interface ManagerEventCardProps {
   event: Event;
@@ -34,6 +36,8 @@ export const ManagerEventCard = ({
   onReportAction,
 }: ManagerEventCardProps) => {
   const [reportsDialogOpen, setReportsDialogOpen] = useState(false);
+  const { user } = useAuth();
+  const demo = isDemoAccount(user?.email);
 
   const getStatusBadge = () => {
     switch (event.managerStatus) {
@@ -97,9 +101,10 @@ export const ManagerEventCard = ({
                 <DropdownMenuItem
                   onClick={(e) => handleMenuAction(e, () => onDelete(event))}
                   className="text-destructive focus:text-destructive"
+                  disabled={demo}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Event
+                  {demo ? "Demo accounts can't delete events" : 'Delete Event'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

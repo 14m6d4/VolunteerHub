@@ -9,6 +9,7 @@ import { updateProfile } from '@/services/user.service'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import type { UpdateProfilePayload } from '@/types/user'
+import { isDemoAccount } from '@/utils/demo'
 
 interface AccountSettingsProps {
   avatarFile?: File | null
@@ -28,8 +29,11 @@ export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsPr
 
   if (!user) return <div>Loading...</div>
 
+  // A demo visitor signs in with one click and never learns the shared password.
+  const demo = isDemoAccount(user.email)
+
   const onSaveProfile = async (): Promise<void> => {
-    if (!currentPassword) {
+    if (!demo && !currentPassword) {
       toast.error('Please enter your current password')
       return
     }
@@ -39,7 +43,7 @@ export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsPr
       const updateData: UpdateProfilePayload = {
         name: fullname,
         username: username,
-        currentPassword
+        ...(demo ? {} : { currentPassword })
       }
 
       if (avatarFile) {
@@ -114,52 +118,68 @@ export function AccountSettings({ avatarFile, onAvatarSaved }: AccountSettingsPr
           </div>
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
-            <Input id="username" value={username} onChange={e => setUsername(e.target.value)} />
-            <p className="text-xs text-muted-foreground">Your unique username</p>
+            <Input id="username" value={username} onChange={e => setUsername(e.target.value)}
+              disabled={demo} className={demo ? "bg-muted" : undefined} />
+            <p className="text-xs text-muted-foreground">
+              {demo ? "Demo accounts can't change their username" : 'Your unique username'}
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" value={email} disabled className="bg-muted" />
             <p className="text-xs text-muted-foreground">Email cannot be changed</p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="current-pass-profile">Current Password (required to save)</Label>
-            <Input
-              id="current-pass-profile"
-              type="password"
-              value={currentPassword}
-              onChange={e => setCurrentPassword(e.target.value)}
-              placeholder="Enter your current password"
-            />
-          </div>
+          {!demo && (
+            <div className="space-y-2">
+              <Label htmlFor="current-pass-profile">Current Password (required to save)</Label>
+              <Input
+                id="current-pass-profile"
+                type="password"
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                placeholder="Enter your current password"
+              />
+            </div>
+          )}
         </div>
         <Separator />
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Change Password</h3>
+        {demo ? (
           <div className="space-y-2">
-            <Label htmlFor="current-password">Current Password</Label>
-            <Input id="current-password" type="password" value={currentPassword}
-              onChange={e => setCurrentPassword(e.target.value)} />
+            <h3 className="text-lg font-medium">Change Password</h3>
+            <p className="text-sm text-muted-foreground">
+              Demo accounts are shared by every visitor, so their password can't be changed.
+            </p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-password">New Password</Label>
-            <Input id="new-password" type="password" value={newPassword}
-              onChange={e => setNewPassword(e.target.value)} />
+        ) : (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Change Password</h3>
+            <div className="space-y-2">
+              <Label htmlFor="current-password">Current Password</Label>
+              <Input id="current-password" type="password" value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input id="new-password" type="password" value={newPassword}
+                onChange={e => setNewPassword(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Input id="confirm-password" type="password" value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)} />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm Password</Label>
-            <Input id="confirm-password" type="password" value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)} />
-          </div>
-        </div>
+        )}
       </CardContent>
       <CardFooter className="flex justify-start gap-2">
         <Button onClick={onSaveProfile} disabled={loading}>
           {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : 'Save Changes'}
         </Button>
-        <Button onClick={onChangePassword} disabled={loading} variant="outline">
-          {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Changing...</> : 'Change Password'}
-        </Button>
+        {!demo && (
+          <Button onClick={onChangePassword} disabled={loading} variant="outline">
+            {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Changing...</> : 'Change Password'}
+          </Button>
+        )}
       </CardFooter>
 
     </Card>
