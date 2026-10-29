@@ -16,6 +16,10 @@ _Avoid_: Owner, host
 For a given event, its event manager or any admin. A post or comment is moderated by the moderators of the event it belongs to; content outside any event is moderated by admins only.
 _Avoid_: Mod, reviewer
 
+**Demo account**:
+A shared account that anyone can sign in to in order to try the platform, as a volunteer or a manager. Its data is restored regularly, so it cannot do anything that would spoil it for the next visitor. There is no demo admin.
+_Avoid_: Test account, guest account
+
 **Discussion**:
 The board attached to an event where users post and comment about it. Every event has exactly one, and it goes away with the event.
 _Avoid_: Group, forum, channel
