@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import path from "path"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from 'vite'
@@ -17,5 +18,10 @@ export default defineConfig({
     proxy: {
       '/uploads': process.env.BACKEND_URL ?? 'http://localhost:5000',
     },
+  },
+  // Unit tests for pure modules only, so no DOM environment.
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
   },
 })
