@@ -95,6 +95,7 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
       # The compiled runner, as the prod image runs it.
       - name: Apply migrations to the empty database

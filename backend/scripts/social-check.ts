@@ -13,7 +13,7 @@ import 'dotenv/config';
 import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
-import { discussions, events, posts, users } from '../db/schema.ts';
+import { discussions, posts, users } from '../db/schema.ts';
 import { hashPassword } from '../utils/password.util.ts';
 import { createAccessToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
@@ -493,7 +493,7 @@ await join(feedB, vol2);
 
 const oldest = await mkPost(feedA, vol2.token, 'oldest');
 const middle = await mkPost(feedA, vol2.token, 'middle');
-const newest = await mkPost(feedA, vol2.token, 'newest');
+await mkPost(feedA, vol2.token, 'newest');
 const inB = await mkPost(feedB, vol2.token, 'in B');
 assert.equal((await call('POST', `/api/posts/${oldest}/like`, undefined, vol.token)).status, 200);
 for (const liker of [vol3, vol2, vol4]) {

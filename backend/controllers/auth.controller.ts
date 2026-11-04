@@ -120,7 +120,7 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
       return;
     }
 
-    const user = await resetPasswordWithOtp(email, otp, password);
+    await resetPasswordWithOtp(email, otp, password);
 
     res.status(200).json({ status: 'success', message: 'Password has been reset.' });
   } catch (error) {
@@ -140,7 +140,7 @@ export async function getMe(req: Request, res: Response, next: NextFunction): Pr
     let payload;
     try {
       payload = verifyToken(token);
-    } catch (err: any) {
+    } catch {
       res.status(401).json({ status: 'fail', message: 'Invalid or expired token.' });
       return;
     }

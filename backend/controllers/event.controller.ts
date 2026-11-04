@@ -1,7 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
 import { EventService } from "../services/event.service.ts";
-import { RegistrationService } from "../services/registration.service.ts";
-import createHttpError from "http-errors";
 
 export const EventController = {
     async create(req: Request, res: Response, next: NextFunction) {
