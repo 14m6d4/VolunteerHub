@@ -26,9 +26,10 @@ Frontend (`cd frontend`):
 - `npm run build` — `tsc -b && vite build`.
 - `npm run lint` — ESLint over the project.
 - `npm run preview` — preview the production build.
+- `npm test` — Vitest (`vitest run`, config in `vite.config.ts`) over `src/**/*.test.ts`: unit tests for the pure modules in `src/lib` and `src/utils`, Node environment, no DOM.
 - `npm run check:csv` — assert-based check of the admin CSV export helper (`src/utils/csv.ts`), run by plain Node with no database.
 
-Behaviour checks are the `backend` scripts `npm run smoke:security` and `npm run check:*`. They need `DATABASE_URL` pointing at a migrated Postgres, and CI runs all of them (`.github/workflows/ci.yml`). There is no test framework (`npm test` errors out). Review rules: `CODING_STANDARDS.md`.
+Behaviour checks are the `backend` scripts `npm run smoke:security` and `npm run check:*`. They need `DATABASE_URL` pointing at a migrated Postgres, and CI runs all of them (`.github/workflows/ci.yml`). The backend has no test framework (`npm test` errors out there); the frontend's `npm test` runs Vitest, also in CI. Review rules: `CODING_STANDARDS.md`.
 
 First-time setup: `npm i` in both `backend/` and `frontend/`, configure `backend/.env` (see below), then run the two dev servers.
 
