@@ -131,6 +131,19 @@ export const adminUpdateUserSchema = z.object({
   birthdate: z.union([z.string(), z.date()]).optional(),
 });
 
+// --- OTP Schemas ---
+// These public routes read req.body straight into the OTP lookups, so a
+// non-string email or otp reached the service. Same field rules as
+// resetPasswordSchema below.
+export const verifyOtpSchema = z.object({
+  email: z.string().email('Email must be valid.'),
+  otp: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits.'),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Email must be valid.'),
+});
+
 // --- Password Reset Schema ---
 // The reset flow set a new password with no validation at all, so it was the
 // one way into an account that ignored the 8-character floor above.
