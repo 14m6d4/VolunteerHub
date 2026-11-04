@@ -18,7 +18,7 @@ import { pushSubscriptions, users } from '../db/schema.ts';
 import { seedAdminUser } from '../services/user.service.ts';
 import { hashPassword } from '../utils/password.util.ts';
 import { DEMO_EMAIL_DOMAIN } from '../utils/demo.util.ts';
-import { createAccessToken, generateAuthToken } from '../utils/jwt.util.ts';
+import { createAccessToken } from '../utils/jwt.util.ts';
 import { UserRole } from '../types/user.ts';
 
 const stamp = Date.now();

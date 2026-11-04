@@ -4,7 +4,6 @@ import { authMiddleware, optionalAuthMiddleware } from "../middlewares/auth.midd
 import { roleMiddleware } from "../middlewares/role.middleware.ts";
 import { validateBody } from "../middlewares/validation.middleware.ts";
 import { createEventSchema, updateEventSchema } from "../utils/validators.ts";
-import registrationRoutes from "./registration.routes.ts";
 
 import { uploadImage } from "../middlewares/upload.middleware.ts";
 
