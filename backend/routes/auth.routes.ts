@@ -58,7 +58,7 @@ router.post(
 router.post(
   '/verify-otp',
   otpLimiter,
-  // TODO: Validation middleware cho email và otp
+  validateBody(validators.verifyOtpSchema),
   authController.verifyOTP
 );
 
@@ -66,7 +66,7 @@ router.post(
 router.post(
   '/forgot-password',
   otpLimiter,
-  // TODO: add validation for { email }
+  validateBody(validators.forgotPasswordSchema),
   authController.forgotPassword
 );
 
@@ -74,7 +74,7 @@ router.post(
 router.post(
   '/verify-reset-otp',
   otpLimiter,
-  // TODO: add validation for { email, otp }
+  validateBody(validators.verifyOtpSchema),
   authController.verifyResetOTP
 );
 

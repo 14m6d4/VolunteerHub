@@ -1,4 +1,4 @@
-import { type Request, type Response, type NextFunction } from 'express';
+import { type Response, type NextFunction } from 'express';
 import * as notificationService from '../services/notification.service.ts';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.ts';
 

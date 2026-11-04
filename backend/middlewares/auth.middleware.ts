@@ -48,7 +48,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
         (req as any).user = user;
         return next();
-    } catch (err) {
+    } catch {
         return next(createHttpError(500, "Authentication failed"));
     }
 }
@@ -75,7 +75,7 @@ export async function optionalAuthMiddleware(req: Request, res: Response, next: 
             (req as any).user = user;
         }
         return next();
-    } catch (err) {
+    } catch {
         return next();
     }
 }

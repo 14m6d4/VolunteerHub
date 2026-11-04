@@ -90,6 +90,33 @@ await check('oversized JSON body is refused', async () => {
     assert.equal(res.status, 413);
 });
 
+// The OTP and forgot-password routes are public, so their bodies must be
+// validated before the handler sees them. The message proves the 400 came from
+// validateBody: the controllers' own checks answer with different text, and a
+// body that got through would reach the OTP lookup. Seven cases, under the
+// otpLimiter cap of 8 these three routes share.
+const malformed: Array<[string, unknown]> = [
+    ['/api/auth/verify-otp', {}],
+    ['/api/auth/verify-otp', { email: 'a@test.local', otp: '12ab56' }],
+    ['/api/auth/verify-otp', { email: { $ne: '' }, otp: '123456' }],
+    ['/api/auth/forgot-password', {}],
+    ['/api/auth/forgot-password', { email: ['a@test.local'] }],
+    ['/api/auth/verify-reset-otp', { email: 'not-an-email', otp: '123456' }],
+    ['/api/auth/verify-reset-otp', { email: 'a@test.local', otp: 123456 }],
+];
+for (const [path, body] of malformed) {
+    await check(`${path} rejects ${JSON.stringify(body)}`, async () => {
+        const res = await fetch(`${base}${path}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        assert.equal(res.status, 400);
+        const { message } = await res.json() as { message?: string };
+        assert.match(message ?? '', /^Validation failed/);
+    });
+}
+
 await check('login is rate limited', async () => {
     const attempt = () => fetch(`${base}/api/auth/login`, {
         method: 'POST',

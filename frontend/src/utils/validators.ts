@@ -7,7 +7,7 @@ export const secureUpdateProfileSchema = z.object({
   birthdate: z.string().optional(),
   // Allow a normal URL, a data URI (base64) or empty string/undefined
   profilePicture: z.union([
-    z.string().url('URL ảnh không hợp lệ'),
+    z.string().url({ protocol: /^https?$/, message: 'URL ảnh không hợp lệ' }),
     z.string().regex(/^data:image\/[a-zA-Z]+;base64,/, 'Invalid image data URL'),
     z.literal(''),
     z.undefined(),

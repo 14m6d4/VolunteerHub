@@ -95,7 +95,7 @@ async function listFeedPosts(eventIds: string[], limit: number, skip: number) {
 }
 
 export const FeedService = {
-    async getFeed({ page = 1, limit = 40, tab = "all" }: { page?: number; limit?: number; tab?: string }, user?: any) {
+    async getFeed({ page = 1, limit = 40 }: { page?: number; limit?: number; tab?: string }, user?: any) {
         const skip = (page - 1) * limit;
         const userId: string | undefined = user?._id?.toString();
 

@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "lint": "eslint .",
     "smoke:security": "tsx scripts/security-smoke.ts",
     "check:authz": "tsx scripts/authz-check.ts",
     "check:users": "tsx scripts/users-check.ts",
@@ -46,6 +46,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
@@ -54,9 +55,12 @@
     "@types/node": "^24.10.1",
     "@types/nodemailer": "^8.0.1",
     "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1"
   },
   "type": "module",
   "overrides": {

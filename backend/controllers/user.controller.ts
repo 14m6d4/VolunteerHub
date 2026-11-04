@@ -4,8 +4,6 @@ import type { UpdateProfileData } from '../types/user.ts';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.ts';
 import AppError from '../utils/appError.ts';
 import * as userService from '../services/user.service.ts';
-import { UserRole } from '../types/user.ts';
-import { roleMiddleware } from '../middlewares/role.middleware.ts';
 import { MAX_IMAGE_BYTES } from '../services/image.service.ts';
 
 export type SecureUpdateProfilePayload = UpdateProfileData & {
