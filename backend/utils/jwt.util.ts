@@ -12,12 +12,17 @@ if (!JWT_SECRET) {
 }
 
 const ACCESS_TOKEN_EXPIRATION = '1d';
+const ACCESS_TOKEN_SECONDS = 24 * 60 * 60;
+// Pinned so a token signed with any other algorithm is refused, whatever the
+// library's defaults become.
+const ALGORITHM = 'HS256';
 
 const REFRESH_TOKEN_EXPIRATION = '7d';
 
 
 export function createAccessToken(payload: ITokenPayload): string {
   const accessToken = jwt.sign(payload, JWT_SECRET, {
+    algorithm: ALGORITHM,
     expiresIn: ACCESS_TOKEN_EXPIRATION,
   });
 
@@ -25,8 +30,10 @@ export function createAccessToken(payload: ITokenPayload): string {
 }
 
 
+// Marked so it can never pass as an access token (see verifyToken).
 export function createRefreshToken(payload: ITokenPayload): string {
-  const refreshToken = jwt.sign(payload, JWT_SECRET, {
+  const refreshToken = jwt.sign({ ...payload, typ: 'refresh' }, JWT_SECRET, {
+    algorithm: ALGORITHM,
     expiresIn: REFRESH_TOKEN_EXPIRATION,
   });
 
@@ -34,13 +41,21 @@ export function createRefreshToken(payload: ITokenPayload): string {
 }
 
 
+/**
+ * Verifies an access token. The refresh token is signed with the same secret
+ * and carries the same claims, so without the checks below it worked as a
+ * Bearer token for seven days. Refused: anything marked as a refresh token, and
+ * anything meant to live longer than an access token, which also covers the
+ * refresh tokens issued before they were marked.
+ */
 export function verifyToken(token: string): ITokenPayload {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as ITokenPayload;
-    return decoded;
-  } catch {
-    throw new Error('Invalid or expired token.');
+  // jwt.verify's own errors (TokenExpiredError, ...) pass through for the logs.
+  const decoded = jwt.verify(token, JWT_SECRET, { algorithms: [ALGORITHM] }) as jwt.JwtPayload;
+  const { typ, iat, exp } = decoded;
+  if (typ !== undefined || typeof iat !== 'number' || typeof exp !== 'number' || exp - iat > ACCESS_TOKEN_SECONDS) {
+    throw new jwt.JsonWebTokenError('not an access token');
   }
+  return decoded as unknown as ITokenPayload;
 }
 
 export function generateAuthToken(user: IUser): string {

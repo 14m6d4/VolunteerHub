@@ -25,7 +25,7 @@ export interface Event {
   managerStatus?: ManagerEventStatus;
   requests?: User[];
   members?: User[];
-  managerId?: string | { _id: string; name: string; email: string };
+  managerId?: string | { _id: string; name: string };
   pendingReportsCount?: number;
 }
 

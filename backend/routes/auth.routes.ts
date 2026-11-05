@@ -3,7 +3,7 @@ import * as authController from '../controllers/auth.controller.ts';
 import validateBody from '../middlewares/validation.middleware.ts';
 import * as validators from '../utils/validators.ts';
 import { authMiddleware } from '../middlewares/auth.middleware.ts';
-import { authLimiter, otpLimiter } from '../middlewares/rateLimit.middleware.ts';
+import { authLimiter, otpLimiter, resetEmailLimiter } from '../middlewares/rateLimit.middleware.ts';
 
 const router = express.Router();
 
@@ -67,6 +67,7 @@ router.post(
   '/forgot-password',
   otpLimiter,
   validateBody(validators.forgotPasswordSchema),
+  resetEmailLimiter,
   authController.forgotPassword
 );
 
