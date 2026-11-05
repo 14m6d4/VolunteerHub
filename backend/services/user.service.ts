@@ -20,6 +20,12 @@ const getRow = async (id: string) => {
   return row;
 };
 
+/**
+ * Revokes every token issued so far (see tokenVersionMatches). .set() takes SQL,
+ * the `changes` objects here are typed as plain column values, hence the cast.
+ */
+const bumpTokenVersion = sql`${users.tokenVersion} + 1` as unknown as number;
+
 export const findUserById = async (id: string): Promise<IUser | null> => {
   const row = await getRow(id);
   return row ? toUser(row) : null;
@@ -92,6 +98,7 @@ export async function updateProfileWithPasswordCheck(
 
   if (input.password) {
     changes.passwordHash = await hashPassword(input.password);
+    changes.tokenVersion = bumpTokenVersion; // revokes the tokens issued before the change
   }
 
   if (picture) changes.profilePicture = await saveImage(picture);
@@ -290,7 +297,10 @@ export const updateUserAdminService = async (userId: string, data: any) => {
   if (data.role !== undefined) changes.role = data.role;
   if (data.isActive !== undefined) changes.isActive = data.isActive;
   if (data.birthdate !== undefined) changes.birthdate = new Date(data.birthdate);
-  if (data.password) changes.passwordHash = await hashPassword(data.password);
+  if (data.password) {
+    changes.passwordHash = await hashPassword(data.password);
+    changes.tokenVersion = bumpTokenVersion;
+  }
 
   try {
     const [row] = await db.update(users).set(changes).where(eq(users.id, userId)).returning();

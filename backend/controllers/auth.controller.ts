@@ -66,7 +66,7 @@ export async function verifyOTP(req: Request, res: Response, next: NextFunction)
 
     const verifiedUser = await verifyUserOTP(email, otp);
 
-    const payload: ITokenPayload = { id: verifiedUser._id.toString(), email: verifiedUser.email, role: verifiedUser.role };
+    const payload: ITokenPayload = { id: verifiedUser._id.toString(), email: verifiedUser.email, role: verifiedUser.role, tv: verifiedUser.tokenVersion };
     const accessToken = createAccessToken(payload);
 
     res.status(200).json({
