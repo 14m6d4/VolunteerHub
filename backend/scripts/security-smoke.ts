@@ -1,15 +1,22 @@
 /**
  * Boots the Express app on an ephemeral port and asserts the security
- * middleware actually applies. Every case is rejected by middleware, but the
- * login attempts that run up the rate limit reach the handler first. Without a
- * database each of those fails on the connection, so it needs a migrated
- * PostgreSQL (DATABASE_URL).
+ * middleware actually applies. Most cases are rejected by middleware, but the
+ * login attempts that run up the rate limit reach the handler first, and the
+ * token, OTP and validation cases further down use accounts of their own
+ * (prefixed zz_, removed afterwards). So it needs a migrated PostgreSQL
+ * (DATABASE_URL).
  *
  * Run with: npm run smoke:security
  */
 import assert from 'node:assert/strict';
+import jwt from 'jsonwebtoken';
+import { like } from 'drizzle-orm';
 import app from '../app.ts';
-import { closeDb } from '../db/client.ts';
+import { closeDb, db } from '../db/client.ts';
+import { users } from '../db/schema.ts';
+import { UserRole } from '../types/user.ts';
+import { createAccessToken, createRefreshToken } from '../utils/jwt.util.ts';
+import { hashPassword } from '../utils/password.util.ts';
 
 const server = app.listen(0);
 await new Promise((r) => server.once('listening', r));
@@ -149,7 +156,53 @@ await check('rotating X-Forwarded-For does not reset the limit', async () => {
     assert.ok(limited, 'a rotating X-Forwarded-For bypassed the rate limit');
 });
 
+// --- cases that need accounts of their own -------------------------------
+
+const stamp = Date.now();
+const mkUser = async (n: string, extra: Partial<typeof users.$inferInsert> = {}) => {
+    const [row] = await db.insert(users).values({
+        username: `zz_${n}_${stamp}`,
+        email: `zz_${n}_${stamp}@test.local`,
+        passwordHash: await hashPassword('Passw0rdLong1'),
+        name: n,
+        birthdate: new Date('1990-01-01'),
+        role: UserRole.Volunteer,
+        isVerified: true,
+        isActive: true,
+        authProvider: 'local',
+        ...extra,
+    }).returning();
+    return row!;
+};
+const holder = await mkUser('holder');
+const claims = { id: holder.id, email: holder.email, role: UserRole.Volunteer };
+const bearer = (token: string) => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
+const accessToken = createAccessToken(claims);
+
+await check('an access token still opens protected routes', async () => {
+    assert.equal((await fetch(`${base}/api/auth/me`, { headers: bearer(accessToken) })).status, 200);
+    assert.equal((await fetch(`${base}/api/notifications`, { headers: bearer(accessToken) })).status, 200);
+});
+
+// The refresh token used to be signed with the same secret and claims, so the
+// 7-day cookie value worked as a Bearer token on every route.
+await check('a refresh token is not accepted as an access token', async () => {
+    const legacy = jwt.sign(claims, process.env.JWT_SECRET!, { expiresIn: '7d' }); // as issued before the typ claim
+    for (const token of [createRefreshToken(claims), legacy]) {
+        assert.equal((await fetch(`${base}/api/auth/me`, { headers: bearer(token) })).status, 401);
+        assert.equal((await fetch(`${base}/api/notifications`, { headers: bearer(token) })).status, 401);
+    }
+});
+
+await check('a token signed with another algorithm is refused', async () => {
+    const hs384 = jwt.sign(claims, process.env.JWT_SECRET!, { algorithm: 'HS384', expiresIn: '1h' });
+    assert.equal((await fetch(`${base}/api/notifications`, { headers: bearer(hs384) })).status, 401);
+});
+
+// Called on the service, not over HTTP: the per-IP otpLimiter would answer 429
+// long before the per-account cap shows, which is the point of having both.
 console.log(results.join('\n'));
 console.log(process.exitCode ? '\nSECURITY SMOKE FAILED' : '\nSECURITY SMOKE PASSED');
+await db.delete(users).where(like(users.username, `zz\\_%\\_${stamp}`));
 server.close();
 await closeDb();

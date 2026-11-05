@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
-import jwt from "jsonwebtoken";
 import { findUserById } from "../services/user.service.ts";
 import { type IUserDocument } from "../types/user.ts";
 import { isBanned, banMessage } from "../utils/ban.util.ts";
+import { verifyToken } from "../utils/jwt.util.ts";
 
 interface JwtPayload {
     id: string;
@@ -23,7 +23,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
         let decoded: JwtPayload;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET!) as unknown as JwtPayload;
+            decoded = verifyToken(token);
         } catch (err: any) {
             console.error("JWT verification failed:", err.name, err.message);
             return next(createHttpError(401, "Invalid or expired token"));
@@ -62,7 +62,7 @@ export async function optionalAuthMiddleware(req: Request, res: Response, next: 
         const token = authHeader.split(" ")[1]!;
         let decoded: JwtPayload;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET!) as unknown as JwtPayload;
+            decoded = verifyToken(token);
         } catch (err: any) {
             console.error("JWT verification failed:", err.name, err.message);
             return next();
