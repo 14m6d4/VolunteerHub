@@ -52,6 +52,7 @@ The frontend reads the API address from `VITE_API_URL` in `frontend/.env`, for e
 | `EMAIL_USERNAME`, `EMAIL_PASSWORD` | the mailbox that sends verification codes |
 | `TRUST_PROXY` | reverse proxies in front of the API: 0 locally, 1 in production |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | optional first admin; leave unset to skip |
+| `REMINDER_TIMEZONE` | optional IANA time zone for the start time in reminder emails; defaults to `Asia/Ho_Chi_Minh` |
 | `SIGNUP_ENABLED` | `true` opens public sign-up; unset or any other value closes it, and the frontend hides every sign-up link |
 
 `backend/.env.example` explains each key.
@@ -113,7 +114,10 @@ The project has no unit test framework. Behaviour checks are scripts that start 
 | `npm run check:notifications` | notifications, reports, admin analytics |
 | `npm run check:observability` | request IDs, logs, metrics |
 | `npm run check:uploads` | image storage and cleanup |
+| `npm run check:calendar` | the `.ics` generator and export routes; which registrations get a reminder, and that each gets one only once |
 | `npm run check:seed` | the seed script and its production flags |
+
+`npm run reminders:send` runs one event reminder pass against your database, as the production `reminders` container does every 15 minutes. It sends real email through `EMAIL_USERNAME`; without working credentials each email fails and is logged, and the reminder still counts as sent.
 
 The frontend has `npm run lint` (ESLint), `npm run build` (typecheck and Vite build) and `npm run check:csv` (the admin CSV export helper, plain Node with no database).
 

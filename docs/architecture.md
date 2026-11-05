@@ -26,8 +26,8 @@ In development `tsx` runs the TypeScript sources directly. Production runs the `
 | Domain | Prefix | Covers |
 | --- | --- | --- |
 | Auth | `/api/auth` | sign-up, email verification codes, login, password reset, current user |
-| Events | `/api/events` | listing, create, edit, delete, admin approval, completion |
-| Registrations | `/api/register` | sign up for or leave an event; approve, reject or remove a volunteer |
+| Events | `/api/events` | listing, create, edit, delete, admin approval, completion, one event's `.ics` |
+| Registrations | `/api/register` | sign up for or leave an event; approve, reject or remove a volunteer; your events' `.ics` |
 | Discussions | `/api/groups` | the posts in an event's discussion |
 | Posts | `/api/posts` | create with an image, like, delete, read one |
 | Comments | `/api/comments` | comment on a post, delete |
@@ -56,6 +56,17 @@ In development `tsx` runs the TypeScript sources directly. Production runs the `
 Sessions are stateless: the API signs a JWT at login and the frontend sends it as a `Bearer` token. A new account has to confirm its email with a one-time code sent through Nodemailer before it can log in, and password reset uses the same kind of code. Passwords are hashed with bcrypt.
 
 When the database connects and no admin exists yet, `config/db.ts` creates one from `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`. Both are unset by default, which skips this step.
+
+### Calendar export and reminders
+
+`utils/ics.util.ts` writes RFC 5545 calendars. Times are UTC instants (`DTSTART:20261105T003000Z`), so each calendar app shows them in its own time zone without a `VTIMEZONE` block. Text is escaped, long lines are folded at 75 octets without splitting a UTF-8 character, and each event's `UID` is `event-<id>@<FRONTEND_URL host>`, so importing a newer file updates the entry instead of adding a second one. An event without an end time has no `DTEND`.
+
+- `GET /api/events/:id/calendar.ics` is one event, for a volunteer whose registration is approved; everyone else gets 404.
+- `GET /api/register/me/calendar.ics` is every approved event you are approved for that has not ended, soonest first.
+
+Both need the `Bearer` token, so the frontend fetches the file and hands it to the browser as a download (`apiDownload` in `services/api.ts`).
+
+`services/reminder.service.ts` reminds approved volunteers about 24 hours before an approved event starts: an email through the same Nodemailer transporter as the verification codes, with the `.ics` attached, and an `event_reminder` notification. It first claims the due registrations by setting `registrations.reminder_sent_at` in one `UPDATE ... WHERE reminder_sent_at IS NULL`. Postgres re-checks that condition on a row another run changed meanwhile, so overlapping runs and restarts never remind anyone twice. The claim comes before the email, so delivery is at most once: an email that fails is logged and not retried, though the notification still arrives. Volunteers with notifications turned off get neither and stay unclaimed. Changing an event's start time clears the claims of its registrations, so the new time gets its own reminder. Production runs a pass every 15 minutes in the `reminders` container ([operations](operations.md#event-reminders)).
 
 ### Images
 

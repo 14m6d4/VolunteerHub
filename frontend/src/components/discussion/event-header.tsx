@@ -3,13 +3,16 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { coverImageUrl, showCoverPlaceholder } from '@/lib/utils';
 import { Users } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { DiscussionEvent } from '@/types/discussion';
 
 interface EventHeaderProps {
   event: DiscussionEvent;
+  /** Buttons shown under the title, such as "Add to calendar". */
+  actions?: ReactNode;
 }
 
-export function EventHeader({ event }: EventHeaderProps) {
+export function EventHeader({ event, actions }: EventHeaderProps) {
   const formatMembersCount = (count: number) => {
     const safeCount = count || 0;
     if (safeCount >= 1000) {
@@ -54,6 +57,7 @@ export function EventHeader({ event }: EventHeaderProps) {
                 <Users className="h-4 w-4" />
                 <span className="text-sm">{formatMembersCount(event.membersCount)} members</span>
               </div>
+              {actions && <div className="flex flex-wrap gap-2 mt-3">{actions}</div>}
             </div>
 
             {/* Avatar Stack */}

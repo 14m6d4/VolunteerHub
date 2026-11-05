@@ -29,10 +29,12 @@ Live at <https://volunteerhub.l4mbd4.me>.
 
 - Browse events with search, tag filters and sorting, split into your events, new ones and past ones
 - Sign up for an event or cancel; the event's manager approves each registration
+- Add an event you are approved for, or all your upcoming ones at once, to your calendar app as an `.ics` file
+- Get an email and a notification about 24 hours before each event you are approved for starts
 - Talk in each event's discussion: posts with images, likes, comments and a members list
 - Follow a personal feed of posts from your events, mixed with trending events
 - Send and answer friend requests, and get friend suggestions based on mutual friends
-- Get notifications about registrations, event changes, friend requests, likes, comments and reports
+- Get notifications about registrations, event changes, event reminders, friend requests, likes, comments and reports
 - Report a user, an event or a post
 - Keep a public profile with stats, events and friends; change your name, username, profile picture and password
 

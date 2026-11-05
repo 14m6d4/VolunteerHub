@@ -22,6 +22,8 @@ Backend (`cd backend`):
 - `npm run db:migrate` — apply pending migrations to `DATABASE_URL` (via `tsx`). Prod runs the compiled `node dist/db/migrate.js` as the one-shot `migrate` compose service.
 - `npm run db:seed` — wipe the database and load the dev/demo dataset, demo cover images included (`scripts/seed.ts`; prints the generated password for the `demo-*@demo.volunteerhub.test` accounts). In production only three flags run, via the compiled `node dist/scripts/seed.js`: `--append` adds the demo data without wiping, and needs `SEED_DEMO_PASSWORD`. `--reset-demo` deletes the demo users (and by cascade all they own) and appends again in one transaction; the `demo-reset` compose service runs it nightly. `--covers` only sets the demo covers from `scripts/demo-covers/` on existing demo events and is safe to re-run. `npm run check:seed` covers all three.
 
+- `npm run reminders:send` — one event reminder pass (`scripts/send-reminders.ts`, `services/reminder.service.ts`): email + `event_reminder` notification to approved volunteers whose event starts within 24h, each registration at most once via `registrations.reminder_sent_at`. Prod runs the compiled `node dist/scripts/send-reminders.js` every 15 min from the `reminders` compose service. `npm run check:calendar` covers it and the `.ics` export.
+
 Frontend (`cd frontend`):
 - `npm run dev` — Vite dev server (default port 5173).
 - `npm run build` — `tsc -b && vite build`.

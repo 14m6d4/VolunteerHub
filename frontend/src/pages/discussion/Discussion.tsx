@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Info, MessageSquare, Star, Users, Search } from 'lucide-react';
+import { CalendarPlus, Info, MessageSquare, Star, Users, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -16,7 +16,8 @@ import {
   SearchPosts,
   PostDetailDialog
 } from '@/components/discussion';
-import { getEventById, getEventPosts, getEventRegistrations } from '@/services/event.service';
+import { downloadEventCalendar, getEventById, getEventPosts, getEventRegistrations } from '@/services/event.service';
+import { Button } from '@/components/ui/button';
 import { createPost, likePost } from '@/services/feed.service';
 import { createComment, getComments, deletePost, deleteComment } from '@/services/post.service';
 import type { PostWithUser, CommentWithUser, DiscussionEvent, DiscussionUser } from '@/types/discussion';
@@ -66,6 +67,8 @@ export default function DiscussionPage() {
   const [posts, setPosts] = useState<PostWithUser[]>([]);
   const [members, setMembers] = useState<(DiscussionUser & { email?: string; joinDate?: string })[]>([]);
   const [loading, setLoading] = useState(true);
+  // Only an approved registration can download the event's .ics.
+  const [isApprovedMember, setIsApprovedMember] = useState(false);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
 
   const [commentsMap, setCommentsMap] = useState<Record<string, CommentWithUser[]>>({});
@@ -152,6 +155,9 @@ export default function DiscussionPage() {
             joinDate: r.createdAt
           }));
         setMembers(approvedMembers);
+        const myId = user?.id || user?._id;
+        setIsApprovedMember(!!myId && (registrationsData?.data || registrationsData || []).some((r: RawRegistration) =>
+          r.status === 'approved' && (r.volunteerId?._id || r.volunteerId?.id) === myId));
 
         const rawEvent = eventData?.data?.event || eventData?.event || eventData;
         const mappedEvent = {
@@ -320,7 +326,22 @@ export default function DiscussionPage() {
   return (
     <div className="min-h-screen bg-background">
       {pageTitle}
-      <EventHeader event={{ ...event, members } as unknown as DiscussionEvent} />
+      <EventHeader
+        event={{ ...event, members } as unknown as DiscussionEvent}
+        actions={isApprovedMember && eventId && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => downloadEventCalendar(eventId).catch((err: Error) => {
+              console.error('Failed to download calendar:', err);
+              toast.error('Failed to download the calendar file.');
+            })}
+          >
+            <CalendarPlus className="h-4 w-4 mr-2" />
+            Add to calendar (.ics)
+          </Button>
+        )}
+      />
 
       <div className="px-4 sm:px-6 lg:px-8 py-6">
         <div className="max-w-4xl mx-auto">

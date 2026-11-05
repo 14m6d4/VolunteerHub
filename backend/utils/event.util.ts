@@ -21,8 +21,11 @@ export function toEvent(row: EventRow) {
   };
 }
 
-/** `completedAt` stays `null` until completion, as it did on the old documents. */
-export function toRegistration(row: RegistrationRow) {
+/**
+ * `completedAt` stays `null` until completion, as it did on the old documents.
+ * `reminderSentAt` is the reminder job's bookkeeping, not part of the API.
+ */
+export function toRegistration({ reminderSentAt: _reminderSentAt, ...row }: RegistrationRow) {
   return <Lean>{ ...toLean(row), completedAt: row.completedAt };
 }
 

@@ -113,6 +113,36 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Event reminders (docs/operations.md#event-reminders): every 15 minutes,
+  # emails and notifies approved volunteers whose event starts within 24 hours.
+  # A registration is reminded at most once (registrations.reminder_sent_at is
+  # claimed before sending), so restarts, overlapping runs or a second copy of
+  # this service never send twice. Needs EMAIL_* and FRONTEND_URL in backend/.env.
+  reminders:
+    image: ghcr.io/14m6d4/volunteerhub-backend:${IMAGE_TAG:?set IMAGE_TAG to a commit SHA}
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      REMINDER_INTERVAL_SECONDS: 900
+    command:
+      - sh
+      - -c
+      - |
+        while :; do
+          node dist/scripts/send-reminders.js || echo "reminders: exit $$?"
+          sleep "$$REMINDER_INTERVAL_SECONDS"
+        done
+    # Same reason as the backup's: a shell as PID 1 ignores SIGTERM.
+    init: true
+    restart: unless-stopped
+    # The image's healthcheck probes the API, which this container does not run.
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   frontend:
     image: ghcr.io/14m6d4/volunteerhub-frontend:${IMAGE_TAG:?set IMAGE_TAG to a commit SHA}
     restart: unless-stopped

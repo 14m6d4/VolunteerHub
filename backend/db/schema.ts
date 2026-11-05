@@ -82,6 +82,9 @@ export const registrations = pgTable("registrations", {
     status: registrationStatus("status").notNull().default("pending"),
     note: text("note").notNull().default(""),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    // Set when the 24-hour reminder is claimed (services/reminder.service.ts), so it goes out
+    // once however many runners there are; cleared when the event's start time changes.
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

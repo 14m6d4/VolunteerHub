@@ -106,6 +106,10 @@ export const EventService = {
             throw err;
         }
         if (updated!.image !== event.image) await deleteImages(event.image);
+        // A new start time needs a new 24-hour reminder (services/reminder.service.ts).
+        if (updated!.startAt.getTime() !== event.startAt.getTime()) {
+            await db.update(registrations).set({ reminderSentAt: null }).where(eq(registrations.eventId, event.id));
+        }
 
         await notify({ userIds: await approvedMemberIds(event.id) }, NotificationType.EVENT_UPDATED,
             { eventId: event.id, eventTitle: updated!.title }, currentUserId);

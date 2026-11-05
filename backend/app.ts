@@ -64,6 +64,8 @@ app.use(
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+        // Lets the dev server read the .ics file name; production is same-origin.
+        exposedHeaders: ["Content-Disposition"],
     })
 );
 

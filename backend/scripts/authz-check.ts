@@ -191,6 +191,15 @@ await check('member list does not leak emails to non-organisers', async () => {
   await db.update(registrations).set({ status: 'pending' }).where(eq(registrations.id, victimReg!.id));
 });
 
+await check("an event's .ics is only for volunteers approved for it", async () => {
+  const url = `${base}/api/events/${victimEvent!.id}/calendar.ics`;
+  assert.equal((await fetch(url, { headers: EH })).status, 404, 'another manager');
+  assert.equal((await fetch(url, { headers: H })).status, 404, 'a pending registration');
+  await db.update(registrations).set({ status: 'approved' }).where(eq(registrations.id, victimReg!.id));
+  assert.equal((await fetch(url, { headers: H })).status, 200, 'once approved');
+  await db.update(registrations).set({ status: 'pending' }).where(eq(registrations.id, victimReg!.id));
+});
+
 await check("another manager's event listing hides another manager's pending events", async () => {
   const res = await fetch(`${base}/api/events?status=pending&q=Victim%20Event`, { headers: EH });
   assert.equal(res.status, 200);

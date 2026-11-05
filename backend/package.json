@@ -19,7 +19,9 @@
     "db:migrate": "tsx db/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "check:uploads": "tsx scripts/uploads-check.ts",
-    "check:seed": "tsx scripts/seed-check.ts"
+    "check:seed": "tsx scripts/seed-check.ts",
+    "check:calendar": "tsx scripts/calendar-check.ts",
+    "reminders:send": "tsx scripts/send-reminders.ts"
   },
   "keywords": [],
   "author": "",
