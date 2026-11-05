@@ -43,6 +43,13 @@
       "when": 1793852013051,
       "tag": "0005_registration_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793861920013,
+      "tag": "0006_user_token_version",
+      "breakpoints": true
     }
   ]
 }

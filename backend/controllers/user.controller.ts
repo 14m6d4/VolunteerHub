@@ -4,6 +4,7 @@ import type { UpdateProfileData } from '../types/user.ts';
 import type { AuthenticatedRequest } from '../middlewares/auth.middleware.ts';
 import AppError from '../utils/appError.ts';
 import * as userService from '../services/user.service.ts';
+import { generateAuthToken } from '../utils/jwt.util.ts';
 import { MAX_IMAGE_BYTES } from '../services/image.service.ts';
 
 export type SecureUpdateProfilePayload = UpdateProfileData & {
@@ -28,9 +29,13 @@ export async function updateProfileSecure(req: AuthenticatedRequest, res: Respon
 
     const updatedUser = await updateProfileWithPasswordCheck(userId, currentPassword, updateData, picture);
 
+    // The change revoked every earlier token, this request's too, so hand back a fresh one.
+    const accessToken = (updateData as { password?: string }).password ? generateAuthToken(updatedUser) : undefined;
+
     return res.status(200).json({
       message: 'Profile updated successfully',
-      user: updatedUser
+      user: updatedUser,
+      accessToken,
     });
 
   } catch (error) {

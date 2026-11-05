@@ -58,11 +58,15 @@ export function verifyToken(token: string): ITokenPayload {
   return decoded as unknown as ITokenPayload;
 }
 
+/** False once the user's token_version moved past the one the token was signed with. */
+export const tokenVersionMatches = (payload: ITokenPayload, user: IUser) => (payload.tv ?? 0) === user.tokenVersion;
+
 export function generateAuthToken(user: IUser): string {
   const payload: ITokenPayload = {
     id: user._id.toString(),
     email: user.email,
     role: user.role,
+    tv: user.tokenVersion,
   };
 
   return createAccessToken(payload);

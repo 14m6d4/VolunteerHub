@@ -3,11 +3,10 @@ import createHttpError from "http-errors";
 import { findUserById } from "../services/user.service.ts";
 import { type IUserDocument } from "../types/user.ts";
 import { isBanned, banMessage } from "../utils/ban.util.ts";
-import { verifyToken } from "../utils/jwt.util.ts";
+import { tokenVersionMatches, verifyToken } from "../utils/jwt.util.ts";
+import { type ITokenPayload } from "../types/user.ts";
 
-interface JwtPayload {
-    id: string;
-}
+type JwtPayload = ITokenPayload;
 
 export interface AuthenticatedRequest extends Request {
     user: IUserDocument;
@@ -33,6 +32,12 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
         if (!user) {
             return next(createHttpError(401, "User no longer exists"));
+        }
+
+        // A password change, reset or ban bumps token_version and so revokes
+        // every token signed before it.
+        if (!tokenVersionMatches(decoded, user)) {
+            return next(createHttpError(401, "Invalid or expired token"));
         }
 
         // Checked on every request, not just at login: tokens live for a day, so
@@ -71,7 +76,7 @@ export async function optionalAuthMiddleware(req: Request, res: Response, next: 
 
         // A banned user stays anonymous here rather than being rejected: these
         // routes are public, they just lose the personalised view.
-        if (user && !isBanned(user) && user.isActive) {
+        if (user && tokenVersionMatches(decoded, user) && !isBanned(user) && user.isActive) {
             (req as any).user = user;
         }
         return next();

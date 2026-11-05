@@ -1,4 +1,4 @@
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import { type ITokenPayload, type IUserDocument, UserRole, type ILoginDTO, type IRegisterDTO } from '../types/user.ts';
 import { createAccessToken, createRefreshToken } from '../utils/jwt.util.ts';
 import AppError from '../utils/appError.ts';
@@ -102,6 +102,7 @@ function signIn(row: typeof users.$inferSelect): IAuthResponse {
     id: row.id,
     email: row.email,
     role: row.role as UserRole,
+    tv: row.tokenVersion,
   };
 
   const accessToken = createAccessToken(payload);
@@ -219,7 +220,10 @@ export async function resetPasswordWithOtp(email: string, otp: string, newPasswo
   otpFailures.delete(row.id);
 
   const [updated] = await db.update(users)
-    .set({ passwordHash: await hashPassword(newPassword), otp: null, otpExpiresAt: null, updatedAt: new Date() })
+    .set({
+      passwordHash: await hashPassword(newPassword), otp: null, otpExpiresAt: null, updatedAt: new Date(),
+      tokenVersion: sql`${users.tokenVersion} + 1`, // revokes the tokens issued before the reset
+    })
     .where(eq(users.id, row.id))
     .returning();
 

@@ -46,6 +46,9 @@ export interface IUser {
   otp?: string | null | undefined;
   otpExpiresAt?: Date | null | undefined;
 
+  // Bumped on password change/reset to revoke issued tokens.
+  tokenVersion: number;
+
   // Timestamps
   createdAt: Date;
   updatedAt: Date;
@@ -70,6 +73,8 @@ export interface ITokenPayload {
   id: string;
   email: string;
   role: UserRole;
+  // users.token_version at signing time. Tokens issued before it existed lack it and count as 0.
+  tv?: number;
 }
 
 export interface ILoginDTO {

@@ -32,6 +32,8 @@ export const users = pgTable("users", {
     bannedUntil: timestamp("banned_until", { withTimezone: true }),
     otp: text("otp"),
     otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }),
+    // Carried in every JWT as `tv`; bumping it revokes the tokens already issued.
+    tokenVersion: integer("token_version").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

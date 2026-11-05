@@ -237,6 +237,44 @@ await check('a few typos do not lock out the right code', async () => {
     assert.equal(await outcome(resetPasswordWithOtp(u.email, '636363', 'NewPassw0rd1')), 200);
 });
 
+// A password change or reset bumps users.token_version, which every token
+// carries as `tv`; tokens signed before it stop working at once.
+const notifications = (token: string) => fetch(`${base}/api/notifications`, { headers: bearer(token) }).then((r) => r.status);
+const tokenFor = (u: typeof users.$inferSelect) => createAccessToken({ id: u.id, email: u.email, role: UserRole.Volunteer, tv: u.tokenVersion });
+
+await check('a token issued before the tv claim counts as version 0', async () => {
+    const u = await mkUser('tvlegacy');
+    const legacy = jwt.sign({ id: u.id, email: u.email, role: UserRole.Volunteer }, process.env.JWT_SECRET!, { expiresIn: '1d' });
+    assert.equal(await notifications(legacy), 200);
+});
+
+await check('changing the password revokes earlier tokens and hands back a fresh one', async () => {
+    const u = await mkUser('tvchange');
+    const old = tokenFor(u);
+    const legacy = jwt.sign({ id: u.id, email: u.email, role: UserRole.Volunteer }, process.env.JWT_SECRET!, { expiresIn: '1d' });
+    assert.equal(await notifications(old), 200);
+    const res = await fetch(`${base}/api/users/profile/secure`, {
+        method: 'PATCH', headers: bearer(old),
+        body: JSON.stringify({ currentPassword: 'Passw0rdLong1', password: 'Changed0Pass' }),
+    });
+    assert.equal(res.status, 200);
+    const { accessToken: fresh } = (await res.json()) as { accessToken?: string };
+    assert.equal(await notifications(old), 401, 'the token used for the change');
+    assert.equal(await notifications(legacy), 401, 'a token without tv');
+    assert.ok(fresh, 'a fresh token is returned');
+    assert.equal(await notifications(fresh), 200, 'the fresh token');
+});
+
+await check('resetting the password revokes earlier tokens', async () => {
+    const u = await otpUser('tvreset', '737373');
+    const old = tokenFor(u);
+    assert.equal(await notifications(old), 200);
+    assert.equal(await outcome(resetPasswordWithOtp(u.email, '737373', 'ResetPassw0rd')), 200);
+    assert.equal(await notifications(old), 401);
+    const [row] = await db.select().from(users).where(eq(users.id, u.id));
+    assert.equal(await notifications(tokenFor(row!)), 200, 'a token signed after the reset');
+});
+
 await check('rotating client IPs cannot flood one address with reset codes', async () => {
     // CF-Connecting-IP picks the per-IP bucket, so each request here gets a fresh one.
     const ask = (i: number) => fetch(`${base}/api/auth/forgot-password`, {
