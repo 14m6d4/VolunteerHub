@@ -10,10 +10,10 @@
  */
 import assert from 'node:assert/strict';
 import jwt from 'jsonwebtoken';
-import { eq, like } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
-import { users } from '../db/schema.ts';
+import { reports, users } from '../db/schema.ts';
 import { MAX_OTP_ATTEMPTS, resetPasswordWithOtp, verifyPasswordResetOtp } from '../services/auth.service.ts';
 import { UserRole } from '../types/user.ts';
 import AppError from '../utils/appError.ts';
@@ -245,6 +245,30 @@ await check('rotating client IPs cannot flood one address with reset codes', asy
     const statuses = [];
     for (let i = 0; i < 7; i++) statuses.push((await ask(i)).status);
     assert.deepEqual(statuses, [200, 200, 200, 200, 200, 429, 429]);
+});
+
+await check('report-user validates its body', async () => {
+    const target = await mkUser('reported');
+    const res = await fetch(`${base}/api/users/report-user`, {
+        method: 'POST',
+        headers: bearer(accessToken),
+        body: JSON.stringify({ targetId: target.id, reason: { $gt: '' } }),
+    });
+    assert.equal(res.status, 400);
+    assert.match(((await res.json()) as { message?: string }).message ?? '', /^Validation failed/);
+    assert.equal((await db.select().from(reports).where(and(eq(reports.reporterId, holder.id), eq(reports.targetId, target.id)))).length, 0);
+});
+
+await check('a profile picture URL must be http(s)', async () => {
+    const patch = (profilePicture: string) => fetch(`${base}/api/users/profile/secure`, {
+        method: 'PATCH', headers: bearer(accessToken), body: JSON.stringify({ profilePicture }),
+    });
+    for (const bad of ['javascript:alert(document.domain)', 'data:text/html,<script>alert(1)</script>']) {
+        assert.equal((await patch(bad)).status, 400, bad);
+    }
+    assert.equal((await patch('https://example.com/avatar.png')).status, 200);
+    const [row] = await db.select().from(users).where(eq(users.id, holder.id));
+    assert.equal(row!.profilePicture, 'https://example.com/avatar.png');
 });
 
 console.log(results.join('\n'));
