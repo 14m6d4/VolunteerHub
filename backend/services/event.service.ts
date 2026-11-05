@@ -115,14 +115,15 @@ export const EventService = {
 
     async getEventById(eventId: string, userId?: string) {
         const [found] = isUuid(eventId)
-            ? await db.select({ event: events, manager: { id: users.id, name: users.name, email: users.email } })
+            // No email: this route is public, so it would hand every manager's address to anyone.
+            ? await db.select({ event: events, manager: { id: users.id, name: users.name } })
                 .from(events).innerJoin(users, eq(users.id, events.managerId))
                 .where(eq(events.id, eventId))
             : [];
         if (!found) throw createHttpError(404, "Event not found");
 
         const { event, manager } = found;
-        // managerId comes back populated, as the old populate("managerId", "name email") did.
+        // managerId comes back populated with the manager's id and name.
         const body = { ...toEvent(event), managerId: toLean(manager) };
 
         if (!userId) {
