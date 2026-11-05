@@ -1,5 +1,6 @@
 import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import type { Request } from 'express';
+import { normalizeEmail } from '../utils/user.util.ts';
 
 const minutes = (n: number) => n * 60 * 1000;
 
@@ -54,4 +55,18 @@ export const otpLimiter = rateLimit({
     ...shared,
     windowMs: minutes(15),
     limit: 8,
+});
+
+/**
+ * Password-reset codes sent to one address, whichever IPs ask for them. The
+ * per-IP otpLimiter alone lets someone with many addresses flood a mailbox, or
+ * keep asking for a fresh code and with it a fresh round of OTP attempts. It
+ * answers the same for unknown addresses, so it reveals nothing. Runs after
+ * validateBody, which guarantees the email is a string.
+ */
+export const resetEmailLimiter = rateLimit({
+    ...shared,
+    windowMs: minutes(60),
+    limit: 5,
+    keyGenerator: (req: Request) => `reset:${normalizeEmail(String(req.body?.email ?? ''))}`,
 });

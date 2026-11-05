@@ -234,6 +234,19 @@ await check('a few typos do not lock out the right code', async () => {
     assert.equal(await outcome(resetPasswordWithOtp(u.email, '636363', 'NewPassw0rd1')), 200);
 });
 
+await check('rotating client IPs cannot flood one address with reset codes', async () => {
+    // CF-Connecting-IP picks the per-IP bucket, so each request here gets a fresh one.
+    const ask = (i: number) => fetch(`${base}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': `198.51.100.${i + 1}` },
+        // Another case is the same mailbox, so the same bucket.
+        body: JSON.stringify({ email: i % 2 ? `ZZ_Flood_${stamp}@Test.Local` : `zz_flood_${stamp}@test.local` }),
+    });
+    const statuses = [];
+    for (let i = 0; i < 7; i++) statuses.push((await ask(i)).status);
+    assert.deepEqual(statuses, [200, 200, 200, 200, 200, 429, 429]);
+});
+
 console.log(results.join('\n'));
 console.log(process.exitCode ? '\nSECURITY SMOKE FAILED' : '\nSECURITY SMOKE PASSED');
 await db.delete(users).where(like(users.username, `zz\\_%\\_${stamp}`));
