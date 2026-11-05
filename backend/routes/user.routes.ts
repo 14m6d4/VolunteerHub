@@ -20,7 +20,7 @@ router.patch(
 router.get('/search/query', searchUsers as any);
 
 
-router.post('/report-user', authMiddleware, reportUser as any);
+router.post('/report-user', authMiddleware, validateBody(validators.reportUserSchema), reportUser as any);
 
 // Every /admin/* route below is admin-only. authMiddleware alone only proves
 // the caller is signed in - without the role gate any volunteer could reach

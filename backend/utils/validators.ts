@@ -167,9 +167,10 @@ export const secureUpdateProfileSchema = z.object({
     z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Birthdate must be YYYY-MM-DD'),
     z.date()
   ]).optional(),
-  // Allow a normal URL, or a data URI (base64), or empty string
+  // Allow an http(s) URL, or a data URI (base64), or empty string. Any URL
+  // used to pass, javascript: included, and the value is shown to everyone.
   profilePicture: z.union([
-    z.string().url('Must be a valid URL'),
+    z.string().url({ protocol: /^https?$/, message: 'Must be a valid http(s) URL' }),
     z.string().regex(/^data:image\/[a-zA-Z]+;base64,/, 'Invalid image data URL'),
     z.literal('')
   ]).optional(),

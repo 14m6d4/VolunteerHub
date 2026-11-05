@@ -125,7 +125,7 @@ await check('an event is read by id with its manager, and a bad id is a 404', as
   assert.equal(event.title, title('clean'));
   assert.equal(event.managerId._id, mgr.id, 'manager is populated');
   assert.equal(event.managerId.name, 'mgr');
-  assert.equal(event.managerId.email, `zz_mgr_${stamp}@test.local`);
+  assert.equal(event.managerId.email, undefined, 'the route is public: no manager email');
   assert.deepEqual(conflictingEvents, []);
   assert.equal(hasConflict, false);
 

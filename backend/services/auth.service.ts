@@ -1,4 +1,4 @@
-import { eq, or } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import { type ITokenPayload, type IUserDocument, UserRole, type ILoginDTO, type IRegisterDTO } from '../types/user.ts';
 import { createAccessToken, createRefreshToken } from '../utils/jwt.util.ts';
 import AppError from '../utils/appError.ts';
@@ -28,12 +28,32 @@ const findByEmail = async (email: string) => {
   return row;
 };
 
-const assertOtp = (user: { otp: string | null; otpExpiresAt: Date | null }, otp: string) => {
-  if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+/**
+ * Wrong codes entered per account since its current code was issued. The
+ * per-IP otpLimiter alone lets anyone with enough addresses keep guessing a
+ * six-digit code, and a guessed reset code is an account takeover. After
+ * MAX_OTP_ATTEMPTS wrong codes the code is void and a new one must be
+ * requested. Kept in memory: there is one backend instance, and a restart only
+ * hands out one more round of attempts.
+ */
+export const MAX_OTP_ATTEMPTS = 5;
+const otpFailures = new Map<string, number>();
+
+/** Throws unless `otp` is the account's live code. Counts wrong codes and voids the code at the cap. */
+const assertOtp = async (user: { id: string; otp: string | null; otpExpiresAt: Date | null }, otp: string) => {
+  // The count is read and written with no await in between, so parallel guesses cannot all slip under it.
+  const failures = otpFailures.get(user.id) ?? 0;
+  if (!user.otpExpiresAt || user.otpExpiresAt < new Date() || failures >= MAX_OTP_ATTEMPTS) {
     throw new AppError('OTP has expired or is invalid. Please request a new one.', 400);
   }
 
   if (user.otp !== otp) {
+    otpFailures.set(user.id, failures + 1);
+    if (failures + 1 >= MAX_OTP_ATTEMPTS) {
+      await db.update(users)
+        .set({ otp: null, otpExpiresAt: null, updatedAt: new Date() })
+        .where(and(eq(users.id, user.id), eq(users.otp, user.otp ?? '')));
+    }
     throw new AppError('Invalid OTP code.', 401);
   }
 };
@@ -155,7 +175,8 @@ export async function verifyUserOTP(email: string, otp: string): Promise<IUserDo
     throw new AppError('Account is already verified.', 400);
   }
 
-  assertOtp(row, otp);
+  await assertOtp(row, otp);
+  otpFailures.delete(row.id);
 
   const [verified] = await db.update(users)
     .set({ isVerified: true, otp: null, otpExpiresAt: null, updatedAt: new Date() })
@@ -177,6 +198,8 @@ export async function sendPasswordResetOtp(email: string): Promise<void> {
   await db.update(users)
     .set({ otp: otpCode, otpExpiresAt: getOTPExpiration(10), updatedAt: new Date() })
     .where(eq(users.id, row.id));
+  // A new code gets a fresh set of attempts.
+  otpFailures.delete(row.id);
 
   await sendResetPasswordEmail(toUser(row), otpCode);
 }
@@ -185,14 +208,15 @@ export async function verifyPasswordResetOtp(email: string, otp: string): Promis
   const row = await findByEmail(email);
   if (!row) throw new AppError('User not found.', 404);
 
-  assertOtp(row, otp);
+  await assertOtp(row, otp);
 }
 
 export async function resetPasswordWithOtp(email: string, otp: string, newPassword: string): Promise<IUserDocument> {
   const row = await findByEmail(email);
   if (!row) throw new AppError('User not found.', 404);
 
-  assertOtp(row, otp);
+  await assertOtp(row, otp);
+  otpFailures.delete(row.id);
 
   const [updated] = await db.update(users)
     .set({ passwordHash: await hashPassword(newPassword), otp: null, otpExpiresAt: null, updatedAt: new Date() })

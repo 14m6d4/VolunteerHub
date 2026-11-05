@@ -128,8 +128,8 @@ await check('a post is created, read by id with its author, and listed under its
   assert.equal(list.status, 200, JSON.stringify(list.data));
   assert.deepEqual(list.data.data.map((x: any) => x._id), [postId]);
   assert.equal(list.data.data[0].authorId._id, vol.id);
-  assert.equal(list.data.data[0].authorId.role, 'volunteer', 'the event listing also carries role and email');
-  assert.equal(list.data.data[0].authorId.email, `zz_vol_${stamp}@test.local`);
+  assert.equal(list.data.data[0].authorId.role, 'volunteer', 'the event listing also carries role');
+  assert.equal(list.data.data[0].authorId.email, undefined, 'the route is public: no author email');
   assert.deepEqual((await call('GET', `/api/events/${NO_SUCH_ID}/posts`)).data.data, []);
 });
 

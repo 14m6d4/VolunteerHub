@@ -11,11 +11,12 @@ import { getPostRow, postLikerIds, postLikers, toPost } from "../utils/post.util
 import { isUuid, toLean } from "../utils/user.util.ts";
 
 const AUTHOR = { id: users.id, name: users.name, username: users.username, profilePicture: users.profilePicture };
-const AUTHOR_WITH_CONTACT = { ...AUTHOR, email: users.email, role: users.role };
+// Never the email: GET /events/:id/posts is public, and it would list every poster's address.
+const AUTHOR_WITH_ROLE = { ...AUTHOR, role: users.role };
 
 /** Pinned first, then newest; the author and the likers are populated. */
-async function listPosts(where: SQL, withContact = false) {
-    const authorColumns = (withContact ? AUTHOR_WITH_CONTACT : AUTHOR) as typeof AUTHOR_WITH_CONTACT;
+async function listPosts(where: SQL, withRole = false) {
+    const authorColumns = (withRole ? AUTHOR_WITH_ROLE : AUTHOR) as typeof AUTHOR_WITH_ROLE;
     const rows = await db.select({ post: posts, author: authorColumns }).from(posts)
         .innerJoin(users, eq(users.id, posts.authorId))
         .where(where)
