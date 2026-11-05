@@ -10,11 +10,13 @@
  */
 import assert from 'node:assert/strict';
 import jwt from 'jsonwebtoken';
-import { like } from 'drizzle-orm';
+import { eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
 import { users } from '../db/schema.ts';
+import { MAX_OTP_ATTEMPTS, resetPasswordWithOtp, verifyPasswordResetOtp } from '../services/auth.service.ts';
 import { UserRole } from '../types/user.ts';
+import AppError from '../utils/appError.ts';
 import { createAccessToken, createRefreshToken } from '../utils/jwt.util.ts';
 import { hashPassword } from '../utils/password.util.ts';
 
@@ -201,6 +203,37 @@ await check('a token signed with another algorithm is refused', async () => {
 
 // Called on the service, not over HTTP: the per-IP otpLimiter would answer 429
 // long before the per-account cap shows, which is the point of having both.
+const otpUser = async (n: string, code: string) =>
+    mkUser(n, { otp: code, otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000) });
+const outcome = (p: Promise<unknown>) => p.then(() => 200, (err: AppError) => err.statusCode);
+
+await check(`a reset code is void after ${MAX_OTP_ATTEMPTS} wrong guesses, even the right one`, async () => {
+    const u = await otpUser('otpcap', '424242');
+    for (let i = 0; i < MAX_OTP_ATTEMPTS; i++) {
+        assert.equal(await outcome(verifyPasswordResetOtp(u.email, '000000')), 401, `guess ${i + 1}`);
+    }
+    assert.equal(await outcome(verifyPasswordResetOtp(u.email, '424242')), 400, 'the right code after the cap');
+    assert.equal(await outcome(resetPasswordWithOtp(u.email, '424242', 'Takeover1234')), 400);
+    const [row] = await db.select().from(users).where(eq(users.id, u.id));
+    assert.equal(row!.otp, null, 'the code is cleared');
+    assert.equal(row!.passwordHash, u.passwordHash, 'the password is unchanged');
+});
+
+await check('parallel guesses cannot get past the cap', async () => {
+    const u = await otpUser('otpburst', '515151');
+    const codes = await Promise.all(Array.from({ length: 30 }, (_, i) =>
+        outcome(verifyPasswordResetOtp(u.email, String(100000 + i)))));
+    assert.equal(codes.filter((c) => c === 401).length, MAX_OTP_ATTEMPTS, `compared: ${codes.join(',')}`);
+    assert.ok(codes.every((c) => c === 401 || c === 400));
+});
+
+await check('a few typos do not lock out the right code', async () => {
+    const u = await otpUser('otptypo', '636363');
+    for (let i = 1; i < MAX_OTP_ATTEMPTS; i++) await outcome(verifyPasswordResetOtp(u.email, '000000'));
+    assert.equal(await outcome(verifyPasswordResetOtp(u.email, '636363')), 200);
+    assert.equal(await outcome(resetPasswordWithOtp(u.email, '636363', 'NewPassw0rd1')), 200);
+});
+
 console.log(results.join('\n'));
 console.log(process.exitCode ? '\nSECURITY SMOKE FAILED' : '\nSECURITY SMOKE PASSED');
 await db.delete(users).where(like(users.username, `zz\\_%\\_${stamp}`));
