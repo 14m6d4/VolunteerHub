@@ -58,3 +58,50 @@ export async function sendResetPasswordEmail(
         console.error('ERROR sending reset email:', error);
     }
 }
+
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+export interface EventReminderEmail {
+    to: string;
+    /** Name to greet: the volunteer's display name or username. */
+    greeting: string;
+    eventTitle: string;
+    /** Start time already written for people, time zone included. */
+    when: string;
+    location: string;
+    url: string;
+    /** The event as an .ics, attached so it can be added to a calendar in one click. */
+    ics: string;
+    icsFilename: string;
+}
+
+/**
+ * The 24-hour reminder (services/reminder.service.ts), through the same
+ * transporter as the verification codes. Unlike those it throws on failure,
+ * so the reminder run can count and log it.
+ */
+export async function sendEventReminderEmail(mail: EventReminderEmail): Promise<void> {
+    const title = escapeHtml(mail.eventTitle);
+    await transporter.sendMail({
+        from: `VolunteerHub <${mailerConfig.auth.user}>`,
+        to: mail.to,
+        subject: `VolunteerHub: Reminder, ${mail.eventTitle} starts soon`,
+        text: [
+            `Hello ${mail.greeting},`,
+            '',
+            `This is a reminder that ${mail.eventTitle} starts ${mail.when}.`,
+            ...(mail.location ? [`Location: ${mail.location}`] : []),
+            '',
+            `Event page: ${mail.url}`,
+            'The attached .ics file adds the event to your calendar.',
+        ].join('\n'),
+        html: `
+            <p>Hello ${escapeHtml(mail.greeting)},</p>
+            <p>This is a reminder that <strong>${title}</strong> starts ${escapeHtml(mail.when)}.</p>
+            ${mail.location ? `<p>Location: ${escapeHtml(mail.location)}</p>` : ''}
+            <p><a href="${escapeHtml(mail.url)}">Open the event page</a></p>
+            <p>The attached .ics file adds the event to your calendar.</p>
+        `,
+        attachments: [{ filename: mail.icsFilename, content: mail.ics, contentType: 'text/calendar; charset=utf-8' }],
+    });
+}

@@ -33,6 +33,8 @@ const wording = {
 		['New Registration Request', `${d.volunteerName} has registered for event "${d.eventTitle}"`],
 	[NotificationType.EVENT_JOINED]: (d: EventData & { url: string }) =>
 		['Registration Approved', `You have joined event ${d.eventTitle}`],
+	[NotificationType.EVENT_REMINDER]: (d: EventData & { startAt: string; url: string }) =>
+		['Event Reminder', `Event ${d.eventTitle} starts within 24 hours`],
 	[NotificationType.REGISTRATION_REJECTED]: (d: EventData) =>
 		['Registration Rejected', `Your registration for event ${d.eventTitle} was rejected`],
 	[NotificationType.EVENT_KICKED]: (d: EventData) =>
