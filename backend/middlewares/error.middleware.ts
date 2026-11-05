@@ -19,7 +19,10 @@ export default function errorHandler(err: unknown, req: Request, res: Response, 
     statusCode = e.statusCode || e.status || statusCode;
     status = e.status || status;
     message = e.message || message;
-  } else if (err instanceof Error) {
+  } else if (err instanceof Error && process.env.NODE_ENV !== 'production') {
+    // An unexpected error's message is for the logs, not the client: a driver
+    // error names tables, constraints and the values that broke them. Only
+    // development sees it here (next to the stack below).
     message = err.message || message;
   }
 

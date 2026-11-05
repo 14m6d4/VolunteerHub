@@ -9,11 +9,14 @@
  * Run with: npm run smoke:security
  */
 import assert from 'node:assert/strict';
+import type { Request, Response } from 'express';
+import createHttpError from 'http-errors';
 import jwt from 'jsonwebtoken';
 import { and, eq, like } from 'drizzle-orm';
 import app from '../app.ts';
 import { closeDb, db } from '../db/client.ts';
 import { reports, users } from '../db/schema.ts';
+import errorHandler from '../middlewares/error.middleware.ts';
 import { MAX_OTP_ATTEMPTS, resetPasswordWithOtp, verifyPasswordResetOtp } from '../services/auth.service.ts';
 import { UserRole } from '../types/user.ts';
 import AppError from '../utils/appError.ts';
@@ -269,6 +272,33 @@ await check('a profile picture URL must be http(s)', async () => {
     assert.equal((await patch('https://example.com/avatar.png')).status, 200);
     const [row] = await db.select().from(users).where(eq(users.id, holder.id));
     assert.equal(row!.profilePicture, 'https://example.com/avatar.png');
+});
+
+await check('in production an unexpected error keeps its message out of the response', async () => {
+    const respond = (err: unknown) => {
+        const out = { status: 0, body: {} as Record<string, unknown> };
+        const res = {
+            headersSent: false,
+            status(code: number) { out.status = code; return this; },
+            json(body: Record<string, unknown>) { out.body = body; return this; },
+        } as unknown as Response;
+        const req = { log: { error() {} } } as unknown as Request;
+        errorHandler(err, req, res, () => {});
+        return out;
+    };
+    const driverError = new Error('duplicate key value violates unique constraint "users_email_unique"');
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+        assert.deepEqual(respond(driverError), { status: 500, body: { status: 'error', message: 'Internal Server Error' } });
+        // Errors raised on purpose still say what went wrong.
+        assert.equal(respond(new AppError('Event not found', 404)).body.message, 'Event not found');
+        assert.equal(respond(createHttpError(500, 'Failed to delete event')).body.message, 'Failed to delete event');
+    } finally {
+        if (prev === undefined) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = prev;
+    }
+    assert.equal(respond(driverError).body.message, driverError.message, 'development still shows it');
 });
 
 console.log(results.join('\n'));
