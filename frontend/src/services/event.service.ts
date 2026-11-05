@@ -1,4 +1,5 @@
-import apiFetch from "./api";
+import apiFetch, { apiDownload } from "./api";
+import { filenameFromDisposition, saveFile } from "@/utils/download";
 
 export async function getEvents(filters?: {
     status?: string;
@@ -92,4 +93,19 @@ export async function completeEvent(eventId: string) {
     return apiFetch(`/events/${eventId}/complete`, {
         method: "PATCH",
     });
+}
+
+async function downloadCalendar(path: string, fallback: string) {
+    const { blob, disposition } = await apiDownload(path);
+    saveFile(blob, filenameFromDisposition(disposition, fallback));
+}
+
+/** Downloads the .ics of one event you are approved for. */
+export async function downloadEventCalendar(eventId: string) {
+    return downloadCalendar(`/events/${eventId}/calendar.ics`, "event.ics");
+}
+
+/** Downloads one .ics of every approved event of yours that has not ended. */
+export async function downloadMyCalendar() {
+    return downloadCalendar("/register/me/calendar.ics", "volunteerhub-events.ics");
 }

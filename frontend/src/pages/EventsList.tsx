@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { CalendarPlus, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EventCard } from '@/components/event/event-card';
 import { EventDetailModal } from '@/components/event/event-detail';
 import type { Event, EventFilters } from '@/types/event';
-import { getEvents, getMyRegistrations, unregisterEvent, registerEvent } from '@/services/event.service';
+import { getEvents, getMyRegistrations, unregisterEvent, registerEvent, downloadMyCalendar } from '@/services/event.service';
 import { useAuth } from '@/hooks/useAuth';
 import { formatEventDate } from '@/utils/formatDate';
 
@@ -152,6 +152,22 @@ export const EventsList = () => {
   const myEvents = processedEvents.filter(event => event.isJoined && !event.isPast);
   const discoverEvents = processedEvents.filter(event => !event.isJoined && !event.isPast);
   const pastEvents = processedEvents.filter(event => event.isJoined && event.isPast);
+
+  // Approved registrations only; a pending one is not on the calendar the API exports.
+  const hasCalendarEvents = myEvents.some(event => event.status === 'joined');
+  const [exportingCalendar, setExportingCalendar] = useState(false);
+
+  const handleExportCalendar = async () => {
+    setExportingCalendar(true);
+    try {
+      await downloadMyCalendar();
+    } catch (error) {
+      console.error('Failed to export calendar:', error);
+      toast.error('Failed to download your calendar.');
+    } finally {
+      setExportingCalendar(false);
+    }
+  };
 
   const handleMyEventClick = (event: Event) => {
     if (event.status === 'pending') {
@@ -332,6 +348,14 @@ export const EventsList = () => {
 
         {/* My Events Tab */}
         <TabsContent value="my-events" className="mt-6">
+          {hasCalendarEvents && (
+            <div className="flex justify-end mb-4">
+              <Button variant="outline" size="sm" onClick={handleExportCalendar} disabled={exportingCalendar}>
+                <CalendarPlus className="h-4 w-4 mr-2" />
+                Add all to calendar (.ics)
+              </Button>
+            </div>
+          )}
           {myEvents.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p className="text-lg">No events found.</p>

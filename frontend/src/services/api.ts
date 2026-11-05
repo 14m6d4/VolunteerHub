@@ -76,6 +76,35 @@ export async function apiData<T>(path: string, opts: FetchOptions = {}): Promise
   return body.data;
 }
 
+/**
+ * GET a file (a calendar export) with the same auth header as apiFetch. A
+ * plain link cannot carry the Bearer token, so the file is fetched and the
+ * caller hands the blob to the browser. Errors are thrown as apiFetch throws them.
+ */
+export async function apiDownload(path: string): Promise<{ blob: Blob; disposition: string | null }> {
+  const token = localStorage.getItem('accessToken');
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(path), { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch (err) {
+    const e = new Error('Network error: failed to reach API') as Error & { isNetworkError?: boolean; original?: unknown };
+    e.isNetworkError = true;
+    e.original = err;
+    throw e;
+  }
+  if (!res.ok) {
+    let message = res.statusText || 'API error';
+    try {
+      const body = await res.json() as { message?: string; error?: string };
+      message = body.message || body.error || message;
+    } catch {
+      // Not JSON: keep the status text.
+    }
+    throw new Error(message);
+  }
+  return { blob: await res.blob(), disposition: res.headers.get('content-disposition') };
+}
+
 export function clearAuth() {
   localStorage.removeItem('accessToken');
 }
