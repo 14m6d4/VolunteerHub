@@ -39,6 +39,20 @@ docker compose -f docker-compose.prod.yml run --rm demo-reset node dist/scripts/
 
 To change the hour, edit `DEMO_RESET_HOUR_UTC` on the service in `docker-compose.prod.yml` (keep it clear of the backup's 20 UTC and the 02:00-05:00 UTC reclaim guard). To disable the schedule, remove the service from that file; `docker compose stop demo-reset` lasts only until the next deploy recreates it.
 
+## Event reminders
+
+The `reminders` container runs `node dist/scripts/send-reminders.js` every 15 minutes (`REMINDER_INTERVAL_SECONDS` on the service in `docker-compose.prod.yml`). Each pass emails every approved volunteer of an approved event that starts within the next 24 hours, attaches the event's `.ics`, and adds an in-app notification. So a reminder goes out between 24 hours and 23 hours 45 minutes before the start, or at the next pass when a registration is approved later than that. Each pass logs one line, `reminders: N due, N emailed, N failed`, and exits non-zero when an email failed, which adds `reminders: exit 1`. A failed email is logged with the registration ID.
+
+A registration is reminded at most once: the pass records `registrations.reminder_sent_at` before it sends, so a restart, an overlapping pass or a second copy of the service cannot send twice, and a failed email is not retried. Changing an event's start time clears that record for its registrations. Emails show the start time in `REMINDER_TIMEZONE` (default `Asia/Ho_Chi_Minh`), since users have no time zone on file.
+
+To run a pass by hand on the VM, from the directory that holds `docker-compose.prod.yml`:
+
+```sh
+docker compose -f docker-compose.prod.yml run --rm reminders node dist/scripts/send-reminders.js
+```
+
+To disable reminders, remove the service from that file; `docker compose stop reminders` lasts only until the next deploy recreates it. A rollback to a release from before this service removes it (the deploy runs `up --remove-orphans`), and the older code ignores the `reminder_sent_at` column.
+
 ## Restore check
 
 Once a month, [`restore-check.yml`](../.github/workflows/restore-check.yml) downloads the newest dump with a read-only key, restores it into a throwaway Postgres, checks that users and an admin exist, and records how long the restore took. A failure posts to Discord, and the restore badge at the top of the README shows the result of the latest run.

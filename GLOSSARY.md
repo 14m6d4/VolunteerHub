@@ -32,6 +32,10 @@ _Avoid_: Flag, complaint, ticket
 A message in a user's inbox telling them something happened that concerns them, usually caused by another user (the actor). A user is never notified of their own action.
 _Avoid_: Alert, push
 
+**Reminder**:
+The email and notification an approved volunteer gets about 24 hours before an event starts. Each registration gets one, or one more if the event's start time changes.
+_Avoid_: Alert
+
 **Friend**:
 A user connected to another user because both agreed to it. Friendship is symmetric: if A is B's friend, B is A's friend.
 _Avoid_: Follower, connection

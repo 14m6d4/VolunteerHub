@@ -1,6 +1,6 @@
 # Deployment
 
-Production runs on an OCI arm64 VM at <https://volunteerhub.l4mbd4.me>. Cloudflare handles DNS, TLS and proxying, and Traefik on the VM routes `/api` to the backend and everything else to the frontend. The app's containers (frontend, backend, migrate, backup and Postgres) are defined in [`docker-compose.prod.yml`](../docker-compose.prod.yml). Traefik, Grafana Alloy and Uptime Kuma are set up separately on the VM.
+Production runs on an OCI arm64 VM at <https://volunteerhub.l4mbd4.me>. Cloudflare handles DNS, TLS and proxying, and Traefik on the VM routes `/api` to the backend and everything else to the frontend. The app's containers (frontend, backend, migrate, backup, demo-reset, reminders and Postgres) are defined in [`docker-compose.prod.yml`](../docker-compose.prod.yml). Traefik, Grafana Alloy and Uptime Kuma are set up separately on the VM.
 
 Postgres has no published port. Traefik never routes the backend's `/metrics`, and the app refuses that path for any request that came through a proxy.
 
