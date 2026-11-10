@@ -76,6 +76,26 @@ Live at <https://volunteerhub.l4mbd4.me>.
   </tr>
 </table>
 
+### Color themes
+
+<table>
+  <tr>
+    <td><img src="docs/images/theme-default.jpg" alt="Landing page in the Default theme"><br><sub>Default</sub></td>
+    <td><img src="docs/images/theme-vintage-paper.jpg" alt="Landing page in the Vintage Paper theme"><br><sub>Vintage Paper</sub></td>
+    <td><img src="docs/images/theme-neo-brutalism.jpg" alt="Landing page in the Neo Brutalism theme"><br><sub>Neo Brutalism</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/theme-doom-64.jpg" alt="Landing page in the Doom 64 theme"><br><sub>Doom 64</sub></td>
+    <td><img src="docs/images/theme-nature.jpg" alt="Landing page in the Nature theme"><br><sub>Nature</sub></td>
+    <td><img src="docs/images/theme-everforest.jpg" alt="Landing page in the Everforest theme"><br><sub>Everforest</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/theme-bubblegum.jpg" alt="Landing page in the Bubblegum theme"><br><sub>Bubblegum</sub></td>
+    <td><img src="docs/images/theme-perpetuity.jpg" alt="Landing page in the Perpetuity theme"><br><sub>Perpetuity</sub></td>
+    <td><img src="docs/images/theme-notebook.jpg" alt="Landing page in the Notebook theme"><br><sub>Notebook</sub></td>
+  </tr>
+</table>
+
 ## Tech stack
 
 | Layer | Tools |
